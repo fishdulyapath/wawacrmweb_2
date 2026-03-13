@@ -84,8 +84,18 @@
 
         <div v-if="settings.notify_enabled">
           <label class="block text-sm font-medium text-slate-700 mb-1">เวลาที่ต้องการรับ</label>
-          <input v-model="settings.notify_time" type="time"
-            class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <div class="flex items-center gap-2">
+            <select v-model="notifyHour"
+              class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-20 text-center">
+              <option v-for="h in hours" :key="h" :value="h">{{ h }}</option>
+            </select>
+            <span class="text-lg font-bold text-slate-400">:</span>
+            <select v-model="notifyMinute"
+              class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-20 text-center">
+              <option v-for="m in minutes" :key="m" :value="m">{{ m }}</option>
+            </select>
+            <span class="text-sm text-slate-400">น.</span>
+          </div>
         </div>
 
         <button @click="saveSettings" :disabled="savingSettings"
@@ -101,7 +111,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import api from '../composables/useApi.js'
 
 const loading = ref(true)
@@ -124,6 +134,28 @@ const botId = import.meta.env.VITE_LINE_BOT_ID || '@WAWACRM'
 let countdownTimer = null
 let pollTimer = null
 
+// ── 24-hour time picker ─────────────────────────────────────
+const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
+const minutes = ['00', '15', '30', '45']
+const notifyHour = ref('08')
+const notifyMinute = ref('00')
+
+// sync notify_time ↔ hour/minute selects
+watch([notifyHour, notifyMinute], ([h, m]) => {
+  settings.notify_time = `${h}:${m}`
+})
+
+function parseNotifyTime(time) {
+  const [h, m] = (time || '08:00').split(':')
+  notifyHour.value = (h || '08').padStart(2, '0')
+  // snap to nearest quarter
+  const min = parseInt(m || '0')
+  const snapped = [0, 15, 30, 45].reduce((prev, curr) =>
+    Math.abs(curr - min) < Math.abs(prev - min) ? curr : prev
+  )
+  notifyMinute.value = String(snapped).padStart(2, '0')
+}
+
 async function loadStatus() {
   try {
     const { data } = await api.get('/line/status')
@@ -137,6 +169,7 @@ async function loadStatus() {
     })
     settings.notify_enabled = lineStatus.notify_enabled
     settings.notify_time = lineStatus.notify_time
+    parseNotifyTime(lineStatus.notify_time)
   } catch (err) {
     console.error(err)
   } finally {
@@ -190,6 +223,7 @@ function startPolling() {
         })
         settings.notify_enabled = data.notify_enabled
         settings.notify_time = data.notify_time || '08:00'
+        parseNotifyTime(settings.notify_time)
       }
     } catch {}
   }, 3000)
