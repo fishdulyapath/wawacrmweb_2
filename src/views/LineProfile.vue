@@ -83,20 +83,118 @@
         </div>
 
         <div v-if="settings.notify_enabled">
-          <label class="block text-sm font-medium text-slate-700 mb-1">เวลาที่ต้องการรับ</label>
-          <div class="flex items-center gap-2">
-            <select v-model="notifyHour"
-              class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-20 text-center">
-              <option v-for="h in hours" :key="h" :value="h">{{ h }}</option>
-            </select>
-            <span class="text-lg font-bold text-slate-400">:</span>
-            <select v-model="notifyMinute"
-              class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-20 text-center">
-              <option v-for="m in minutes" :key="m" :value="m">{{ m }}</option>
-            </select>
-            <span class="text-sm text-slate-400">น.</span>
+          <label class="block text-sm font-medium text-slate-700 mb-2">เวลาที่ต้องการรับ</label>
+
+          <!-- Time display button -->
+          <button @click="showTimePicker = true"
+            class="flex items-center gap-3 border border-slate-200 rounded-xl px-4 py-3 hover:border-blue-400 hover:bg-blue-50/50 transition-all group w-full">
+            <span class="text-blue-500 text-lg">🕐</span>
+            <span class="text-2xl font-bold text-slate-800 font-mono tracking-wider group-hover:text-blue-600 transition-colors">
+              {{ notifyHour }}:{{ notifyMinute }}
+            </span>
+            <span class="text-sm text-slate-400 ml-1">น.</span>
+            <svg class="w-4 h-4 text-slate-300 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <!-- Quick presets -->
+          <div class="flex flex-wrap gap-1.5 mt-2">
+            <button v-for="t in ['07:00','08:00','08:30','09:00','12:00','17:00']" :key="t"
+              @click="applyPreset(t)"
+              :class="settings.notify_time === t ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'"
+              class="text-xs px-2.5 py-1 rounded-full border font-medium transition-all">
+              {{ t }}
+            </button>
           </div>
         </div>
+
+        <!-- ═══ Time Picker Modal ═══ -->
+        <Teleport to="body">
+          <Transition name="fade">
+            <div v-if="showTimePicker" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+              <!-- Backdrop -->
+              <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showTimePicker = false"></div>
+
+              <!-- Picker card -->
+              <div class="relative bg-white w-full max-w-sm rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-4 text-white">
+                  <p class="text-xs font-medium text-blue-200">เลือกเวลาแจ้งเตือน</p>
+                  <p class="text-4xl font-bold font-mono tracking-wider mt-1">
+                    {{ pickerHour }}:{{ pickerMinute }}
+                  </p>
+                </div>
+
+                <!-- Picker body -->
+                <div class="px-5 py-5">
+                  <!-- Hour & Minute columns -->
+                  <div class="flex items-center gap-4 justify-center mb-5">
+                    <!-- Hour -->
+                    <div class="text-center">
+                      <p class="text-xs text-slate-400 font-medium mb-2">ชั่วโมง</p>
+                      <div class="flex flex-col items-center gap-1">
+                        <button @click="adjustPicker('hour', 1)"
+                          class="w-14 h-8 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-500 hover:text-blue-600 transition-colors flex items-center justify-center">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                        </button>
+                        <input v-model="pickerHour" type="text" inputmode="numeric" maxlength="2"
+                          class="w-14 h-14 text-center text-3xl font-bold font-mono border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none bg-blue-50/50 text-blue-700"
+                          @blur="clampPickerHour" />
+                        <button @click="adjustPicker('hour', -1)"
+                          class="w-14 h-8 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-500 hover:text-blue-600 transition-colors flex items-center justify-center">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <span class="text-3xl font-bold text-slate-300 mt-5">:</span>
+
+                    <!-- Minute -->
+                    <div class="text-center">
+                      <p class="text-xs text-slate-400 font-medium mb-2">นาที</p>
+                      <div class="flex flex-col items-center gap-1">
+                        <button @click="adjustPicker('minute', 5)"
+                          class="w-14 h-8 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-500 hover:text-blue-600 transition-colors flex items-center justify-center">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                        </button>
+                        <input v-model="pickerMinute" type="text" inputmode="numeric" maxlength="2"
+                          class="w-14 h-14 text-center text-3xl font-bold font-mono border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none bg-blue-50/50 text-blue-700"
+                          @blur="clampPickerMinute" />
+                        <button @click="adjustPicker('minute', -5)"
+                          class="w-14 h-8 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-500 hover:text-blue-600 transition-colors flex items-center justify-center">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Quick minute grid -->
+                  <div class="grid grid-cols-4 gap-1.5 mb-4">
+                    <button v-for="m in ['00','15','30','45']" :key="m"
+                      @click="pickerMinute = m"
+                      :class="pickerMinute === m ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-slate-50 text-slate-600 border-slate-100'"
+                      class="py-1.5 rounded-lg text-sm font-mono font-semibold border transition-all hover:bg-blue-50">
+                      :{{ m }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="flex gap-3 px-5 pb-5">
+                  <button @click="showTimePicker = false"
+                    class="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                    ยกเลิก
+                  </button>
+                  <button @click="confirmTimePicker"
+                    class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">
+                    ✓ ยืนยัน
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </Teleport>
 
         <button @click="saveSettings" :disabled="savingSettings"
           class="mt-4 w-full bg-slate-800 text-white py-2 rounded-xl text-sm font-medium hover:bg-slate-900 disabled:opacity-50 transition-colors">
@@ -134,13 +232,11 @@ const botId = import.meta.env.VITE_LINE_BOT_ID || '@WAWACRM'
 let countdownTimer = null
 let pollTimer = null
 
-// ── 24-hour time picker ─────────────────────────────────────
-const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
-const minutes = ['00', '15', '30', '45']
+// ── Time display (bound to settings) ────────────────────────
 const notifyHour = ref('08')
 const notifyMinute = ref('00')
 
-// sync notify_time ↔ hour/minute selects
+// sync notify_time ↔ hour/minute display
 watch([notifyHour, notifyMinute], ([h, m]) => {
   settings.notify_time = `${h}:${m}`
 })
@@ -148,14 +244,65 @@ watch([notifyHour, notifyMinute], ([h, m]) => {
 function parseNotifyTime(time) {
   const [h, m] = (time || '08:00').split(':')
   notifyHour.value = (h || '08').padStart(2, '0')
-  // snap to nearest quarter
-  const min = parseInt(m || '0')
-  const snapped = [0, 15, 30, 45].reduce((prev, curr) =>
-    Math.abs(curr - min) < Math.abs(prev - min) ? curr : prev
-  )
-  notifyMinute.value = String(snapped).padStart(2, '0')
+  notifyMinute.value = (m || '00').padStart(2, '0')
 }
 
+// ── Fancy Time Picker Modal ─────────────────────────────────
+const showTimePicker = ref(false)
+const pickerHour = ref('08')
+const pickerMinute = ref('00')
+
+// Open picker → copy current value into picker
+watch(showTimePicker, (open) => {
+  if (open) {
+    pickerHour.value = notifyHour.value
+    pickerMinute.value = notifyMinute.value
+  }
+})
+
+function adjustPicker(unit, delta) {
+  if (unit === 'hour') {
+    let h = (parseInt(pickerHour.value) || 0) + delta
+    if (h > 23) h = 0
+    if (h < 0) h = 23
+    pickerHour.value = String(h).padStart(2, '0')
+  } else {
+    let m = (parseInt(pickerMinute.value) || 0) + delta
+    if (m > 59) m = 0
+    if (m < 0) m = 55
+    pickerMinute.value = String(m).padStart(2, '0')
+  }
+}
+
+function clampPickerHour() {
+  let v = parseInt(pickerHour.value)
+  if (isNaN(v) || v < 0) v = 0
+  if (v > 23) v = 23
+  pickerHour.value = String(v).padStart(2, '0')
+}
+
+function clampPickerMinute() {
+  let v = parseInt(pickerMinute.value)
+  if (isNaN(v) || v < 0) v = 0
+  if (v > 59) v = 59
+  pickerMinute.value = String(v).padStart(2, '0')
+}
+
+function confirmTimePicker() {
+  clampPickerHour()
+  clampPickerMinute()
+  notifyHour.value = pickerHour.value
+  notifyMinute.value = pickerMinute.value
+  showTimePicker.value = false
+}
+
+function applyPreset(time) {
+  const [h, m] = time.split(':')
+  notifyHour.value = h.padStart(2, '0')
+  notifyMinute.value = m.padStart(2, '0')
+}
+
+// ── API calls ───────────────────────────────────────────────
 async function loadStatus() {
   try {
     const { data } = await api.get('/line/status')
@@ -269,3 +416,24 @@ onUnmounted(() => {
   stopPolling()
 })
 </script>
+
+<style scoped>
+/* Slide-up animation for bottom-sheet picker */
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Fade transition for modal backdrop */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>
