@@ -37,11 +37,11 @@
 
     <!-- Header -->
     <div class="flex items-center gap-3 mb-6">
-      <RouterLink to="/activities" class="text-slate-400 hover:text-slate-600">
+      <button @click="goBack" class="text-slate-400 hover:text-slate-600">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
-      </RouterLink>
+      </button>
       <div>
         <h1 class="text-xl font-bold text-slate-800">{{ isEdit ? 'แก้ไขกิจกรรม' : 'เพิ่มกิจกรรม' }}</h1>
         <p class="text-sm text-slate-500">{{ isEdit ? `ID: ${activityId}` : 'สร้างกิจกรรมใหม่' }}</p>
@@ -517,10 +517,10 @@
           </svg>
           {{ saving ? 'กำลังบันทึก...' : isEdit ? 'บันทึกการแก้ไข' : (selectedCustomers.length > 1 ? `เพิ่ม ${selectedCustomers.length} กิจกรรม` : 'เพิ่มกิจกรรม') }}
         </button>
-        <RouterLink to="/activities"
+        <button @click="goBack" type="button"
           class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors text-center">
           ยกเลิก
-        </RouterLink>
+        </button>
       </div>
     </form>
   </div>
@@ -541,6 +541,10 @@ const auth   = useAuthStore()
 const activityId = computed(() => props.id || route.params.id)
 const isEdit     = computed(() => !!activityId.value)
 const saving     = ref(false)
+
+// ── Back navigation: กลับไปหน้าที่มา ─────────────────────────
+const backUrl = computed(() => route.query.from || '/activities')
+function goBack() { router.push(backUrl.value) }
 
 // ── Pending attachments (create mode) ─────────────────────────
 const pendingFiles    = ref([])
@@ -1113,7 +1117,7 @@ async function save() {
       }))
       await uploadPendingFiles(results.map(r => r.data.id))
     }
-    router.push('/activities')
+    goBack()
   } catch (err) {
     errorMsg.value = err.message || 'เกิดข้อผิดพลาด'
   } finally {

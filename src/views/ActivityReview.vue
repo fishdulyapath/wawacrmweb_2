@@ -13,8 +13,7 @@
       <div>
         <h1 class="text-lg lg:text-xl font-bold text-slate-800">📋 ตรวจสอบกิจกรรม</h1>
         <p class="text-xs lg:text-sm text-slate-500 mt-0.5">ภาพรวมกิจกรรมทั้งหมด แบบจัดกลุ่ม</p>
-      </div>
-      <RouterLink to="/activities/new"
+      </div>      <RouterLink :to="{ path: '/activities/new', query: { from: '/activities/review' } }"
         class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
