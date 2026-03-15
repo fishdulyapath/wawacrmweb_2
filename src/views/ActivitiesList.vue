@@ -8,273 +8,21 @@
       </div>
     </Teleport>
 
-    <!-- ── Close-Task Modal ─────────────────────────────────────── -->
-    <Teleport to="body">
-      <Transition name="modal-fade">
-        <div v-if="closeModal.show" class="fixed inset-0 z-50 flex items-end lg:items-center justify-center px-0 lg:px-4">
-          <div class="absolute inset-0 bg-black/50"></div>
-          <div class="relative bg-white w-full lg:max-w-md rounded-t-2xl lg:rounded-2xl shadow-2xl flex flex-col max-h-[90dvh]">
+    <!-- ── Close-Task Modal (shared component) ─── -->
+    <CloseActivityModal
+      :show="closeModal.show"
+      :activity="closeModal.activity"
+      @close="closeModal.show = false"
+      @done="onActivityDone"
+    />
 
-            <!-- Handle (mobile) -->
-            <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-3 lg:hidden"></div>
-
-            <!-- Header -->
-            <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-              <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
-                   :class="closeModal.activity?.activity_type === 'call' ? 'bg-purple-50' : closeModal.activity?.activity_type === 'meeting' ? 'bg-orange-50' : 'bg-blue-50'">
-                {{ typeIcon(closeModal.activity?.activity_type) }}
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="font-semibold text-slate-800 text-sm truncate">{{ closeModal.activity?.subject }}</p>
-                <p class="text-xs text-slate-400">ปิดงาน — บันทึกผลลัพธ์</p>
-              </div>
-              <button @click="closeModal.show = false" class="text-slate-300 hover:text-slate-500 p-1">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-
-            <!-- Body -->
-            <div class="overflow-y-auto px-5 py-4 space-y-4 flex-1">
-
-              <!-- CALL fields -->
-              <template v-if="closeModal.activity?.activity_type === 'call'">
-                <div>
-                  <label class="modal-label">📞 เบอร์โทร</label>
-                  <div v-if="closeModal.phones.length" class="space-y-1.5 mb-2">
-                    <div v-for="ct in closeModal.phones" :key="ct.name" class="flex flex-wrap items-center gap-1.5">
-                      <span class="text-xs text-slate-500 w-full">{{ ct.name }}</span>
-                      <button v-for="ph in ct.phones" :key="ph"
-                        @click="closeModal.form.call_phone = ph"
-                        :class="closeModal.form.call_phone === ph
-                          ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'"
-                        class="px-3 py-1.5 border rounded-lg text-sm font-mono transition-colors">
-                        📞 {{ ph }}
-                      </button>
-                    </div>
-                  </div>
-                  <input v-model="closeModal.form.call_phone" class="modal-input" placeholder="0812345678" type="tel" />
-                </div>
-
-                <div>
-                  <label class="modal-label">📊 ผลการโทร</label>
-                  <div class="grid grid-cols-2 gap-2">
-                    <button v-for="s in callStatuses" :key="s.key"
-                      @click="closeModal.form.call_result = s.key"
-                      :class="closeModal.form.call_result === s.key
-                        ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'"
-                      class="py-2.5 px-3 rounded-xl border text-sm font-medium transition-colors flex items-center gap-2">
-                      <span>{{ s.icon }}</span><span>{{ s.label }}</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div v-if="closeModal.form.call_result === 'answered' || closeModal.form.duration_sec > 0">
-                  <label class="modal-label">
-                    ⏱ ระยะเวลา
-                    <span v-if="closeModal.form.duration_sec > 0" class="ml-1 text-blue-600 font-semibold">
-                      ({{ Math.floor(closeModal.form.duration_sec/60) }}:{{ String(closeModal.form.duration_sec%60).padStart(2,'0') }})
-                    </span>
-                  </label>
-                  <div class="flex gap-2 flex-wrap mb-2">
-                    <button v-for="d in [1,3,5,10,15,30]" :key="d"
-                      @click="closeModal.form.duration_sec = d * 60"
-                      :class="closeModal.form.duration_sec === d * 60 ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'"
-                      class="w-11 h-10 rounded-lg border text-sm font-semibold transition-colors">
-                      {{ d }}
-                    </button>
-                  </div>
-                  <input :value="closeModal.form.duration_sec"
-                         @input="closeModal.form.duration_sec = parseInt($event.target.value) || 0"
-                         type="number" min="0"
-                         class="modal-input" placeholder="กรอกจำนวนวินาที" />
-                </div>
-
-                <!-- CDR Picker -->
-                <div class="border border-slate-200 rounded-xl overflow-hidden">
-                  <div class="px-3 py-2.5 bg-slate-50 border-b border-slate-200 space-y-2">
-                    <p class="text-xs font-semibold text-slate-600">📋 แนบประวัติการโทร</p>
-                    <div class="flex gap-2">
-                      <div class="flex-1">
-                        <p class="text-[10px] text-slate-400 mb-0.5">จากวันที่</p>
-                        <input v-model="closeModal.cdrSearch.date_from" type="date"
-                          class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-400" />
-                      </div>
-                      <div class="flex-1">
-                        <p class="text-[10px] text-slate-400 mb-0.5">ถึงวันที่</p>
-                        <input v-model="closeModal.cdrSearch.date_to" type="date"
-                          class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-400" />
-                      </div>
-                    </div>
-                    <div class="flex gap-2">
-                      <input v-model="closeModal.cdrSearch.phone" type="tel" placeholder="เบอร์โทร (ว่างไว้ = ทั้งหมด)"
-                        @keydown.enter.prevent="loadCdr"
-                        class="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-400" />
-                      <button @click="loadCdr" :disabled="closeModal.cdrLoading"
-                        class="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1 shrink-0">
-                        <svg v-if="closeModal.cdrLoading" class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                        </svg>
-                        <span>{{ closeModal.cdrLoading ? '...' : '🔍 ค้นหา' }}</span>
-                      </button>
-                    </div>
-                  </div>
-                  <div v-if="closeModal.cdrError" class="px-3 py-2 text-xs text-slate-400 text-center">{{ closeModal.cdrError }}</div>
-                  <div v-if="closeModal.selectedCdr" class="px-3 py-2 bg-green-50 border-b border-green-100 flex items-start gap-2">
-                    <span class="text-green-500 text-sm mt-0.5">✓</span>
-                    <div class="flex-1 text-xs">
-                      <p class="font-semibold text-green-700">เลือกแล้ว: {{ closeModal.selectedCdr.destination_number }}</p>
-                      <p class="text-slate-500">{{ closeModal.selectedCdr.start_stamp }} · {{ closeModal.selectedCdr.call_result }}
-                        <template v-if="closeModal.selectedCdr.duration > 0"> · {{ Math.floor(closeModal.selectedCdr.duration/60) }}:{{ String(closeModal.selectedCdr.duration%60).padStart(2,'0') }} นาที</template>
-                      </p>
-                      <a v-if="closeModal.selectedCdr.recording" :href="closeModal.selectedCdr.recording" target="_blank"
-                        class="text-blue-600 hover:underline">🎙 ฟังการโทร</a>
-                    </div>
-                    <button @click="closeModal.selectedCdr=null;closeModal.form.cdr_uuid=''" class="text-slate-300 hover:text-slate-500 text-xs">✕</button>
-                  </div>
-                  <div v-if="closeModal.cdrList.length" class="divide-y divide-slate-100 max-h-48 overflow-y-auto">
-                    <button v-for="r in closeModal.cdrList" :key="r.xml_cdr_uuid"
-                      @click="selectCdr(r)"
-                      :class="closeModal.selectedCdr?.xml_cdr_uuid === r.xml_cdr_uuid ? 'bg-blue-50' : 'hover:bg-slate-50'"
-                      class="w-full text-left px-3 py-2.5 flex items-start gap-2 transition-colors">
-                      <div class="w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 mt-0.5"
-                        :class="r.call_result==='Answered' ? 'bg-green-100 text-green-600' : 'bg-red-50 text-red-400'">
-                        {{ r.call_result === 'Answered' ? '✅' : '📵' }}
-                      </div>
-                      <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 flex-wrap">
-                          <span class="text-sm font-mono font-semibold text-slate-700">{{ r.destination_number }}</span>
-                          <span class="text-xs text-slate-400">{{ r.caller_id_name }}</span>
-                          <span v-if="r.duration > 0" class="text-xs text-green-600 font-medium">
-                            {{ Math.floor(r.duration/60) }}:{{ String(r.duration%60).padStart(2,'0') }} นาที
-                          </span>
-                        </div>
-                        <div class="flex items-center gap-2 mt-0.5">
-                          <span class="text-xs text-slate-400">{{ r.start_stamp }}</span>
-                          <a v-if="r.recording" :href="r.recording" target="_blank" @click.stop
-                            class="text-xs text-blue-600 hover:underline">🎙 ฟัง</a>
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </template>
-
-              <!-- MEETING fields -->
-              <template v-if="closeModal.activity?.activity_type === 'meeting'">
-                <div>
-                  <label class="modal-label">📊 ผลการประชุม</label>
-                  <div class="grid grid-cols-3 gap-2">
-                    <button v-for="s in meetingStatuses" :key="s.key"
-                      @click="closeModal.form.meeting_result = s.key"
-                      :class="closeModal.form.meeting_result === s.key
-                        ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'"
-                      class="py-2.5 px-2 rounded-xl border text-sm font-medium transition-colors flex flex-col items-center gap-1">
-                      <span class="text-base">{{ s.icon }}</span>
-                      <span class="text-xs">{{ s.label }}</span>
-                    </button>
-                  </div>
-                </div>
-              </template>
-
-              <!-- Outcome (ทุก type) -->
-              <div>
-                <label class="modal-label">📝 ผลลัพธ์ / สิ่งที่ทำ</label>
-                <textarea v-model="closeModal.form.outcome" class="modal-input min-h-[80px] resize-none" rows="3"
-                  :placeholder="closeModal.activity?.activity_type === 'call'
-                    ? 'เช่น ลูกค้าสนใจ นัดส่งใบเสนอราคาวันพุธ...'
-                    : closeModal.activity?.activity_type === 'meeting'
-                      ? 'เช่น ตกลงราคาแล้ว รอลูกค้าอนุมัติ...'
-                      : 'เช่น ดำเนินการเสร็จแล้ว...'">
-                </textarea>
-              </div>
-            </div>
-
-            <!-- ไฟล์แนบ -->
-            <div v-if="closeModal.activity?.id" class="px-5 pb-3">
-              <label class="modal-label mb-2 block">📎 ไฟล์แนบ</label>
-              <ActivityAttachments :activity-id="closeModal.activity.id" />
-            </div>
-
-            <!-- Footer -->
-            <div class="px-5 py-4 border-t border-slate-100 flex gap-3">
-              <button @click="closeModal.show = false"
-                class="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
-                ยกเลิก
-              </button>
-              <button @click="confirmClose" :disabled="saving"
-                class="flex-1 py-2.5 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
-                <svg v-if="saving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                </svg>
-                ✓ ยืนยันปิดงาน
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <!-- ── Snooze Modal ──────────────────────────────────────────── -->
-    <Teleport to="body">
-      <Transition name="modal-fade">
-        <div v-if="snoozeModal.show" class="fixed inset-0 z-50 flex items-end lg:items-center justify-center px-0 lg:px-4"
-             @click.self="snoozeModal.show = false">
-          <div class="absolute inset-0 bg-black/50" @click="snoozeModal.show = false"></div>
-          <div class="relative bg-white w-full lg:max-w-sm rounded-t-2xl lg:rounded-2xl shadow-2xl">
-
-            <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-3 lg:hidden"></div>
-
-            <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-              <div class="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center text-lg">⏰</div>
-              <div class="flex-1 min-w-0">
-                <p class="font-semibold text-slate-800 text-sm truncate">{{ snoozeModal.activity?.subject }}</p>
-                <p class="text-xs text-slate-400">เลื่อนกำหนด</p>
-              </div>
-              <button @click="snoozeModal.show = false" class="text-slate-300 hover:text-slate-500 p-1">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-
-            <div class="px-5 py-4 space-y-4">
-              <!-- Quick shortcuts -->
-              <div>
-                <label class="modal-label">เลือกวันที่เร็ว</label>
-                <div class="grid grid-cols-3 gap-2">
-                  <button v-for="s in snoozeShortcuts" :key="s.label"
-                    @click="applySnoozeShortcut(s.days)"
-                    class="py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-colors">
-                    {{ s.label }}
-                  </button>
-                </div>
-              </div>
-              <!-- Date picker -->
-              <div>
-                <label class="modal-label">หรือเลือกวันที่เอง</label>
-                <input v-model="snoozeModal.date" type="date" class="modal-input"
-                       :min="todayStr" />
-              </div>
-            </div>
-
-            <div class="px-5 py-4 border-t border-slate-100 flex gap-3">
-              <button @click="snoozeModal.show = false"
-                class="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
-                ยกเลิก
-              </button>
-              <button @click="confirmSnooze" :disabled="!snoozeModal.date || saving"
-                class="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
-                <svg v-if="saving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                </svg>
-                ⏰ เลื่อนงาน
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <!-- ── Snooze Modal (shared component) ─── -->
+    <SnoozeActivityModal
+      :show="snoozeModal.show"
+      :activity="snoozeModal.activity"
+      @close="snoozeModal.show = false"
+      @snoozed="onSnoozed"
+    />
 
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
@@ -597,7 +345,8 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import api from '../composables/useApi.js'
-import ActivityAttachments from '../components/ActivityAttachments.vue'
+import CloseActivityModal from '../components/CloseActivityModal.vue'
+import SnoozeActivityModal from '../components/SnoozeActivityModal.vue'
 import { usePermissions } from '../composables/usePermissions.js'
 import { useAuthStore } from '../stores/auth.js'
 
@@ -616,189 +365,42 @@ const typeFilter  = ref([])
 const searchInput = ref('')
 let searchTimer   = null
 
-// ── Today string for date min ──────────────────────────────
-const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' })
+// ── Close-task modal (lightweight — logic lives in CloseActivityModal) ──
+const closeModal = reactive({ show: false, activity: null })
 
-// ── Close-task modal ───────────────────────────────────────
-const closeModal = reactive({
-  show: false,
-  activity: null,
-  phones: [],
-  form: { outcome: '', call_phone: '', call_result: '', call_direction: 'outbound', duration_sec: 0, meeting_result: '',
-          cdr_uuid: '', cdr_recording_url: '', cdr_start_stamp: '', cdr_end_stamp: '' },
-  cdrSearch: { phone: '', date_from: '', date_to: '' },
-  cdrList: [], cdrLoading: false, cdrError: '', selectedCdr: null,
-})
-
-const callStatuses = [
-  { key: 'answered',       label: 'ติดต่อได้',    icon: '✅' },
-  { key: 'no_answer',      label: 'ไม่รับสาย',     icon: '📵' },
-  { key: 'busy',           label: 'สายไม่ว่าง',   icon: '🔴' },
-  { key: 'left_voicemail', label: 'ฝากข้อความ',   icon: '📨' },
-]
-const meetingStatuses = [
-  { key: 'completed', label: 'เสร็จสิ้น', icon: '✅' },
-  { key: 'postponed', label: 'เลื่อน',    icon: '📅' },
-  { key: 'cancelled', label: 'ยกเลิก',    icon: '❌' },
-]
-
-async function openCloseModal(activity) {
+function openCloseModal(activity) {
   closeModal.activity = activity
-  closeModal.phones   = []
-  closeModal.cdrList  = []; closeModal.cdrError = ''; closeModal.selectedCdr = null
-  closeModal.form.outcome           = ''
-  closeModal.form.call_phone        = ''
-  closeModal.form.call_result       = ''
-  closeModal.form.call_direction    = 'outbound'
-  closeModal.form.duration_sec      = 0
-  closeModal.form.meeting_result    = ''
-  closeModal.form.cdr_uuid          = ''
-  closeModal.form.cdr_recording_url = ''
-  closeModal.form.cdr_start_stamp   = ''
-  closeModal.form.cdr_end_stamp     = ''
-
-  // init cdrSearch defaults
-  const fmt = d => d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' })
-  const base = activity.start_datetime ? new Date(activity.start_datetime) : new Date()
-  closeModal.cdrSearch.date_from = fmt(base)
-  closeModal.cdrSearch.date_to   = fmt(base)
-  closeModal.cdrSearch.phone     = ''
-
-  if (activity.activity_type === 'call' && activity.ar_code) {
-    try {
-      const { data } = await api.get(`/customers/${activity.ar_code}`)
-      const grouped = (data.contactors || []).map(ct => ({
-        name:   ct.name || '',
-        phones: (ct.telephone || '').split(',').map(p => p.trim()).filter(Boolean),
-      })).filter(ct => ct.phones.length)
-      closeModal.phones = grouped
-      if (grouped.length) {
-        closeModal.form.call_phone    = grouped[0].phones[0]
-        closeModal.cdrSearch.phone    = grouped[0].phones[0]
-      }
-    } catch {}
-  }
-
   closeModal.show = true
 }
 
-async function loadCdr() {
-  closeModal.cdrLoading = true; closeModal.cdrError = ''; closeModal.cdrList = []
-  try {
-    const params = {
-      date_from: closeModal.cdrSearch.date_from,
-      date_to:   closeModal.cdrSearch.date_to,
-      direction: closeModal.form.call_direction,
-    }
-    if (closeModal.cdrSearch.phone.trim()) params.phone = closeModal.cdrSearch.phone.trim()
-    const { data } = await api.get('/cdr', { params })
-    closeModal.cdrList = data
-    if (!data.length) closeModal.cdrError = 'ไม่พบประวัติการโทร'
-  } catch {
-    closeModal.cdrError = 'โหลดประวัติโทรไม่สำเร็จ'
-  } finally {
-    closeModal.cdrLoading = false
-  }
+function onActivityDone(act) {
+  closeModal.show = false
+  // update local state immediately
+  const local = activities.value.find(a => a.id === act.id)
+  if (local) local.status = 'done'
+  // reload after brief delay
+  setTimeout(() => Promise.all([loadActivities(), loadStats()]), 1200)
 }
 
-function selectCdr(r) {
-  closeModal.selectedCdr = r
-  // map CDR fields → form fields
-  const resultMap = { 'Answered': 'answered', 'No Answer': 'no_answer', 'Busy': 'busy', 'Cancelled': 'no_answer', 'Voicemail': 'left_voicemail' }
-  closeModal.form.call_result       = resultMap[r.call_result] || 'answered'
-  closeModal.form.call_phone        = r.destination_number || r.destination_number || closeModal.form.call_phone
-  closeModal.form.call_direction    = r.direction === 'inbound' ? 'inbound' : 'outbound'
-  closeModal.form.duration_sec      = parseInt(r.duration || 0)
-  closeModal.form.cdr_uuid          = r.xml_cdr_uuid || ''
-  closeModal.form.cdr_recording_url = r.recording || ''
-  closeModal.form.cdr_start_stamp   = r.start_stamp ? r.start_stamp.replace(' ', 'T') + '+07:00' : ''
-  closeModal.form.cdr_end_stamp     = r.end_stamp   ? r.end_stamp.replace(' ', 'T')   + '+07:00' : ''
-}
-
-async function confirmClose() {
-  if (saving.value) return
-  saving.value = true
-  try {
-    const act = closeModal.activity
-    const payload = { outcome: closeModal.form.outcome || undefined }
-
-    if (act.activity_type === 'call') {
-      if (closeModal.form.call_phone)  payload.call_phone  = closeModal.form.call_phone
-      if (closeModal.form.call_result) payload.call_result = closeModal.form.call_result
-      payload.call_direction = closeModal.form.call_direction
-      if (closeModal.form.duration_sec > 0) payload.duration_sec = closeModal.form.duration_sec
-      if (closeModal.form.cdr_uuid)          payload.cdr_uuid          = closeModal.form.cdr_uuid
-      if (closeModal.form.cdr_recording_url) payload.cdr_recording_url = closeModal.form.cdr_recording_url
-      if (closeModal.form.cdr_start_stamp)   payload.cdr_start_stamp   = closeModal.form.cdr_start_stamp
-      if (closeModal.form.cdr_end_stamp)     payload.cdr_end_stamp     = closeModal.form.cdr_end_stamp
-    }
-    if (act.activity_type === 'meeting' && closeModal.form.meeting_result) {
-      const label = meetingStatuses.find(s => s.key === closeModal.form.meeting_result)?.label || ''
-      payload.outcome = (closeModal.form.outcome ? closeModal.form.outcome + '\n' : '') + `ผลการประชุม: ${label}`
-    }
-
-    await api.patch(`/activities/${act.id}/done`, payload)
-    closeModal.show = false
-
-    // อัปเดต local state ทันทีให้ user เห็น "เสร็จ" ก่อน
-    const local = activities.value.find(a => a.id === act.id)
-    if (local) local.status = 'done'
-
-    // reload จริงหลัง 1.2s
-    setTimeout(() => Promise.all([loadActivities(), loadStats()]), 1200)
-  } catch (err) {
-    alert(err.message)
-  } finally {
-    saving.value = false
-  }
-}
-
-// ── Snooze modal ───────────────────────────────────────────
-const snoozeModal = reactive({ show: false, activity: null, date: '' })
-const snoozeShortcuts = [
-  { label: '+1 วัน',      days: 1 },
-  { label: '+3 วัน',      days: 3 },
-  { label: '+1 สัปดาห์',  days: 7 },
-  { label: '+2 สัปดาห์',  days: 14 },
-  { label: '+1 เดือน',    days: 30 },
-  { label: 'สัปดาห์หน้า', days: null }, // จันทร์หน้า
-]
+// ── Snooze modal (lightweight — logic lives in SnoozeActivityModal) ──
+const snoozeModal = reactive({ show: false, activity: null })
 
 function openSnoozeModal(activity) {
   snoozeModal.activity = activity
-  snoozeModal.date     = ''
-  snoozeModal.show     = true
+  snoozeModal.show = true
 }
 
-function applySnoozeShortcut(days) {
-  const d = new Date()
-  if (days === null) {
-    // จันทร์หน้า
-    const dow = d.getDay()
-    d.setDate(d.getDate() + (dow === 0 ? 1 : 8 - dow))
-  } else {
-    d.setDate(d.getDate() + days)
-  }
-  snoozeModal.date = d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' })
-}
-
-async function confirmSnooze() {
-  if (!snoozeModal.date || saving.value) return
-  saving.value = true
-  try {
-    const act = snoozeModal.activity
-    const { data } = await api.patch(`/activities/${act.id}/snooze`, { date: snoozeModal.date })
+function onSnoozed(data) {
+  snoozeModal.show = false
+  const act = snoozeModal.activity
+  if (act && data) {
     act.due_date       = data.due_date
     act.start_datetime = data.start_datetime
-    snoozeModal.show   = false
-    await loadStats()
-  } catch (err) {
-    alert(err.message)
-  } finally {
-    saving.value = false
   }
+  loadStats()
 }
 
+// ── Filters ──────────────────────────────────────────────────
 const quickFilters = [
   { key: '',        label: 'ทั้งหมด' },
   { key: 'overdue', label: '⚠️ เลยกำหนด' },
@@ -829,6 +431,7 @@ function clearFilter() {
 }
 function onSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadActivities(1), 300) }
 
+// ── Data loading ─────────────────────────────────────────────
 async function loadStats() {
   try { const { data } = await api.get('/activities/stats'); stats.value = data } catch {}
 }
@@ -840,7 +443,7 @@ async function loadActivities(page = 1) {
     if (quickFilter.value === 'done') params.status = 'done'
     else if (['overdue', 'today', 'week'].includes(quickFilter.value)) { params.due = quickFilter.value }
     else if (quickFilter.value === 'meeting') { params.type = 'meeting'; params.due = 'today' }
-    else { params.status = 'open' }  // default: แสดงเฉพาะงานที่ยังเปิดอยู่
+    else { params.status = 'open' }
     if (typeFilter.value.length === 1) params.type = typeFilter.value[0]
     if (searchInput.value.trim()) params.search = searchInput.value.trim()
 
@@ -852,7 +455,7 @@ async function loadActivities(page = 1) {
   finally { loading.value = false }
 }
 
-// Helpers
+// ── Helpers ──────────────────────────────────────────────────
 function cardClass(a) {
   if (a.status === 'done') return 'opacity-60'
   if (isOverdue(a)) return 'border-red-200 bg-red-50/30'
@@ -877,21 +480,19 @@ function isDueToday(a) {
 }
 const TZ = 'Asia/Bangkok'
 
-// คืน YYYY-MM-DD ใน Bangkok timezone
 function bkkDateStr(v) {
   if (!v) return ''
   const d = new Date(typeof v === 'string' && v.length === 10 ? v + 'T00:00:00+07:00' : v)
-  return d.toLocaleDateString('sv-SE', { timeZone: TZ }) // sv-SE → YYYY-MM-DD
+  return d.toLocaleDateString('sv-SE', { timeZone: TZ })
 }
 
-// วันนี้ใน Bangkok timezone เป็น YYYY-MM-DD
 function todayBkkStr() {
   return new Date().toLocaleDateString('sv-SE', { timeZone: TZ })
 }
 
 function fmtDateDDMMYYYY(v) {
   if (!v) return '—'
-  const s = bkkDateStr(v) // YYYY-MM-DD
+  const s = bkkDateStr(v)
   if (!s) return '—'
   const [y, m, dd] = s.split('-')
   return `${dd}/${m}/${y}`
@@ -899,8 +500,8 @@ function fmtDateDDMMYYYY(v) {
 
 function relativeDate(v) {
   if (!v) return '—'
-  const dateStr  = bkkDateStr(v)  // YYYY-MM-DD
-  const todayStr = todayBkkStr()  // YYYY-MM-DD
+  const dateStr  = bkkDateStr(v)
+  const todayStr = todayBkkStr()
   if (!dateStr) return '—'
   const diff = Math.round((new Date(dateStr) - new Date(todayStr)) / 86400000)
   if (diff === 0) return 'วันนี้'
@@ -926,7 +527,6 @@ function dueDateClass(d, status) {
   if (diff === 0) return 'text-amber-600 font-semibold'
   return 'text-slate-600'
 }
-function priorityDot(p) { return p === 'high' ? 'bg-red-400' : p === 'low' ? 'bg-slate-300' : 'bg-amber-400' }
 function priorityLabel(p) { return p === 'high' ? 'สูง' : p === 'low' ? 'ต่ำ' : 'ปกติ' }
 function priorityBadgeClass(p) { return p === 'high' ? 'bg-red-50 text-red-600 border-red-200' : p === 'low' ? 'bg-slate-50 text-slate-400 border-slate-200' : 'bg-amber-50 text-amber-600 border-amber-200' }
 function typeIcon(t)  { return t === 'task' ? '✅' : t === 'call' ? '📞' : '👥' }
@@ -955,12 +555,4 @@ onMounted(() => {
 .badge-red    { @apply bg-red-100 text-red-600; }
 .scrollbar-hide { scrollbar-width: none; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
-
-.modal-label { @apply block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2; }
-.modal-input { @apply w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500; }
-
-.modal-fade-enter-active { transition: opacity 0.2s ease; }
-.modal-fade-leave-active { transition: opacity 0.15s ease; }
-.modal-fade-enter-from,
-.modal-fade-leave-to    { opacity: 0; }
 </style>
