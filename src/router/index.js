@@ -13,6 +13,8 @@ const router = createRouter({
     // ── Activities ──
     { path: '/activities',           component: () => import('../views/ActivitiesList.vue') },
     { path: '/activities/new',       component: () => import('../views/ActivityForm.vue'),   meta: { requireManager: true } },
+    { path: '/activities/review',    component: () => import('../views/ActivityReview.vue'),  meta: { requireManager: true } },
+    { path: '/activities/review/:groupKey', component: () => import('../views/ActivityGroupDetail.vue'), meta: { requireManager: true }, props: true },
     { path: '/activities/:id',       component: () => import('../views/ActivityDetail.vue'), props: true },
     { path: '/activities/:id/edit',  component: () => import('../views/ActivityForm.vue'),   meta: { requireManager: true }, props: true },
 
