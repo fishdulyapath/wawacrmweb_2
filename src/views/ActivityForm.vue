@@ -1127,7 +1127,19 @@ async function save() {
 
 onMounted(async () => {
   await loadUsers()
-  if (isEdit.value) await loadActivity()
+  if (isEdit.value) {
+    await loadActivity()
+  } else if (route.query.ar_code) {
+    // Pre-fill ลูกค้าจาก query param (มาจากหน้า CustomerForm)
+    try {
+      const { data } = await api.get(`/customers/${route.query.ar_code}`)
+      const c = data.customer || data
+      await selectCust({ code: c.code || route.query.ar_code, name_1: c.name_1 || route.query.ar_code, crm: data.crm })
+    } catch {
+      // ถ้าโหลดไม่ได้ ใส่ code เปล่าไว้ก่อน
+      selectedCustomers.value = [{ code: route.query.ar_code, name_1: route.query.ar_code, owner_id: null, owner_name: null }]
+    }
+  }
 })
 </script>
 

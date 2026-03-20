@@ -47,6 +47,10 @@
                   class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">
               {{ notes.length }}
             </span>
+            <span v-if="tab.key === 'activities' && custActTotal > 0"
+                  class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700">
+              {{ custActTotal }}
+            </span>
           </button>
         </nav>
       </div>
@@ -437,6 +441,137 @@
           </template>
         </div>
 
+        <!-- ══════════════════════════════
+             TAB: กิจกรรม (Activities)
+        ══════════════════════════════ -->
+        <div v-show="activeTab === 'activities'" class="space-y-4">
+
+          <!-- แสดงเฉพาะ edit mode -->
+          <div v-if="!isEdit" class="card p-8 text-center text-slate-400 text-sm">
+            กรุณาบันทึกข้อมูลลูกค้าก่อน จึงจะดูกิจกรรมได้
+          </div>
+
+          <template v-else>
+
+            <!-- Toolbar: ค้นหา + ตัวกรองสถานะ + ปุ่มสร้าง -->
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="relative flex-1 min-w-[180px]">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <input v-model="actSearchQuery" @input="loadActivities(true)" class="input-field pl-9 text-sm" placeholder="ค้นหาหัวข้อ..."/>
+              </div>
+              <select v-model="actStatusFilter" @change="loadActivities(true)" class="input-field w-auto text-sm">
+                <option value="all">ทุกสถานะ</option>
+                <option value="open">ค้างอยู่</option>
+                <option value="done">ปิดแล้ว</option>
+                <option value="deleted">ถูกลบ</option>
+              </select>
+              <button @click="router.push({ path: '/activities/new', query: { ar_code: props.code } })"
+                      class="btn-primary text-sm px-3 py-2 whitespace-nowrap">
+                <svg class="w-4 h-4 inline -mt-0.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                สร้างกิจกรรม
+              </button>
+            </div>
+
+            <!-- Loading -->
+            <div v-if="loadingActivities" class="text-center text-slate-400 py-8 text-sm">
+              <svg class="animate-spin w-5 h-5 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              กำลังโหลด...
+            </div>
+
+            <!-- Empty -->
+            <div v-else-if="custActivities.length === 0" class="card p-8 text-center text-slate-400">
+              <svg class="mx-auto w-10 h-10 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+              </svg>
+              <p class="text-sm">ยังไม่มีกิจกรรมสำหรับลูกค้านี้</p>
+            </div>
+
+            <!-- Activity Cards -->
+            <template v-else>
+              <div v-for="act in custActivities" :key="act.id"
+                   :class="[
+                     'card border cursor-pointer hover:shadow-md transition-shadow',
+                     act.status === 'deleted' ? 'opacity-50' : '',
+                     act.status === 'done' ? 'border-green-200' : '',
+                     actOverdueDays(act) > 0 ? 'border-red-200 bg-red-50/30' : ''
+                   ]"
+                   @click="router.push({ path: `/activities/${act.id}`, query: { from: `/customers/${props.code}?tab=activities` } })">
+                <div class="p-4">
+                  <!-- Row 1: type + subject + status badge + date -->
+                  <div class="flex items-start justify-between gap-2 mb-2">
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                      <span class="text-lg flex-shrink-0">{{ actTypeIcon(act.activity_type) }}</span>
+                      <div class="min-w-0">
+                        <p :class="['text-sm font-semibold', act.status === 'deleted' ? 'line-through text-slate-400' : 'text-slate-800']">
+                          {{ act.subject }}
+                        </p>
+                        <p class="text-xs text-slate-400 mt-0.5">
+                          {{ actTypeLabel(act.activity_type) }}
+                          <span v-if="act.group_id" class="ml-1 text-purple-500" title="กิจกรรมกลุ่ม">👥</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                      <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', actStatusBadge(act.status, act).cls]">
+                        {{ actStatusBadge(act.status, act).label }}
+                      </span>
+                      <span class="text-xs text-slate-400 whitespace-nowrap">
+                        {{ formatActDate(act.due_date || act.start_datetime) }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Row 2: owners + overdue -->
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1 text-xs text-slate-500 min-w-0">
+                      <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                      </svg>
+                      <span class="truncate">
+                        {{ (act.owners || []).filter(o => !o.removed_at).map(o => o.name).join(', ') || 'ไม่มีผู้รับผิดชอบ' }}
+                      </span>
+                    </div>
+                    <span v-if="actOverdueDays(act) > 0" class="text-xs text-red-500 font-medium whitespace-nowrap">
+                      ⏰ เลยกำหนด {{ actOverdueDays(act) }} วัน
+                    </span>
+                  </div>
+
+                  <!-- Row 3: ผลลัพธ์ (เฉพาะ done) -->
+                  <div v-if="act.status === 'done' && act.outcome"
+                       class="mt-3 p-3 bg-green-50 rounded-lg border border-green-100">
+                    <p class="text-xs font-medium text-green-700 mb-1">📋 ผลลัพธ์</p>
+                    <p class="text-sm text-green-800 whitespace-pre-wrap">{{ act.outcome }}</p>
+                    <p v-if="act.created_by_name" class="text-xs text-green-600 mt-1">
+                      ปิดเมื่อ {{ formatActDateTime(act.updated_at) }}
+                    </p>
+                  </div>
+
+                  <!-- Row 3 alt: ผลลัพธ์แยกตาม owner (ถ้าไม่มี outcome หลัก) -->
+                  <div v-else-if="act.status === 'done' && !act.outcome"
+                       class="mt-3 p-3 bg-green-50 rounded-lg border border-green-100">
+                    <p class="text-xs font-medium text-green-700">✅ งานเสร็จสิ้น</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Load more -->
+              <div v-if="custActivities.length < custActTotal" class="text-center pt-2">
+                <button @click="loadMoreActivities" :disabled="loadingActivities"
+                        class="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                  ดูเพิ่ม (แสดง {{ custActivities.length }} จาก {{ custActTotal }}) →
+                </button>
+              </div>
+            </template>
+          </template>
+        </div>
+
       </div>
 
       <!-- Action Buttons -->
@@ -512,7 +647,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRouter, useRoute } from 'vue-router'
 import api from '../composables/useApi.js'
 import MapPicker from '../components/MapPicker.vue'
 
@@ -522,9 +657,11 @@ const isEdit = computed(() => !!props.code)
 
 // ── Router ────────────────────────────────
 const router = useRouter()
+const route  = useRoute()
 
 // ── State ─────────────────────────────────
-const activeTab  = ref('main')
+const validTabs = ['main', 'contactors', 'transport', 'crm', 'notes', 'activities']
+const activeTab  = ref(validTabs.includes(route.query.tab) ? route.query.tab : 'main')
 const loadingInit = ref(false)
 const saving      = ref(false)
 const employees   = ref([])
@@ -626,12 +763,21 @@ const savingNote  = ref(false)
 const newNote     = ref('')
 const newNotePinned = ref(false)
 
+// Activities state
+const custActivities    = ref([])
+const custActTotal      = ref(0)
+const loadingActivities = ref(false)
+const actStatusFilter   = ref('all')
+const actSearchQuery    = ref('')
+const actLimit          = ref(10)
+
 const tabs = [
   { key: 'main',       label: 'ข้อมูลหลัก' },
   { key: 'contactors', label: 'ผู้ติดต่อ' },
   { key: 'transport',  label: 'ที่อยู่จัดส่ง' },
   { key: 'crm',        label: 'CRM Info' },
-  { key: 'notes',      label: 'บันทึก' }
+  { key: 'notes',      label: 'บันทึก' },
+  { key: 'activities', label: 'กิจกรรม' }
 ]
 
 const defaultForm = () => ({
@@ -658,7 +804,7 @@ onMounted(async () => {
   await Promise.all([loadEmployees(), loadCrmUsers(), loadProvinces()])
   if (isEdit.value) {
     await loadCustomer()
-    await Promise.all([loadNotes(), loadExistingGeo()])
+    await Promise.all([loadNotes(), loadExistingGeo(), loadActivities()])
   }
 })
 
@@ -798,6 +944,77 @@ function formatNoteDate(d) {
   if (!d) return ''
   return new Date(d).toLocaleString('th-TH', {
     day: '2-digit', month: 'short', year: '2-digit',
+    hour: '2-digit', minute: '2-digit'
+  })
+}
+
+// ── Activities ────────────────────────────
+async function loadActivities(reset = false) {
+  if (!props.code) return
+  if (reset) { custActivities.value = []; actLimit.value = 10 }
+  loadingActivities.value = true
+  try {
+    const params = {
+      status: actStatusFilter.value,
+      limit: actLimit.value,
+      offset: 0
+    }
+    if (actSearchQuery.value.trim()) params.search = actSearchQuery.value.trim()
+    const { data } = await api.get(`/activities/by-customer/${props.code}`, { params })
+    custActivities.value = data.activities
+    custActTotal.value = data.total
+  } catch (e) {
+    showToast('error', 'โหลดกิจกรรมไม่สำเร็จ')
+  }
+  loadingActivities.value = false
+}
+
+function loadMoreActivities() {
+  actLimit.value += 10
+  loadActivities()
+}
+
+function actTypeLabel(t) {
+  if (t === 'task') return 'งาน'
+  if (t === 'call') return 'โทร'
+  return 'นัดประชุม'
+}
+
+function actTypeIcon(t) {
+  if (t === 'task') return '📋'
+  if (t === 'call') return '📞'
+  return '📅'
+}
+
+function actStatusBadge(status, a) {
+  if (status === 'deleted') return { label: 'ถูกลบ', cls: 'bg-slate-100 text-slate-500' }
+  if (status === 'done') return { label: 'ปิดแล้ว', cls: 'bg-green-100 text-green-700' }
+  if (status === 'cancelled') return { label: 'ยกเลิก', cls: 'bg-slate-100 text-slate-500' }
+  // check overdue
+  const dueStr = a.due_date || a.start_datetime
+  if (dueStr && new Date(dueStr) < new Date(new Date().toDateString())) {
+    return { label: 'เลยกำหนด', cls: 'bg-red-100 text-red-700' }
+  }
+  return { label: 'ค้างอยู่', cls: 'bg-blue-100 text-blue-700' }
+}
+
+function actOverdueDays(a) {
+  if (a.status === 'done' || a.status === 'deleted' || a.status === 'cancelled') return 0
+  const dueStr = a.due_date || a.start_datetime
+  if (!dueStr) return 0
+  const diff = Math.floor((new Date(new Date().toDateString()) - new Date(new Date(dueStr).toDateString())) / 86400000)
+  return diff > 0 ? diff : 0
+}
+
+function formatActDate(d) {
+  if (!d) return ''
+  return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
+}
+
+function formatActDateTime(d) {
+  if (!d) return ''
+  return new Date(d).toLocaleString('th-TH', {
+    day: 'numeric', month: 'short', year: '2-digit',
     hour: '2-digit', minute: '2-digit'
   })
 }
