@@ -307,6 +307,39 @@
         </div>
 
         <!-- ══════════════════════════════
+             AI Summary Card (แสดงใน CRM tab เมื่อ edit mode)
+        ══════════════════════════════ -->
+        <div v-show="activeTab === 'crm' && isEdit" class="card p-4 border border-purple-200 bg-purple-50/40">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">🤖</span>
+              <h3 class="text-sm font-semibold text-purple-800">AI สรุปประวัติลูกค้า</h3>
+              <span class="text-xs text-purple-500">(Gemini AI)</span>
+            </div>
+            <button type="button" @click="loadAiSummary"
+              :disabled="aiSummaryLoading"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 transition-colors">
+              <svg v-if="aiSummaryLoading" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              <svg v-else class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+              </svg>
+              {{ aiSummaryLoading ? 'กำลังวิเคราะห์...' : 'วิเคราะห์' }}
+            </button>
+          </div>
+          <div v-if="aiSummaryText"
+            class="text-sm text-slate-700 whitespace-pre-line bg-white rounded-lg p-3 border border-purple-100 leading-relaxed">
+            {{ aiSummaryText }}
+          </div>
+          <p v-else-if="!aiSummaryLoading" class="text-xs text-purple-400 italic">
+            กดปุ่ม "วิเคราะห์" เพื่อให้ AI สรุปประวัติลูกค้าและแนะนำ action ถัดไป
+          </p>
+          <p v-if="aiSummaryError" class="text-xs text-red-500 mt-2">{{ aiSummaryError }}</p>
+        </div>
+
+        <!-- ══════════════════════════════
              TAB: CRM Info
         ══════════════════════════════ -->
         <div v-show="activeTab === 'crm'" class="card p-6">
@@ -654,6 +687,25 @@ import MapPicker from '../components/MapPicker.vue'
 // ── Props ─────────────────────────────────
 const props = defineProps({ code: { type: String, default: null } })
 const isEdit = computed(() => !!props.code)
+
+// ── AI Summary ────────────────────────────
+const aiSummaryText    = ref('')
+const aiSummaryLoading = ref(false)
+const aiSummaryError   = ref('')
+
+async function loadAiSummary() {
+  if (!props.code) return
+  aiSummaryLoading.value = true
+  aiSummaryError.value   = ''
+  try {
+    const res = await api.get(`/customers/${props.code}/ai-summary`)
+    aiSummaryText.value = res.data.summary
+  } catch (e) {
+    aiSummaryError.value = e.response?.data?.error || e.message
+  } finally {
+    aiSummaryLoading.value = false
+  }
+}
 
 // ── Router ────────────────────────────────
 const router = useRouter()
