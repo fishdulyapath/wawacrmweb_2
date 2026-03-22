@@ -104,10 +104,21 @@
 
       <!-- Notes -->
       <div class="form-section">
-        <p class="section-label">📝 บันทึกการสนทนา</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <p class="section-label" style="margin-bottom:0">📝 บันทึกการสนทนา</p>
+          <button v-if="speechSupported" type="button" @click="toggleSpeech"
+            :style="isListening ? 'color:#ef4444' : 'color:#94a3b8'"
+            style="background:none;border:none;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px;padding:0">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+            </svg>
+            {{ isListening ? 'กำลังฟัง...' : '🎤' }}
+          </button>
+        </div>
         <textarea v-model="form.notes" class="form-textarea"
                   rows="4"
                   placeholder="บันทึกรายละเอียดการสนทนา ผลที่ได้รับ ความต้องการของลูกค้า..."></textarea>
+        <p v-if="speechError" style="color:#ef4444;font-size:12px;margin-top:4px">{{ speechError }}</p>
         <p class="char-count">{{ form.notes.length }} / 500</p>
       </div>
 
@@ -165,9 +176,17 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import liffApi, { ensureLiffAuth } from '../../composables/useLiffApi.js'
+import { useSpeech } from '../../composables/useSpeech.js'
 
 const router = useRouter()
 const route  = useRoute()
+
+// Speech-to-Text
+const { isListening, errorMsg: speechError, isSupported: speechSupported, startListening, stopListening } = useSpeech()
+function toggleSpeech() {
+  if (isListening.value) { stopListening(); return }
+  startListening((text) => { form.notes = (form.notes ? form.notes + ' ' : '') + text })
+}
 
 const saving  = ref(false)
 const saved   = ref(false)

@@ -154,8 +154,21 @@
 
       <!-- รายละเอียด -->
       <div>
-        <label class="label">รายละเอียด</label>
+        <div class="flex items-center justify-between mb-1">
+          <label class="label mb-0">รายละเอียด</label>
+          <button v-if="speechSupported" type="button"
+            @click="toggleSpeech('description')"
+            :class="speechTarget === 'description' && isListening ? 'text-red-500 animate-pulse' : 'text-slate-400 hover:text-blue-500'"
+            class="flex items-center gap-1 text-xs transition-colors"
+            :title="isListening && speechTarget === 'description' ? 'หยุดฟัง' : 'พูดเพื่อบันทึก'">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+            </svg>
+            {{ isListening && speechTarget === 'description' ? 'กำลังฟัง...' : '🎤' }}
+          </button>
+        </div>
         <textarea v-model="form.description" class="input min-h-[80px]" rows="3"></textarea>
+        <p v-if="speechError && speechTarget === 'description'" class="text-xs text-red-500 mt-1">{{ speechError }}</p>
       </div>
 
       <!-- ── ลูกค้า ─── -->
@@ -287,9 +300,21 @@
 
       <!-- Outcome (แสดงเมื่อ status = done) -->
       <div v-if="form.status === 'done'">
-        <label class="label">ผลลัพธ์ / สิ่งที่ทำ</label>
+        <div class="flex items-center justify-between mb-1">
+          <label class="label mb-0">ผลลัพธ์ / สิ่งที่ทำ</label>
+          <button v-if="speechSupported" type="button"
+            @click="toggleSpeech('outcome')"
+            :class="speechTarget === 'outcome' && isListening ? 'text-red-500 animate-pulse' : 'text-slate-400 hover:text-blue-500'"
+            class="flex items-center gap-1 text-xs transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+            </svg>
+            {{ isListening && speechTarget === 'outcome' ? 'กำลังฟัง...' : '🎤' }}
+          </button>
+        </div>
         <textarea v-model="form.outcome" class="input min-h-[70px]" rows="2"
           placeholder="เช่น ลูกค้าสนใจ นัดส่งเอกสารวันพุธ"></textarea>
+        <p v-if="speechError && speechTarget === 'outcome'" class="text-xs text-red-500 mt-1">{{ speechError }}</p>
       </div>
 
       <!-- ── TASK: Due Date ─────────────────────── -->
@@ -532,6 +557,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '../composables/useApi.js'
 import { useAuthStore } from '../stores/auth.js'
 import ActivityAttachments from '../components/ActivityAttachments.vue'
+import { useSpeech } from '../composables/useSpeech.js'
 
 const props = defineProps({ id: String })
 const route  = useRoute()
@@ -541,6 +567,23 @@ const auth   = useAuthStore()
 const activityId = computed(() => props.id || route.params.id)
 const isEdit     = computed(() => !!activityId.value)
 const saving     = ref(false)
+
+// ── Speech-to-Text ────────────────────────────────────────────
+const { isListening, errorMsg: speechError, isSupported: speechSupported, startListening, stopListening } = useSpeech()
+const speechTarget = ref('')   // 'description' | 'outcome'
+
+function toggleSpeech(field) {
+  if (isListening.value && speechTarget.value === field) {
+    stopListening()
+    speechTarget.value = ''
+    return
+  }
+  speechTarget.value = field
+  startListening((text) => {
+    if (field === 'description') form.description = (form.description ? form.description + ' ' : '') + text
+    if (field === 'outcome')     form.outcome     = (form.outcome     ? form.outcome     + ' ' : '') + text
+  })
+}
 
 // ── Back navigation: กลับไปหน้าที่มา ─────────────────────────
 const backUrl = computed(() => route.query.from || '/activities')
