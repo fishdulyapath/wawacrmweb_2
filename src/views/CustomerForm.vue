@@ -605,6 +605,140 @@
           </template>
         </div>
 
+        <!-- ══════════════════════════════
+             TAB: ประวัติการซื้อ
+        ══════════════════════════════ -->
+        <div v-show="activeTab === 'purchase_history'" class="space-y-4">
+
+          <div v-if="!isEdit" class="card p-8 text-center text-slate-400 text-sm">
+            กรุณาบันทึกข้อมูลลูกค้าก่อน จึงจะดูประวัติการซื้อได้
+          </div>
+
+          <template v-else>
+            <!-- Filter row -->
+            <div class="flex flex-wrap items-center gap-2">
+              <input v-model="purchaseFilter.doc_no" @input="purchaseDebounce"
+                class="input-field w-36 text-sm" placeholder="เลขที่เอกสาร..." />
+              <input v-model="purchaseFilter.sale_code" @input="purchaseDebounce"
+                class="input-field w-32 text-sm" placeholder="รหัสพนักงาน..." />
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs text-slate-500">จาก</span>
+                <input v-model="purchaseFilter.date_from" @change="loadPurchaseHistory(1)"
+                  type="date" class="input-field text-sm" />
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs text-slate-500">ถึง</span>
+                <input v-model="purchaseFilter.date_to" @change="loadPurchaseHistory(1)"
+                  type="date" class="input-field text-sm" />
+              </div>
+            </div>
+
+            <!-- Loading -->
+            <div v-if="loadingPurchase" class="text-center text-slate-400 py-8 text-sm">
+              <svg class="animate-spin w-5 h-5 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              กำลังโหลด...
+            </div>
+
+            <!-- Table -->
+            <div v-else class="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+              <table class="w-full text-sm min-w-[600px]">
+                <thead class="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th class="w-8 px-4 py-3"></th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">วันที่</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">เลขที่เอกสาร</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">พนักงาน</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">ยอดรวม (บาท)</th>
+                    <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500">VAT</th>
+                  </tr>
+                </thead>
+                <tbody v-if="!purchaseHistory.length">
+                  <tr>
+                    <td colspan="6" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูลการซื้อ</td>
+                  </tr>
+                </tbody>
+                <tbody v-for="row in purchaseHistory" :key="row.doc_no" class="border-b border-slate-100">
+                    <!-- Main row -->
+                    <tr class="hover:bg-slate-50 cursor-pointer" @click="toggleExpandDoc(row.doc_no)">
+                      <td class="px-4 py-3 text-center">
+                        <svg class="w-3.5 h-3.5 text-slate-400 transition-transform inline-block"
+                          :class="expandedDoc === row.doc_no ? 'rotate-90' : ''"
+                          fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                        </svg>
+                      </td>
+                      <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                        {{ new Date(row.doc_date).toLocaleDateString('th-TH', { day:'2-digit', month:'short', year:'2-digit' }) }}
+                      </td>
+                      <td class="px-4 py-3 font-mono text-xs text-slate-700">{{ row.doc_no }}</td>
+                      <td class="px-4 py-3 text-sm text-slate-600">{{ row.sale_name || row.sale_code || '—' }}</td>
+                      <td class="px-4 py-3 text-right font-semibold text-slate-800">{{ phFmtAmount(row.total_amount) }}</td>
+                      <td class="px-4 py-3 text-center">
+                        <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500">
+                          {{ phVatLabel(row.vat_type) }}
+                        </span>
+                      </td>
+                    </tr>
+                    <!-- Expanded line items -->
+                    <tr v-if="expandedDoc === row.doc_no">
+                      <td colspan="6" class="bg-slate-50/70 px-6 py-3">
+                        <div v-if="loadingLines" class="text-xs text-slate-400 py-2 text-center">
+                          กำลังโหลดรายการสินค้า...
+                        </div>
+                        <table v-else class="w-full text-xs">
+                          <thead>
+                            <tr class="text-slate-500">
+                              <th class="pb-1.5 text-left font-semibold">รหัสสินค้า</th>
+                              <th class="pb-1.5 text-left font-semibold">ชื่อสินค้า</th>
+                              <th class="pb-1.5 text-right font-semibold">จำนวน</th>
+                              <th class="pb-1.5 text-left font-semibold">หน่วย</th>
+                              <th class="pb-1.5 text-right font-semibold">ราคา</th>
+                              <th class="pb-1.5 text-right font-semibold">ส่วนลด</th>
+                              <th class="pb-1.5 text-right font-semibold">รวม</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr v-if="!expandedLines.length">
+                              <td colspan="7" class="py-3 text-center text-slate-400">ไม่มีรายการสินค้า</td>
+                            </tr>
+                            <tr v-for="line in expandedLines" :key="line.item_code + '_' + line.item_name"
+                              class="border-t border-slate-100">
+                              <td class="py-1.5 font-mono text-slate-600">{{ line.item_code }}</td>
+                              <td class="py-1.5 text-slate-700">{{ line.item_name }}</td>
+                              <td class="py-1.5 text-right text-slate-600">{{ line.qty }}</td>
+                              <td class="py-1.5 text-slate-500 pl-2">{{ line.unit_name || line.unit_code }}</td>
+                              <td class="py-1.5 text-right text-slate-600">{{ phFmtAmount(line.price) }}</td>
+                              <td class="py-1.5 text-right text-slate-400">{{ line.discount || '—' }}</td>
+                              <td class="py-1.5 text-right font-medium text-slate-800">{{ phFmtAmount(line.sum_amount) }}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                </tbody>
+              </table>
+
+              <!-- Pagination -->
+              <div v-if="purchasePag.pages > 1"
+                class="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-500">
+                <span>ทั้งหมด {{ purchasePag.total }} รายการ</span>
+                <div class="flex gap-1.5">
+                  <button @click="loadPurchaseHistory(purchasePag.page - 1)"
+                    :disabled="purchasePag.page <= 1"
+                    class="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">←</button>
+                  <span class="px-2 py-1">{{ purchasePag.page }} / {{ purchasePag.pages }}</span>
+                  <button @click="loadPurchaseHistory(purchasePag.page + 1)"
+                    :disabled="purchasePag.page >= purchasePag.pages"
+                    class="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">→</button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
       </div>
 
       <!-- Action Buttons -->
@@ -679,7 +813,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { RouterLink, useRouter, useRoute } from 'vue-router'
 import api from '../composables/useApi.js'
 import MapPicker from '../components/MapPicker.vue'
@@ -712,7 +846,7 @@ const router = useRouter()
 const route  = useRoute()
 
 // ── State ─────────────────────────────────
-const validTabs = ['main', 'contactors', 'transport', 'crm', 'notes', 'activities']
+const validTabs = ['main', 'contactors', 'transport', 'crm', 'notes', 'activities', 'purchase_history']
 const activeTab  = ref(validTabs.includes(route.query.tab) ? route.query.tab : 'main')
 const loadingInit = ref(false)
 const saving      = ref(false)
@@ -823,13 +957,23 @@ const actStatusFilter   = ref('all')
 const actSearchQuery    = ref('')
 const actLimit          = ref(10)
 
+// Purchase history state
+const purchaseHistory = ref([])
+const purchasePag     = reactive({ total: 0, page: 1, pages: 1, limit: 10 })
+const loadingPurchase = ref(false)
+const purchaseFilter  = reactive({ doc_no: '', sale_code: '', date_from: '', date_to: '' })
+const expandedDoc     = ref(null)
+const expandedLines   = ref([])
+const loadingLines    = ref(false)
+
 const tabs = [
   { key: 'main',       label: 'ข้อมูลหลัก' },
   { key: 'contactors', label: 'ผู้ติดต่อ' },
   { key: 'transport',  label: 'ที่อยู่จัดส่ง' },
   { key: 'crm',        label: 'CRM Info' },
   { key: 'notes',      label: 'บันทึก' },
-  { key: 'activities', label: 'กิจกรรม' }
+  { key: 'activities',       label: 'กิจกรรม' },
+  { key: 'purchase_history', label: 'ประวัติการซื้อ' }
 ]
 
 const defaultForm = () => ({
@@ -857,6 +1001,57 @@ onMounted(async () => {
   if (isEdit.value) {
     await loadCustomer()
     await Promise.all([loadNotes(), loadExistingGeo(), loadActivities()])
+  }
+})
+
+// ── Purchase history ──────────────────────
+async function loadPurchaseHistory(page = 1) {
+  if (!isEdit.value) return
+  loadingPurchase.value = true
+  const p = {
+    date_from:  purchaseFilter.date_from  || undefined,
+    date_to:    purchaseFilter.date_to    || undefined,
+    doc_no:     purchaseFilter.doc_no     || undefined,
+    sale_code:  purchaseFilter.sale_code  || undefined,
+    page, limit: purchasePag.limit,
+  }
+  const res = await api.get(`/sales/customer/${props.code}`, { params: p })
+    .then(r => r.data).catch(() => ({ data: [], pagination: {} }))
+  purchaseHistory.value = res.data || []
+  if (res.pagination) Object.assign(purchasePag, res.pagination)
+  purchasePag.page = page
+  loadingPurchase.value = false
+}
+
+async function toggleExpandDoc(doc_no) {
+  if (expandedDoc.value === doc_no) {
+    expandedDoc.value = null; expandedLines.value = []; return
+  }
+  expandedDoc.value   = doc_no
+  expandedLines.value = []
+  loadingLines.value  = true
+  const res = await api.get(`/sales/transactions/${doc_no}`)
+    .then(r => r.data).catch(() => null)
+  expandedLines.value = res?.lines || []
+  loadingLines.value  = false
+}
+
+let purchaseTimer = null
+function purchaseDebounce() {
+  clearTimeout(purchaseTimer)
+  purchaseTimer = setTimeout(() => loadPurchaseHistory(1), 350)
+}
+
+function phFmtAmount(v) {
+  return parseFloat(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+function phVatLabel(v) {
+  return { 0: 'แยก VAT', 1: 'รวม VAT', 2: 'อัตราศูนย์', 4: 'ไม่กระทบ' }[parseInt(v)] || String(v)
+}
+
+watch(activeTab, t => {
+  if (t === 'purchase_history' && isEdit.value && !purchaseHistory.value.length) {
+    loadPurchaseHistory(1)
   }
 })
 

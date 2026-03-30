@@ -23,6 +23,7 @@ const router = createRouter({
 
     // ── Reports ──
     { path: '/reports',              component: () => import('../views/ReportsDashboard.vue'), meta: { requireManager: true } },
+    { path: '/sales-reports',        component: () => import('../views/SalesReportDashboard.vue'), meta: { requireManager: true } },
 
     // ── Settings ──
     { path: '/settings/users',       component: () => import('../views/UserPermissions.vue'), meta: { requireAdmin: true } },
