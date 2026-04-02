@@ -151,7 +151,9 @@ async function readAll() {
 }
 
 function isClickable(n) {
-  return (n.ref_type === 'activity' && n.ref_id) || (n.ref_type === 'customer' && n.ar_code)
+  return (n.ref_type === 'activity' && n.ref_id)
+      || (n.ref_type === 'customer' && n.ar_code)
+      || (n.ref_type === 'webboard' && n.ref_id)
 }
 
 async function handleClick(n) {
@@ -160,41 +162,46 @@ async function handleClick(n) {
     router.push(`/activities/${n.ref_id}`)
   } else if (n.ref_type === 'customer' && n.ar_code) {
     router.push(`/customers/${n.ar_code}/edit`)
+  } else if (n.ref_type === 'webboard' && n.ref_id) {
+    router.push(`/webboard/${n.ref_id}`)
   }
 }
 
 function iconEmoji(notiType) {
   const map = {
-    assigned:       '📋',
-    task_due:       '⏰',
-    task_overdue:   '🔴',
-    meeting_remind: '📅',
-    no_contact:     '💬',
-    activity_update:'✏️',
+    assigned:         '📋',
+    task_due:         '⏰',
+    task_overdue:     '🔴',
+    meeting_remind:   '📅',
+    no_contact:       '💬',
+    activity_update:  '✏️',
+    webboard_comment: '💬',
   }
   return map[notiType] || '🔔'
 }
 
 function iconBg(notiType) {
   const map = {
-    assigned:       'bg-blue-100',
-    task_due:       'bg-orange-100',
-    task_overdue:   'bg-red-100',
-    meeting_remind: 'bg-purple-100',
-    no_contact:     'bg-yellow-100',
-    activity_update:'bg-green-100',
+    assigned:         'bg-blue-100',
+    task_due:         'bg-orange-100',
+    task_overdue:     'bg-red-100',
+    meeting_remind:   'bg-purple-100',
+    no_contact:       'bg-yellow-100',
+    activity_update:  'bg-green-100',
+    webboard_comment: 'bg-teal-100',
   }
   return map[notiType] || 'bg-slate-100'
 }
 
 function notiTypeLabel(notiType) {
   const map = {
-    assigned:       'งานใหม่',
-    task_due:       'ครบกำหนด',
-    task_overdue:   'เลยกำหนด',
-    meeting_remind: 'Meeting',
-    no_contact:     'ไม่ได้ติดต่อ',
-    activity_update:'อัปเดต',
+    assigned:         'งานใหม่',
+    task_due:         'ครบกำหนด',
+    task_overdue:     'เลยกำหนด',
+    meeting_remind:   'Meeting',
+    no_contact:       'ไม่ได้ติดต่อ',
+    activity_update:  'อัปเดต',
+    webboard_comment: 'เว็บบอร์ด',
   }
   return map[notiType] || 'แจ้งเตือน'
 }

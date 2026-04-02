@@ -21,6 +21,12 @@ const router = createRouter({
     // ── Notifications ──
     { path: '/notifications',        component: () => import('../views/NotificationsList.vue') },
 
+    // ── Webboard ──
+    { path: '/webboard',             component: () => import('../views/WebboardList.vue') },
+    { path: '/webboard/new',         component: () => import('../views/WebboardForm.vue') },
+    { path: '/webboard/:id/edit',    component: () => import('../views/WebboardForm.vue'), props: true },
+    { path: '/webboard/:id',         component: () => import('../views/WebboardDetail.vue'), props: true },
+
     // ── Reports ──
     { path: '/reports',              component: () => import('../views/ReportsDashboard.vue'), meta: { requireManager: true } },
     { path: '/sales-reports',        component: () => import('../views/SalesReportDashboard.vue'), meta: { requireManager: true } },
