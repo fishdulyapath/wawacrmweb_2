@@ -485,6 +485,57 @@
       </div>
     </div>
 
+    <!-- ══ TAB: แผนที่ ══ -->
+    <div v-show="activeTab === 'map'" class="space-y-3">
+      <div v-if="loadingMap" class="bg-white rounded-xl border border-slate-200 py-16 flex justify-center">
+        <svg class="w-7 h-7 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+      </div>
+      <div v-else class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+
+        <!-- Map -->
+        <div class="lg:col-span-3 bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-slate-700">แผนที่ยอดขายตามพื้นที่</h3>
+            <div class="flex items-center gap-3 text-xs text-slate-400">
+              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-full bg-emerald-500"></span>ยอดสูง</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-full bg-blue-500"></span>ยอดกลาง</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-full bg-amber-400"></span>ยอดต่ำ</span>
+              <span class="ml-2">{{ mapMarkers.length }} ลูกค้า</span>
+            </div>
+          </div>
+          <div id="sales-map" style="height:520px;width:100%"></div>
+        </div>
+
+        <!-- Province rank -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col">
+          <div class="px-4 py-3 border-b border-slate-100">
+            <h3 class="text-sm font-semibold text-slate-700">ยอดขายตามจังหวัด</h3>
+          </div>
+          <div class="flex-1 overflow-y-auto divide-y divide-slate-50">
+            <div v-if="!mapProvinces.length" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูล</div>
+            <div v-for="(p, i) in mapProvinces" :key="p.province" class="px-4 py-2.5 hover:bg-slate-50">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs text-slate-400 w-5 text-right shrink-0">{{ i + 1 }}</span>
+                <span class="text-sm font-medium text-slate-700 flex-1 truncate">{{ p.province }}</span>
+                <span class="text-xs text-slate-400">{{ p.cust_count }} ร้าน</span>
+              </div>
+              <div class="ml-7">
+                <div class="w-full bg-slate-100 rounded-full h-1.5 mb-1">
+                  <div class="h-1.5 rounded-full bg-blue-500"
+                    :style="{ width: mapProvinces[0] ? Math.round(p.total_amount / mapProvinces[0].total_amount * 100) + '%' : '0%' }">
+                  </div>
+                </div>
+                <span class="text-xs font-semibold text-slate-700">{{ fmtAmount(p.total_amount) }} บาท</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ Modal: รายละเอียดเอกสาร ══ -->
     <Teleport to="body">
       <div v-if="showDetail" class="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -594,7 +645,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import { Line, Doughnut, Bar } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -622,6 +675,7 @@ const tabs = [
   { key: 'by_customer',    label: 'แยกตามลูกค้า' },
   { key: 'by_salesperson', label: 'แยกตามพนักงาน' },
   { key: 'transactions',   label: 'รายการขาย' },
+  { key: 'map',            label: 'แผนที่' },
 ]
 const presets = [
   { key: 'today',   label: 'วันนี้'   },
@@ -793,6 +847,9 @@ async function load() {
   if (activeTab.value === 'by_customer')    loadCustomerTab()
   if (activeTab.value === 'by_salesperson') loadSalespersonTab()
   if (activeTab.value === 'transactions')   loadTransactions(1)
+  if (activeTab.value === 'map')            loadMap()
+  // reset map data so next visit to map tab re-fetches
+  if (activeTab.value !== 'map') { mapMarkers.value = []; mapProvinces.value = [] }
 }
 
 async function loadTrend() {
@@ -850,11 +907,96 @@ function txDebounce() {
   txTimer = setTimeout(() => loadTransactions(1), 350)
 }
 
+// ── Map ───────────────────────────────────────────────────────
+const loadingMap   = ref(false)
+const mapMarkers   = ref([])
+const mapProvinces = ref([])
+let   leafletMap   = null
+let   leafletLayer = null
+
+async function loadMap() {
+  loadingMap.value = true
+  const res = await api.get('/sales/map', { params: buildParams() })
+    .then(r => r.data).catch(() => ({ markers: [], provinces: [] }))
+  mapMarkers.value   = res.markers   || []
+  mapProvinces.value = res.provinces || []
+  loadingMap.value   = false
+  await nextTick()
+  renderLeaflet()
+}
+
+function markerColor(amount, max) {
+  const pct = max > 0 ? amount / max : 0
+  if (pct >= 0.6) return '#10b981'   // emerald
+  if (pct >= 0.3) return '#3b82f6'   // blue
+  return '#f59e0b'                    // amber
+}
+
+function markerRadius(amount, max) {
+  if (!max) return 6
+  return 6 + Math.round((amount / max) * 24)
+}
+
+function renderLeaflet() {
+  const el = document.getElementById('sales-map')
+  if (!el) return
+
+  if (!leafletMap) {
+    leafletMap = L.map('sales-map', { zoomControl: true }).setView([13.0, 101.0], 6)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 18,
+    }).addTo(leafletMap)
+  } else {
+    if (leafletLayer) { leafletLayer.clearLayers() }
+  }
+
+  if (!leafletLayer) {
+    leafletLayer = L.layerGroup().addTo(leafletMap)
+  }
+
+  const markers = mapMarkers.value
+  const maxAmt  = markers.length ? parseFloat(markers[0].total_amount) : 0
+
+  for (const m of markers) {
+    const amt = parseFloat(m.total_amount || 0)
+    const circle = L.circleMarker([m.lat, m.lng], {
+      radius:      markerRadius(amt, maxAmt),
+      color:       markerColor(amt, maxAmt),
+      fillColor:   markerColor(amt, maxAmt),
+      fillOpacity: 0.75,
+      weight:      1.5,
+    })
+    circle.bindPopup(`
+      <div style="min-width:180px;font-family:sans-serif">
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px">${m.cust_name || m.cust_code}</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:6px">${m.province || ''}${m.amper ? ' › ' + m.amper : ''}</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span style="color:#64748b">ยอดขาย</span>
+          <span style="font-weight:700;color:#1e40af">${parseFloat(amt).toLocaleString('th-TH',{minimumFractionDigits:2})} บาท</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:2px">
+          <span style="color:#64748b">จำนวนใบ</span>
+          <span style="font-weight:600">${m.total_orders} ใบ</span>
+        </div>
+      </div>
+    `)
+    leafletLayer.addLayer(circle)
+  }
+
+  // fit bounds if has markers
+  if (markers.length) {
+    const latlngs = markers.map(m => [m.lat, m.lng])
+    leafletMap.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40] })
+  }
+}
+
 // ── Watch tab (lazy load) ─────────────────────────────────────
 watch(activeTab, t => {
   if (t === 'by_customer'    && !customerData.value.length)    loadCustomerTab()
   if (t === 'by_salesperson' && !salespersonData.value.length) loadSalespersonTab()
   if (t === 'transactions'   && !transactions.value.length)    loadTransactions(1)
+  if (t === 'map'            && !mapMarkers.value.length)      loadMap()
 })
 
 // ── Chart data ────────────────────────────────────────────────
@@ -942,6 +1084,10 @@ onMounted(async () => {
   salespeople.value = data || []
 
   applyPreset('month')
+})
+
+onUnmounted(() => {
+  if (leafletMap) { leafletMap.remove(); leafletMap = null; leafletLayer = null }
 })
 </script>
 

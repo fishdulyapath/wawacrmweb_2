@@ -739,6 +739,134 @@
           </template>
         </div>
 
+        <!-- ══════════════════════════════
+             TAB: หนี้คงค้าง
+        ══════════════════════════════ -->
+        <div v-show="activeTab === 'credit_detail'" class="space-y-4">
+
+          <div v-if="!isEdit" class="card p-8 text-center text-slate-400 text-sm">
+            กรุณาบันทึกข้อมูลลูกค้าก่อน จึงจะดูข้อมูลหนี้คงค้างได้
+          </div>
+
+          <template v-else>
+            <!-- Loading -->
+            <div v-if="loadingCreditDetail" class="text-center text-slate-400 py-8 text-sm">
+              <svg class="animate-spin w-5 h-5 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              กำลังโหลด...
+            </div>
+
+            <template v-else>
+              <!-- Credit Summary -->
+              <div v-if="creditDetail" class="grid grid-cols-2 gap-3">
+                <div class="card p-4">
+                  <p class="text-slate-400 text-xs font-medium">วงเงินเครดิต</p>
+                  <p class="text-lg font-bold text-slate-800 mt-1">{{ creditDetail.data_head.credit_money }}</p>
+                </div>
+                <div class="card p-4">
+                  <p class="text-slate-400 text-xs font-medium">สั่งขาย</p>
+                  <p class="text-lg font-bold text-blue-600 mt-1">{{ creditDetail.data_head.sum_sr }}</p>
+                </div>
+                <div class="card p-4">
+                  <p class="text-slate-400 text-xs font-medium">เช็คคงค้าง</p>
+                  <p class="text-lg font-bold text-amber-600 mt-1">{{ creditDetail.data_head.sum_cheque }}</p>
+                </div>
+                <div class="card p-4">
+                  <p class="text-slate-400 text-xs font-medium">หนี้คงค้าง</p>
+                  <p class="text-lg font-bold text-red-600 mt-1">{{ creditDetail.data_head.sum_status }}</p>
+                </div>
+              </div>
+              <div v-else class="card p-4 text-center text-slate-400 text-sm">ไม่พบข้อมูลเครดิต</div>
+
+              <!-- Sub-tabs -->
+              <div class="flex gap-1 bg-slate-50 rounded-xl p-1 border border-slate-200">
+                <button v-for="t in [
+                    { key: 'credit_docs',    label: 'รายการคงค้าง' },
+                    { key: 'credit_cheques', label: 'เช็ค' },
+                    { key: 'credit_srss',    label: 'SR/SS' }
+                  ]" :key="t.key"
+                  @click="creditActiveTab = t.key"
+                  class="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                  :class="creditActiveTab === t.key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:bg-white/60'">
+                  {{ t.label }}
+                </button>
+              </div>
+
+              <!-- รายการคงค้าง -->
+              <div v-if="creditActiveTab === 'credit_docs'" class="space-y-2">
+                <div v-if="creditDetail" class="card py-3 px-4 bg-red-50 flex justify-between items-center">
+                  <span class="text-sm font-medium text-slate-600">ยอดรวมหนี้คงค้าง</span>
+                  <span class="text-lg font-bold text-red-600">{{ creditDetail.data_head.sum_status }}</span>
+                </div>
+                <div v-if="!creditDetail || !creditDetail.data_1.length" class="card p-8 text-center text-slate-400 text-sm">ไม่พบข้อมูล</div>
+                <div v-else v-for="(item, i) in creditDetail.data_1" :key="i" class="card py-3 px-4">
+                  <div class="flex justify-between items-start">
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-medium text-slate-700">{{ item.doc_no }}</p>
+                      <p class="text-xs text-slate-400 mt-0.5">{{ creditFmtDate(item.doc_date) }} · ครบกำหนด {{ creditFmtDate(item.due_date) }}</p>
+                      <p v-if="item.remark" class="text-xs text-slate-400 mt-0.5">{{ item.remark }}</p>
+                    </div>
+                    <div class="text-right ml-3">
+                      <p class="text-sm font-medium" :class="Number(item.amount) < 0 ? 'text-emerald-600' : 'text-slate-800'">{{ creditFmt(item.amount) }}</p>
+                      <p class="text-xs text-slate-400">คงค้าง {{ creditFmt(item.ar_balance) }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- เช็ค -->
+              <div v-if="creditActiveTab === 'credit_cheques'" class="space-y-2">
+                <div v-if="creditDetail" class="card py-3 px-4 bg-amber-50 flex justify-between items-center">
+                  <span class="text-sm font-medium text-slate-600">ยอดรวมเช็คคงค้าง</span>
+                  <span class="text-lg font-bold text-amber-600">{{ creditDetail.data_head.sum_cheque }}</span>
+                </div>
+                <div v-if="!creditDetail || !creditDetail.data_2.length" class="card p-8 text-center text-slate-400 text-sm">ไม่พบข้อมูล</div>
+                <div v-else v-for="(item, i) in creditDetail.data_2" :key="i" class="card py-3 px-4">
+                  <div class="flex justify-between items-start">
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-medium text-slate-700">{{ item.chq_number }}</p>
+                      <p class="text-xs text-slate-400 mt-0.5">รับเช็ค {{ creditFmtDate(item.chq_get_date) }} · ครบกำหนด {{ creditFmtDate(item.chq_due_date) }}</p>
+                      <p v-if="item.doc_ref" class="text-xs text-slate-400 mt-0.5">อ้างอิง: {{ item.doc_ref }}</p>
+                    </div>
+                    <div class="text-right ml-3">
+                      <p class="text-sm font-medium text-slate-800">{{ creditFmt(item.amount) }}</p>
+                      <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">{{ item.status }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- SR/SS -->
+              <div v-if="creditActiveTab === 'credit_srss'" class="space-y-2">
+                <div v-if="creditDetail" class="card py-3 px-4 bg-blue-50 flex justify-between items-center">
+                  <span class="text-sm font-medium text-slate-600">ยอดรวมสั่งขาย</span>
+                  <span class="text-lg font-bold text-blue-600">{{ creditDetail.data_head.sum_sr }}</span>
+                </div>
+                <div v-if="!creditDetail || !creditDetail.data_3.length" class="card p-8 text-center text-slate-400 text-sm">ไม่พบข้อมูล</div>
+                <div v-else v-for="(item, i) in creditDetail.data_3" :key="i" class="card py-3 px-4">
+                  <div class="flex justify-between items-start">
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-medium text-slate-700">{{ item.doc_no }}</p>
+                      <p class="text-xs text-slate-400 mt-0.5">{{ creditFmtDate(item.doc_date) }}</p>
+                      <p v-if="item.remark" class="text-xs text-slate-400 mt-0.5">{{ item.remark }}</p>
+                    </div>
+                    <div class="text-right ml-3">
+                      <p class="text-sm font-medium text-slate-800">{{ creditFmt(item.total_amount) }}</p>
+                      <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded-full"
+                        :class="String(item.trans_flag) === '36' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'">
+                        {{ String(item.trans_flag) === '36' ? 'SR' : 'SS' }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </template>
+          </template>
+        </div>
+
       </div>
 
       <!-- Action Buttons -->
@@ -846,7 +974,7 @@ const router = useRouter()
 const route  = useRoute()
 
 // ── State ─────────────────────────────────
-const validTabs = ['main', 'contactors', 'transport', 'crm', 'notes', 'activities', 'purchase_history']
+const validTabs = ['main', 'contactors', 'transport', 'crm', 'notes', 'activities', 'purchase_history', 'credit_detail']
 const activeTab  = ref(validTabs.includes(route.query.tab) ? route.query.tab : 'main')
 const loadingInit = ref(false)
 const saving      = ref(false)
@@ -966,6 +1094,11 @@ const expandedDoc     = ref(null)
 const expandedLines   = ref([])
 const loadingLines    = ref(false)
 
+// Credit detail state
+const creditDetail        = ref(null)
+const loadingCreditDetail = ref(false)
+const creditActiveTab     = ref('credit_docs')
+
 const tabs = [
   { key: 'main',       label: 'ข้อมูลหลัก' },
   { key: 'contactors', label: 'ผู้ติดต่อ' },
@@ -973,7 +1106,8 @@ const tabs = [
   { key: 'crm',        label: 'CRM Info' },
   { key: 'notes',      label: 'บันทึก' },
   { key: 'activities',       label: 'กิจกรรม' },
-  { key: 'purchase_history', label: 'ประวัติการซื้อ' }
+  { key: 'purchase_history', label: 'ประวัติการซื้อ' },
+  { key: 'credit_detail',    label: 'หนี้คงค้าง' }
 ]
 
 const defaultForm = () => ({
@@ -1049,9 +1183,30 @@ function phVatLabel(v) {
   return { 0: 'แยก VAT', 1: 'รวม VAT', 2: 'อัตราศูนย์', 4: 'ไม่กระทบ' }[parseInt(v)] || String(v)
 }
 
+async function loadCreditDetail() {
+  if (!isEdit.value) return
+  loadingCreditDetail.value = true
+  const res = await api.get(`/customers/${props.code}/credit-detail`)
+    .then(r => r.data).catch(() => null)
+  creditDetail.value = res?.success ? res : null
+  loadingCreditDetail.value = false
+}
+
+function creditFmt(v) {
+  return parseFloat(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function creditFmtDate(d) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })
+}
+
 watch(activeTab, t => {
   if (t === 'purchase_history' && isEdit.value && !purchaseHistory.value.length) {
     loadPurchaseHistory(1)
+  }
+  if (t === 'credit_detail' && isEdit.value && !creditDetail.value) {
+    loadCreditDetail()
   }
 })
 
