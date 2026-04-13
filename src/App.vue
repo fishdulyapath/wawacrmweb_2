@@ -31,7 +31,7 @@
               </svg>
             </div>
             <div class="flex-1">
-              <p class="text-white font-bold text-sm leading-none">WAWA CRM</p>
+              <p class="text-white font-bold text-sm leading-none">Cus Management</p>
               <p class="text-slate-400 text-xs mt-0.5">CRM System</p>
             </div>
             <!-- Close button (mobile only) -->
@@ -184,7 +184,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <span class="font-bold text-slate-800">WAWA CRM</span>
+        <span class="font-bold text-slate-800">Cus Management</span>
         <div class="ml-auto flex items-center gap-2">
           <!-- notification bell -->
           <RouterLink to="/notifications" class="relative p-2 text-slate-500 hover:bg-slate-100 rounded-lg">

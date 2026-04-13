@@ -228,7 +228,7 @@ const lineStatus = reactive({
 const settings = reactive({ notify_enabled: false, notify_time: '08:00' })
 const otp = ref('')
 const otpCountdown = ref(600)
-const botId = import.meta.env.VITE_LINE_BOT_ID || '@WAWACRM'
+const botId = import.meta.env.VITE_LINE_BOT_ID || ''
 let countdownTimer = null
 let pollTimer = null
 

@@ -6,7 +6,7 @@
       <div class="header-top">
         <div class="brand">
           <span class="brand-dot"></span>
-          <span class="brand-name">WAWA CRM</span>
+          <span class="brand-name">Cus Management</span>
         </div>
      
       </div>
