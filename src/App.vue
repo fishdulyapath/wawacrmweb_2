@@ -112,6 +112,12 @@
               </svg>
               รายงานยอดขาย
             </RouterLink>
+            <RouterLink to="/fleet-delivery" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+              <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 17h8m-4-4v4M3 10l1.5-6h15L21 10M3 10h18M3 10l1 7h16l1-7"/>
+              </svg>
+              Dashboard ขนส่ง
+            </RouterLink>
           </template>
 
           <!-- Settings (admin only) -->
