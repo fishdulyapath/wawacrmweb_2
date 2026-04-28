@@ -184,32 +184,6 @@
     <!-- ══ TAB: พนักงาน ════════════════════════════════════════════ -->
     <div v-if="activeTab === 'byowner'">
 
-      <!-- AI KPI Insights panel -->
-      <div class="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4 mb-4">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <span class="text-lg">🤖</span>
-            <h3 class="text-sm font-semibold text-purple-800">AI วิเคราะห์ KPI ทีม</h3>
-            <span class="text-xs text-purple-400">(Gemini AI)</span>
-          </div>
-          <button @click="loadAiInsights" :disabled="aiInsightsLoading"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 transition-colors">
-            <svg v-if="aiInsightsLoading" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-            </svg>
-            {{ aiInsightsLoading ? 'กำลังวิเคราะห์...' : 'วิเคราะห์ KPI' }}
-          </button>
-        </div>
-        <div v-if="aiInsightsText"
-          class="text-sm text-slate-700 whitespace-pre-line bg-white rounded-lg p-3 border border-purple-100 leading-relaxed">
-          {{ aiInsightsText }}
-        </div>
-        <p v-else-if="!aiInsightsLoading" class="text-xs text-purple-400 italic">
-          กดปุ่ม "วิเคราะห์ KPI" เพื่อให้ AI สรุปผลงานทีมและให้คำแนะนำ
-        </p>
-        <p v-if="aiInsightsError" class="text-xs text-red-500 mt-2">{{ aiInsightsError }}</p>
-      </div>
 
       <!-- Bar chart: top 10 by total -->
       <div class="bg-white rounded-xl border border-slate-200 p-5 mb-4">
