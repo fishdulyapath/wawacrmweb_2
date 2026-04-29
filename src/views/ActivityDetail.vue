@@ -95,10 +95,10 @@
                   <span class="font-semibold text-slate-700">{{ ct.name }}</span>
                   <span v-if="ct.work_title" class="text-slate-400">{{ ct.work_title }}</span>
                 </div>
-                <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                <div class="flex flex-wrap gap-1.5 mt-1">
                   <a v-for="ph in ct.phones" :key="ph" :href="`tel:${ph}`"
-                    class="text-blue-600 hover:underline font-mono">📞 {{ ph }}</a>
-                  <span v-if="ct.email" class="text-slate-400">✉ {{ ct.email }}</span>
+                    class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500 text-white rounded text-xs font-mono hover:bg-green-600 transition-colors">📞 {{ ph }}</a>
+                  <span v-if="ct.email" class="text-slate-400 px-1">✉ {{ ct.email }}</span>
                 </div>
               </div>
             </div>
@@ -195,7 +195,10 @@
               <div class="grid grid-cols-2 gap-x-6 gap-y-2">
                 <div v-if="activity.call_phone">
                   <p class="text-xs text-slate-400 font-medium">เบอร์โทร</p>
-                  <a :href="`tel:${activity.call_phone}`" class="text-sm text-blue-600 font-medium hover:underline">{{ activity.call_phone }}</a>
+                  <a :href="`tel:${activity.call_phone}`"
+                    class="inline-flex items-center gap-1.5 mt-0.5 px-2.5 py-1 bg-green-500 text-white text-sm font-medium rounded-md hover:bg-green-600 transition-colors">
+                    📞 {{ activity.call_phone }}
+                  </a>
                 </div>
                 <div v-if="activity.call_direction">
                   <p class="text-xs text-slate-400 font-medium">ทิศทาง</p>

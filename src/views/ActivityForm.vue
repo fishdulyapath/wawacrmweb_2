@@ -1090,7 +1090,21 @@ async function save() {
   errorMsg.value = ''
   try {
     const base = { ...form }
-    // clean up empty values
+    // แปลง datetime-local (YYYY-MM-DDTHH:mm ไม่มี TZ) → ISO ที่มี +07:00
+    // เพื่อให้ backend/DB รู้ว่าเป็นเวลา Bangkok ไม่ใช่ UTC
+    const toBkkIso = v => {
+      if (!v) return null
+      if (typeof v !== 'string') return v
+      // ถ้ามี TZ อยู่แล้ว (Z หรือ ±HH:mm) ปล่อยตามเดิม
+      if (/[Zz]|[+-]\d{2}:?\d{2}$/.test(v)) return v
+      // datetime-local: "2026-04-28T21:00" → ใส่ :00 + offset
+      if (v.length === 16) return v + ':00+07:00'
+      if (v.length === 19) return v + '+07:00'
+      return v
+    }
+    // clean up empty values + apply TZ
+    base.start_datetime = toBkkIso(base.start_datetime)
+    base.end_datetime   = toBkkIso(base.end_datetime)
     if (!base.due_date)       base.due_date       = null
     if (!base.start_datetime) base.start_datetime = null
     if (!base.end_datetime)   base.end_datetime   = null

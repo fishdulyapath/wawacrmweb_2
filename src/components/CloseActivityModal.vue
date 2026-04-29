@@ -33,16 +33,27 @@
                 <div v-if="phones.length" class="space-y-1.5 mb-2">
                   <div v-for="ct in phones" :key="ct.name" class="flex flex-wrap items-center gap-1.5">
                     <span class="text-xs text-slate-500 w-full">{{ ct.name }}</span>
-                    <button v-for="ph in ct.phones" :key="ph"
-                      @click="form.call_phone = ph"
+                    <span v-for="ph in ct.phones" :key="ph"
                       :class="form.call_phone === ph
-                        ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'"
-                      class="px-3 py-1.5 border rounded-lg text-sm font-mono transition-colors">
-                      📞 {{ ph }}
-                    </button>
+                        ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'"
+                      class="inline-flex items-stretch border rounded-lg overflow-hidden text-sm font-mono">
+                      <button @click="form.call_phone = ph"
+                        :class="form.call_phone === ph ? 'text-blue-700' : 'text-slate-600'"
+                        class="px-3 py-1.5 transition-colors" type="button">
+                        {{ ph }}
+                      </button>
+                      <a :href="`tel:${ph}`" @click="form.call_phone = ph"
+                        class="px-2.5 py-1.5 bg-green-500 text-white hover:bg-green-600 transition-colors flex items-center"
+                        title="กดเพื่อโทร">📞</a>
+                    </span>
                   </div>
                 </div>
-                <input v-model="form.call_phone" class="modal-input" placeholder="0812345678" type="tel" />
+                <div class="flex items-stretch gap-2">
+                  <input v-model="form.call_phone" class="modal-input flex-1" placeholder="0812345678" type="tel" />
+                  <a v-if="form.call_phone" :href="`tel:${form.call_phone}`"
+                    class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center text-sm font-semibold whitespace-nowrap"
+                    title="กดเพื่อโทร">📞 โทร</a>
+                </div>
               </div>
 
               <div>

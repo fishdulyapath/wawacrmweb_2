@@ -307,7 +307,7 @@
                 <tbody>
                   <tr v-for="t in trips" :key="t.car_release_id" @click="openTrip(t.car_release_id)" class="trip-row">
                     <td class="trip-code">{{ t.car_release_code || t.car_release_id.slice(0,8) }}</td>
-                    <td>{{ t.trip_date ? t.trip_date.slice(0,10) : '–' }}</td>
+                    <td>{{ fmtDate(t.trip_date) }}</td>
                     <td>{{ t.driver_name || '–' }}</td>
                     <td class="trip-car">{{ t.license_plate || t.car_name || '–' }}</td>
                     <td style="text-align:right">{{ fmt(t.total_amount) }}</td>
@@ -365,7 +365,7 @@
               <div>
                 <div class="modal-code">{{ modal.car_release_code || modal.car_release_id }}</div>
                 <div class="modal-title">{{ modal.driver_name || '–' }} · {{ modal.license_plate || modal.car_name || '–' }}</div>
-                <div class="modal-sub">{{ modal.trip_date ? modal.trip_date.slice(0,10) : '–' }}</div>
+                <div class="modal-sub">{{ fmtDate(modal.trip_date) }}</div>
               </div>
               <button class="modal-close" @click="closeModal">✕</button>
             </div>
@@ -468,7 +468,7 @@
                 </thead>
                 <tbody>
                   <tr v-for="p in problemModalRows" :key="p.problem_id">
-                    <td class="stop-time" style="white-space:nowrap">{{ p.created_at ? p.created_at.slice(0,10) : '–' }}</td>
+                    <td class="stop-time" style="white-space:nowrap">{{ fmtDate(p.created_at) }}</td>
                     <td>
                       <div class="stop-name">{{ p.store_name || '–' }}</div>
                       <div class="stop-zone" v-if="p.car_release_code">{{ p.car_release_code }}</div>
@@ -538,12 +538,19 @@ const filterLabel = computed(() => {
   const p = presets.find(p => p.key === activePreset.value)
   return p ? p.label + ' LOOKBACK' : 'CUSTOM RANGE'
 })
-const todayStr = computed(() => new Date().toISOString().split('T')[0].replace(/-/g, '.'))
+// คืนค่า YYYY-MM-DD ตามเวลา Bangkok (GMT+7) ไม่ขึ้นกับ TZ ของ browser
+function bkkDateStr(d = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d)
+}
+const todayStr = computed(() => bkkDateStr().replace(/-/g, '.'))
 
 function applyPreset(key) {
   activePreset.value = key
   const now  = new Date()
-  const to   = now.toISOString().split('T')[0]
+  const to   = bkkDateStr(now)
   const from = new Date(now)
   if (key === '7d')  from.setDate(from.getDate() - 7)
   if (key === '30d') from.setDate(from.getDate() - 30)
@@ -551,7 +558,7 @@ function applyPreset(key) {
   if (key === '6m')  from.setMonth(from.getMonth() - 6)
   if (key === '1y')  from.setFullYear(from.getFullYear() - 1)
   if (key === 'all') { filter.value = { from: '', to: '' }; loadAll(); return }
-  filter.value = { from: from.toISOString().split('T')[0], to }
+  filter.value = { from: bkkDateStr(from), to }
   loadAll()
 }
 function onFilterChange() { activePreset.value = ''; loadAll() }
@@ -693,8 +700,12 @@ async function loadAll() {
       }, 0)
       if (latest) {
         const d = new Date(latest)
-        const pad = n => String(n).padStart(2, '0')
-        lastSyncedAt.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+        const parts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Bangkok',
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', hour12: false,
+        }).formatToParts(d).reduce((a, p) => (a[p.type] = p.value, a), {})
+        lastSyncedAt.value = `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`
       }
     }).catch(() => {})
 
@@ -835,6 +846,10 @@ function fmtTime(v) {
   if (!v) return '–'
   const d = new Date(v)
   return d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' })
+}
+function fmtDate(v) {
+  if (!v) return '–'
+  return bkkDateStr(new Date(v))
 }
 function fmtK(v) {
   const n = parseFloat(v || 0)
