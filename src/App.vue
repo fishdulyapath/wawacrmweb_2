@@ -118,6 +118,12 @@
               </svg>
               Dashboard ขนส่ง
             </RouterLink>
+            <RouterLink v-if="canViewDashboards" to="/fleet-delivery-summary" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+              <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V8m5 8V5m5 11v-6M5 19h14a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1v12a1 1 0 001 1z"/>
+              </svg>
+              Summary ขนส่ง
+            </RouterLink>
             <RouterLink v-if="canManageFollowupPolicy" to="/settings/followup-policy" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3M5 11h14M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2zm4-6h4"/>
