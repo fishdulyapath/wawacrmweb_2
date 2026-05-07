@@ -808,7 +808,7 @@ function onGroupCustInput() {
   if (!q) { groupCustResults.value = []; return }
   groupCustTimer = setTimeout(async () => {
     try {
-      const { data } = await api.get('/customers', { params: { search: q, limit: 10 } })
+      const { data } = await api.get('/customers', { params: { search: q, limit: 10, crm_only: true } })
       const all = data.data || data.customers || []
       const existingCodes = new Set([
         ...groupMembers.value.map(m => m.ar_code),
@@ -829,7 +829,7 @@ function addToGroup(c) {
 }
 
 // ── Multi-customer ─────────────────────────────────────────────
-const selectedCustomers = ref([])   // [{ code, name_1, owner_id?, owner_name? }]
+const selectedCustomers = ref([])   // [{ code, name_1, owner_id?, owner_name?, owners? }]
 const custSearch        = ref('')
 const custResults       = ref([])
 const custOpen          = ref(false)
@@ -845,12 +845,13 @@ const ownerAutoNote = computed(() => {
   const fallbackName = me ? `${me.name}` : 'ผู้สร้าง'
   if (selectedCustomers.value.length === 1) {
     const c = selectedCustomers.value[0]
-    return c.owner_name
-      ? `จะใช้ผู้ดูแล: ${c.owner_name}`
+    const names = customerOwnerNames(c)
+    return names
+      ? `จะใช้ผู้ดูแล: ${names}`
       : `ไม่มีผู้ดูแลลูกค้า — จะใช้ผู้สร้าง: ${fallbackName}`
   }
   const total = selectedCustomers.value.length
-  const withOwner = selectedCustomers.value.filter(c => c.owner_name).length
+  const withOwner = selectedCustomers.value.filter(c => customerOwnerIds(c).length).length
   const noOwner   = total - withOwner
   if (withOwner === total) return `จะใช้ผู้ดูแลลูกค้าของแต่ละราย (${total} ราย)`
   if (withOwner === 0)     return `ไม่มีผู้ดูแลลูกค้า — จะใช้ผู้สร้าง: ${fallbackName} (${total} ราย)`
@@ -859,13 +860,41 @@ const ownerAutoNote = computed(() => {
 
 function isSelected(code) { return selectedCustomers.value.some(c => c.code === code) }
 
+function crmOwnersFromCustomerPayload(crm) {
+  const owners = Array.isArray(crm?.owners) ? crm.owners : []
+  return owners
+    .map(o => ({
+      user_id: Number(o.user_id),
+      name: o.name,
+      code: o.code,
+      is_primary: !!o.is_primary,
+    }))
+    .filter(o => o.user_id)
+}
+
+function customerOwnerIds(c) {
+  const ids = (c.owners || []).map(o => Number(o.user_id)).filter(Boolean)
+  if (ids.length) return [...new Set(ids)]
+  return c.owner_id ? [Number(c.owner_id)] : []
+}
+
+function customerPrimaryOwnerId(c) {
+  const primary = (c.owners || []).find(o => o.is_primary) || (c.owners || [])[0]
+  return primary?.user_id || c.owner_id || null
+}
+
+function customerOwnerNames(c) {
+  const names = (c.owners || []).map(o => o.name || o.code).filter(Boolean)
+  return names.length ? names.join(', ') : c.owner_name
+}
+
 function onCustInput() {
   clearTimeout(custTimer)
   const q = custSearch.value.trim()
   if (!q) { custResults.value = []; return }
   custTimer = setTimeout(async () => {
     try {
-      const { data } = await api.get('/customers', { params: { search: q, limit: 10 } })
+      const { data } = await api.get('/customers', { params: { search: q, limit: 10, crm_only: true } })
       custResults.value = data.data || data.customers || []
     } catch { custResults.value = [] }
   }, 300)
@@ -880,10 +909,18 @@ async function selectCust(c) {
     name_1: c.name_1,
     owner_id:   c.crm?.owner_user_id || null,
     owner_name: c.crm?.owner_name    || null,
+    owners:     crmOwnersFromCustomerPayload(c.crm),
   }
   try {
     const { data } = await api.get(`/customers/${c.code}`)
     // override ด้วยข้อมูลล่าสุดจาก detail (อาจใหม่กว่า list cache)
+    const owners = crmOwnersFromCustomerPayload(data.crm)
+    if (owners.length) {
+      entry.owners = owners
+      const primary = owners.find(o => o.is_primary) || owners[0]
+      entry.owner_id = primary.user_id
+      entry.owner_name = primary.name
+    }
     if (data.crm?.owner_user_id) {
       entry.owner_id   = data.crm.owner_user_id
       entry.owner_name = data.crm.owner_name
@@ -959,19 +996,10 @@ const form = reactive({
 let isLoadingActivity = false
 watch(() => form.activity_type, () => {
   if (isLoadingActivity) return
-  form.invitees    = [...coOwners.value]  // sync meeting checkboxes กับ coOwners ที่มีอยู่
+  if (form.activity_type !== 'meeting') form.invitees = []
   form.all_day     = false
   form.meeting_url = ''
 })
-
-// เมื่อ meeting invitees เปลี่ยน ให้ sync กลับไปที่ coOwners ด้วย
-watch(() => form.invitees, (ids) => {
-  if (form.activity_type !== 'meeting') return
-  // รวม invitees ใหม่เข้า coOwners (ไม่รวม primary owner)
-  const merged = new Set([...coOwners.value, ...ids])
-  merged.delete(form.owner_id)
-  coOwners.value = [...merged]
-}, { deep: true })
 
 async function loadUsers() {
   try {
@@ -1001,7 +1029,7 @@ async function loadActivity() {
       const nonPrimary   = activeOwners.filter(o => o.user_id !== primary?.user_id)
       form.owner_id  = primary?.user_id || data.owner_id || null
       coOwners.value = nonPrimary.map(o => o.user_id)
-      form.invitees  = nonPrimary.map(o => o.user_id)
+      form.invitees  = Array.isArray(data.invitees) ? data.invitees.map(u => u.id ?? u) : []
     } else if (data.owner_id) {
       // fallback: activity เก่าที่ไม่มี owners array
       form.owner_id  = data.owner_id
@@ -1022,12 +1050,17 @@ async function loadActivity() {
 
     // โหลด customer เดิม (edit mode = 1 ลูกค้า)
     if (data.ar_code) {
-      const entry = { code: data.ar_code, name_1: data.ar_code, owner_id: null, owner_name: null }
+      const entry = { code: data.ar_code, name_1: data.ar_code, owner_id: null, owner_name: null, owners: [] }
       try {
-        const { data: cd } = await api.get('/customers', { params: { search: data.ar_code, limit: 5 } })
-        const list = cd.data || cd.customers || []
-        const match = list.find(c => c.code === data.ar_code)
-        if (match) entry.name_1 = match.name_1
+        const { data: cd } = await api.get(`/customers/${data.ar_code}`)
+        const customer = cd.customer || {}
+        entry.name_1 = customer.name_1 || data.ar_code
+        entry.owners = crmOwnersFromCustomerPayload(cd.crm)
+        const primary = entry.owners.find(o => o.is_primary) || entry.owners[0]
+        if (primary) {
+          entry.owner_id = primary.user_id
+          entry.owner_name = primary.name
+        }
       } catch {}
       selectedCustomers.value = [entry]
     }
@@ -1119,7 +1152,7 @@ async function save() {
     if (base.owner_id) ownerIds.add(Number(base.owner_id))
     coOwners.value.forEach(id => ownerIds.add(Number(id)))
     const ownerList = ownerIds.size > 0 ? [...ownerIds] : []
-    const { invitees: _inv, owner_id: _oid, ...rest } = base
+    const { owner_id: _oid, ...rest } = base
 
     if (isEdit.value) {
       const ar_code = selectedCustomers.value[0]?.code || null
@@ -1150,8 +1183,9 @@ async function save() {
       // สร้าง 1 activity
       const cust = selectedCustomers.value[0]
       const ar_code = cust?.code || null
-      const fallbackOwnerId = base.owner_id || cust?.owner_id || null
-      const createOwners = ownerList.length > 0 ? ownerList : (fallbackOwnerId ? [fallbackOwnerId] : [])
+      const custOwnerIds = cust ? customerOwnerIds(cust) : []
+      const fallbackOwnerId = base.owner_id || customerPrimaryOwnerId(cust || {}) || null
+      const createOwners = ownerList.length > 0 ? ownerList : custOwnerIds
       const { data: created } = await api.post('/activities', {
         ...rest, ar_code,
         owners: createOwners,
@@ -1164,8 +1198,9 @@ async function save() {
       const fallbackOwnerId = base.owner_id || null
       const createOwners = ownerList.length > 0 ? ownerList : (fallbackOwnerId ? [fallbackOwnerId] : [])
       const results = await Promise.all(selectedCustomers.value.map(cust => {
-        const custFallback = cust.owner_id || null
-        const finalOwners = createOwners.length > 0 ? createOwners : (custFallback ? [custFallback] : [])
+        const custFallback = customerPrimaryOwnerId(cust)
+        const custOwnerIds = customerOwnerIds(cust)
+        const finalOwners = createOwners.length > 0 ? createOwners : custOwnerIds
         return api.post('/activities', {
           ...rest, ar_code: cust.code, group_id: groupId,
           owners: finalOwners,
@@ -1194,7 +1229,7 @@ onMounted(async () => {
       await selectCust({ code: c.code || route.query.ar_code, name_1: c.name_1 || route.query.ar_code, crm: data.crm })
     } catch {
       // ถ้าโหลดไม่ได้ ใส่ code เปล่าไว้ก่อน
-      selectedCustomers.value = [{ code: route.query.ar_code, name_1: route.query.ar_code, owner_id: null, owner_name: null }]
+      selectedCustomers.value = [{ code: route.query.ar_code, name_1: route.query.ar_code, owner_id: null, owner_name: null, owners: [] }]
     }
   }
 })

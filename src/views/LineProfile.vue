@@ -107,6 +107,19 @@
               {{ t }}
             </button>
           </div>
+
+          <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block">
+              <span class="block text-xs font-medium text-slate-500 mb-1">แจ้งงานเลยกำหนด</span>
+              <input v-model="settings.overdue_notify_time" type="time"
+                class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400" />
+            </label>
+            <label class="block">
+              <span class="block text-xs font-medium text-slate-500 mb-1">แจ้งงานครบกำหนดพรุ่งนี้</span>
+              <input v-model="settings.due_tomorrow_notify_time" type="time"
+                class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400" />
+            </label>
+          </div>
         </div>
 
         <!-- ═══ Time Picker Modal ═══ -->
@@ -224,8 +237,15 @@ const lineStatus = reactive({
   linked_at: null,
   notify_enabled: false,
   notify_time: '08:00',
+  overdue_notify_time: '08:00',
+  due_tomorrow_notify_time: '17:00',
 })
-const settings = reactive({ notify_enabled: false, notify_time: '08:00' })
+const settings = reactive({
+  notify_enabled: false,
+  notify_time: '08:00',
+  overdue_notify_time: '08:00',
+  due_tomorrow_notify_time: '17:00',
+})
 const otp = ref('')
 const otpCountdown = ref(600)
 const botId = import.meta.env.VITE_LINE_BOT_ID || ''
@@ -245,6 +265,10 @@ function parseNotifyTime(time) {
   const [h, m] = (time || '08:00').split(':')
   notifyHour.value = (h || '08').padStart(2, '0')
   notifyMinute.value = (m || '00').padStart(2, '0')
+}
+
+function toHHMM(time, fallback = '08:00') {
+  return (time || fallback).slice(0, 5)
 }
 
 // ── Fancy Time Picker Modal ─────────────────────────────────
@@ -312,10 +336,14 @@ async function loadStatus() {
       picture_url: data.line_picture_url,
       linked_at: data.line_linked_at,
       notify_enabled: data.notify_enabled,
-      notify_time: data.notify_time || '08:00',
+      notify_time: toHHMM(data.notify_time, '08:00'),
+      overdue_notify_time: toHHMM(data.overdue_notify_time, '08:00'),
+      due_tomorrow_notify_time: toHHMM(data.due_tomorrow_notify_time, '17:00'),
     })
     settings.notify_enabled = lineStatus.notify_enabled
     settings.notify_time = lineStatus.notify_time
+    settings.overdue_notify_time = lineStatus.overdue_notify_time
+    settings.due_tomorrow_notify_time = lineStatus.due_tomorrow_notify_time
     parseNotifyTime(lineStatus.notify_time)
   } catch (err) {
     console.error(err)
@@ -366,10 +394,14 @@ function startPolling() {
           picture_url: data.line_picture_url,
           linked_at: data.line_linked_at,
           notify_enabled: data.notify_enabled,
-          notify_time: data.notify_time || '08:00',
+          notify_time: toHHMM(data.notify_time, '08:00'),
+          overdue_notify_time: toHHMM(data.overdue_notify_time, '08:00'),
+          due_tomorrow_notify_time: toHHMM(data.due_tomorrow_notify_time, '17:00'),
         })
         settings.notify_enabled = data.notify_enabled
-        settings.notify_time = data.notify_time || '08:00'
+        settings.notify_time = toHHMM(data.notify_time, '08:00')
+        settings.overdue_notify_time = toHHMM(data.overdue_notify_time, '08:00')
+        settings.due_tomorrow_notify_time = toHHMM(data.due_tomorrow_notify_time, '17:00')
         parseNotifyTime(settings.notify_time)
       }
     } catch {}
@@ -395,6 +427,8 @@ async function saveSettings() {
     await api.put('/line/settings', {
       notify_enabled: settings.notify_enabled,
       notify_time: settings.notify_time,
+      overdue_notify_time: settings.overdue_notify_time,
+      due_tomorrow_notify_time: settings.due_tomorrow_notify_time,
     })
     saveMsg.value = 'บันทึกเรียบร้อย'
     setTimeout(() => saveMsg.value = '', 3000)

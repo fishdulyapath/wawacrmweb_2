@@ -157,7 +157,7 @@ function showToast(msg, error = false) {
 
 const roleOptions = [
   { value: 'sales_rep',  label: 'พนักงาน',    desc: 'ดูและปิดงาน',           dot: 'bg-slate-400' },
-  { value: 'supervisor', label: 'หัวหน้าทีม', desc: 'สร้าง+แก้ไขงาน',        dot: 'bg-blue-400'  },
+  { value: 'supervisor', label: 'หัวหน้าทีม', desc: 'สร้าง+แก้ไข+ดูทุกงาน', dot: 'bg-blue-400'  },
   { value: 'manager',    label: 'ผู้จัดการ',   desc: 'สร้าง+แก้ไข+ดูทุกงาน', dot: 'bg-indigo-500' },
   { value: 'admin',      label: 'ผู้ดูแลระบบ', desc: 'ทุกสิทธิ์+กำหนดสิทธิ์', dot: 'bg-red-500'   },
 ]

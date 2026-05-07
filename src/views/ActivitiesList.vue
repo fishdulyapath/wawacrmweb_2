@@ -14,6 +14,7 @@
       :activity="closeModal.activity"
       @close="closeModal.show = false"
       @done="onActivityDone"
+      @snooze="onCloseRequestedSnooze"
     />
 
     <!-- ── Snooze Modal (shared component) ─── -->
@@ -135,6 +136,11 @@
               </span>
               <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border" :class="priorityBadgeClass(a.priority)">{{ priorityLabel(a.priority) }}</span>
               <span :class="statusClass(a.status)" class="badge">{{ statusLabel(a.status) }}</span>
+              <span v-for="b in automationBadges(a)" :key="b.label"
+                :class="b.class"
+                class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border">
+                {{ b.label }}
+              </span>
             </div>
             <span :class="dueDateClass(a.activity_type !== 'task' ? a.start_datetime : a.due_date, a.status)"
               class="text-xs font-medium">
@@ -174,7 +180,7 @@
           <!-- Row 5: actions -->
           <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center gap-2">
             <template v-if="a.status === 'open'">
-              <button @click="openCloseModal(a)"
+              <button v-if="canCloseActivity(a)" @click="openCloseModal(a)"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 border border-green-200 text-green-700 text-xs font-semibold hover:bg-green-100 transition-colors">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
                 ปิดงาน
@@ -242,6 +248,13 @@
                   <div class="min-w-0">
                     <p class="font-medium text-slate-800 truncate">{{ a.subject }}</p>
                     <p v-if="a.description" class="text-xs text-slate-400 truncate">{{ a.description }}</p>
+                    <div v-if="automationBadges(a).length" class="flex flex-wrap gap-1 mt-1">
+                      <span v-for="b in automationBadges(a)" :key="b.label"
+                        :class="b.class"
+                        class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border">
+                        {{ b.label }}
+                      </span>
+                    </div>
                     <div v-if="a.activity_type === 'call' && (a.call_direction || a.call_result)" class="flex gap-2 mt-0.5">
                       <span v-if="a.call_direction" class="text-xs text-slate-400">
                         {{ a.call_direction === 'outbound' ? '↗ โทรออก' : '↙ รับสาย' }}
@@ -272,6 +285,9 @@
                     </span>
                     <span v-if="a.owners.length > 3" class="text-xs text-slate-400 self-center">+{{ a.owners.length - 3 }}</span>
                   </template>
+                  <span v-else-if="a.requires_owner_assignment" class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-amber-50 text-amber-700 border border-amber-200">
+                    รอระบุผู้รับผิดชอบ
+                  </span>
                   <span v-else class="text-slate-400 text-sm">{{ a.owner_name || '—' }}</span>
                 </div>
               </td>
@@ -294,7 +310,7 @@
               <td class="px-4 py-3">
                 <div class="flex items-center gap-1.5 justify-end">
                   <template v-if="a.status === 'open'">
-                    <button @click="openCloseModal(a)"
+                    <button v-if="canCloseActivity(a)" @click="openCloseModal(a)"
                       class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-50 border border-green-200 text-green-700 text-xs font-semibold hover:bg-green-100 transition-colors">
                       <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
                       ปิด
@@ -343,7 +359,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '../composables/useApi.js'
 import CloseActivityModal from '../components/CloseActivityModal.vue'
 import SnoozeActivityModal from '../components/SnoozeActivityModal.vue'
@@ -352,6 +369,7 @@ import { useAuthStore } from '../stores/auth.js'
 
 const { canCreate, canEdit } = usePermissions()
 const auth = useAuthStore()
+const route = useRoute()
 const currentUserId = computed(() => auth.user?.id)
 
 const loading    = ref(false)
@@ -363,6 +381,7 @@ const pagination = reactive({ total: 0, page: 1, limit: 20, pages: 1 })
 const quickFilter = ref('')
 const typeFilter  = ref([])
 const searchInput = ref('')
+const reportFilter = reactive({ owner_id: '', date_from: '', date_to: '', call_result: '', status: '' })
 let searchTimer   = null
 
 // ── Close-task modal (lightweight — logic lives in CloseActivityModal) ──
@@ -377,9 +396,22 @@ function onActivityDone(act) {
   closeModal.show = false
   // update local state immediately
   const local = activities.value.find(a => a.id === act.id)
-  if (local) local.status = 'done'
+  const nextStatus = act.activity_status || act.status || 'done'
+  if (local) local.status = nextStatus
+  if (act.retry?.created) {
+    toast.value = `สร้างงานโทรซ้ำ #${act.retry.activity_id} แล้ว`
+    setTimeout(() => { toast.value = '' }, 2500)
+  } else if (act.retry?.skipped) {
+    toast.value = retrySkippedMessage(act.retry)
+    setTimeout(() => { toast.value = '' }, 3000)
+  }
   // reload after brief delay
   setTimeout(() => Promise.all([loadActivities(), loadStats()]), 1200)
+}
+
+function onCloseRequestedSnooze(activity) {
+  closeModal.show = false
+  openSnoozeModal(activity || closeModal.activity)
 }
 
 // ── Snooze modal (lightweight — logic lives in SnoozeActivityModal) ──
@@ -390,6 +422,10 @@ function openSnoozeModal(activity) {
   snoozeModal.show = true
 }
 
+function canCloseActivity(activity) {
+  return !activity?.requires_owner_assignment
+}
+
 function onSnoozed(data) {
   snoozeModal.show = false
   const act = snoozeModal.activity
@@ -397,16 +433,18 @@ function onSnoozed(data) {
     act.due_date       = data.due_date
     act.start_datetime = data.start_datetime
   }
-  loadStats()
+  Promise.all([loadActivities(pagination.page), loadStats()])
 }
 
 // ── Filters ──────────────────────────────────────────────────
 const quickFilters = [
-  { key: '',        label: 'ทั้งหมด' },
-  { key: 'overdue', label: '⚠️ เลยกำหนด' },
-  { key: 'today',   label: '📅 วันนี้' },
-  { key: 'week',    label: '📆 สัปดาห์นี้' },
-  { key: 'done',    label: '✅ เสร็จแล้ว' },
+  { key: '',        label: 'เปิดอยู่' },
+  { key: 'all',     label: 'ทั้งหมด' },
+  { key: 'unassigned', label: 'รอระบุคน' },
+  { key: 'overdue', label: 'เลยกำหนด' },
+  { key: 'today',   label: 'วันนี้' },
+  { key: 'week',    label: 'สัปดาห์นี้' },
+  { key: 'done',    label: 'เสร็จแล้ว' },
 ]
 
 const typeOptions = [
@@ -417,16 +455,17 @@ const typeOptions = [
 
 const hasFilter = computed(() =>
   quickFilter.value !== '' || typeFilter.value.length > 0 || searchInput.value !== ''
+  || Object.values(reportFilter).some(Boolean)
 )
 
 function setQuickFilter(key) { quickFilter.value = key; loadActivities(1) }
 function toggleType(val) {
-  const idx = typeFilter.value.indexOf(val)
-  if (idx === -1) typeFilter.value.push(val); else typeFilter.value.splice(idx, 1)
+  typeFilter.value = typeFilter.value.includes(val) ? [] : [val]
   loadActivities(1)
 }
 function clearFilter() {
   quickFilter.value = ''; typeFilter.value = []; searchInput.value = ''
+  Object.assign(reportFilter, { owner_id: '', date_from: '', date_to: '', call_result: '', status: '' })
   loadActivities(1)
 }
 function onSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadActivities(1), 300) }
@@ -440,11 +479,20 @@ async function loadActivities(page = 1) {
   loading.value = true
   try {
     const params = { page, limit: pagination.limit }
-    if (quickFilter.value === 'done') params.status = 'done'
+    const hasReportFilter = Object.values(reportFilter).some(Boolean)
+    if (reportFilter.status) params.status = reportFilter.status
+    else if (quickFilter.value === 'done') params.status = 'done'
+    else if (quickFilter.value === 'unassigned') params.unassigned = 'true'
     else if (['overdue', 'today', 'week'].includes(quickFilter.value)) { params.due = quickFilter.value }
     else if (quickFilter.value === 'meeting') { params.type = 'meeting'; params.due = 'today' }
+    else if (quickFilter.value === 'all') {}
+    else if (hasReportFilter) {}
     else { params.status = 'open' }
     if (typeFilter.value.length === 1) params.type = typeFilter.value[0]
+    if (reportFilter.owner_id) params.owner_id = reportFilter.owner_id
+    if (reportFilter.date_from) params.date_from = reportFilter.date_from
+    if (reportFilter.date_to) params.date_to = reportFilter.date_to
+    if (reportFilter.call_result) params.call_result = reportFilter.call_result
     if (searchInput.value.trim()) params.search = searchInput.value.trim()
 
     const { data } = await api.get('/activities', { params })
@@ -538,8 +586,87 @@ function callResultLabel(r) {
   return r === 'answered' ? 'รับสาย' : r === 'no_answer' ? 'ไม่รับ' : r === 'busy' ? 'สายไม่ว่าง' : r === 'left_voicemail' ? 'ฝากข้อความ' : r
 }
 function callResultClass(r) { return r === 'answered' ? 'text-green-500' : 'text-red-400' }
+function automationBadges(a) {
+  const badges = []
+  if (a.followup_type === 'no_answer_retry') {
+    badges.push({
+      label: `โทรซ้ำ${a.attempt_no ? ' #' + a.attempt_no : ''}`,
+      class: 'bg-amber-50 text-amber-700 border-amber-200',
+    })
+  }
+  if (a.system_created) {
+    badges.push({ label: 'สร้างโดยระบบ', class: 'bg-indigo-50 text-indigo-700 border-indigo-200' })
+  }
+  if (a.requires_owner_assignment) {
+    badges.push({ label: 'รอระบุผู้รับผิดชอบ', class: 'bg-amber-50 text-amber-700 border-amber-200' })
+  }
+  return badges
+}
+
+function retrySkippedMessage(retry) {
+  const reason = retry?.reason
+  if (reason === 'skip_today') return 'บันทึกแล้ว: ข้ามการโทรซ้ำวันนี้'
+  if (reason === 'max_attempts') return `บันทึกแล้ว: โทรครบ ${retry.max_attempts || ''} ครั้งวันนี้`
+  if (reason === 'already_exists') return 'บันทึกแล้ว: มีงานโทรซ้ำเปิดอยู่แล้ว'
+  if (reason === 'customer_disabled') return 'บันทึกแล้ว: ลูกค้ารายนี้ปิด follow-up อยู่'
+  if (reason === 'customer_paused') return 'บันทึกแล้ว: ลูกค้ารายนี้พัก follow-up อยู่'
+  return 'บันทึกแล้ว: ไม่ได้สร้างงานโทรซ้ำ'
+}
+
+function syncQueueFilter(queue) {
+  const next = queue === 'unassigned' ? 'unassigned' : ''
+  if (quickFilter.value !== next) {
+    quickFilter.value = next
+    return true
+  }
+  return false
+}
+
+function syncReportFilter(query) {
+  const next = {
+    owner_id: query.owner_id ? String(query.owner_id) : '',
+    date_from: query.date_from ? String(query.date_from) : '',
+    date_to: query.date_to ? String(query.date_to) : '',
+    call_result: query.call_result ? String(query.call_result) : '',
+    status: query.status ? String(query.status) : '',
+  }
+  const nextType = ['task', 'call', 'meeting'].includes(query.type) ? [String(query.type)] : []
+  const nextQuick = query.queue === 'unassigned'
+    ? 'unassigned'
+    : query.status === 'done'
+      ? 'done'
+      : query.status === 'open'
+        ? ''
+        : query.report
+          ? 'all'
+          : quickFilter.value
+  const changed = Object.keys(next).some(k => reportFilter[k] !== next[k])
+    || JSON.stringify(typeFilter.value) !== JSON.stringify(nextType)
+    || quickFilter.value !== nextQuick
+  Object.assign(reportFilter, next)
+  typeFilter.value = nextType
+  quickFilter.value = nextQuick
+  return changed
+}
+
+function clearReportFilterState() {
+  const changed = Object.values(reportFilter).some(Boolean)
+  Object.assign(reportFilter, { owner_id: '', date_from: '', date_to: '', call_result: '', status: '' })
+  return changed
+}
+
+watch(() => route.query, (query) => {
+  if (query.report) {
+    if (syncReportFilter(query)) loadActivities(1)
+    return
+  }
+  const reportChanged = clearReportFilterState()
+  if (syncQueueFilter(query.queue) || reportChanged) loadActivities(1)
+})
 
 onMounted(() => {
+  if (route.query.report) syncReportFilter(route.query)
+  else syncQueueFilter(route.query.queue)
   loadStats()
   loadActivities()
 })

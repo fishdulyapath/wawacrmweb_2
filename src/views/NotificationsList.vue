@@ -153,6 +153,7 @@ async function readAll() {
 function isClickable(n) {
   return (n.ref_type === 'activity' && n.ref_id)
       || (n.ref_type === 'customer' && n.ar_code)
+      || (n.noti_type === 'no_contact')
       || (n.ref_type === 'webboard' && n.ref_id)
 }
 
@@ -162,6 +163,8 @@ async function handleClick(n) {
     router.push(`/activities/${n.ref_id}`)
   } else if (n.ref_type === 'customer' && n.ar_code) {
     router.push(`/customers/${n.ar_code}/edit`)
+  } else if (n.noti_type === 'no_contact') {
+    router.push('/customers')
   } else if (n.ref_type === 'webboard' && n.ref_id) {
     router.push(`/webboard/${n.ref_id}`)
   }
@@ -176,6 +179,8 @@ function iconEmoji(notiType) {
     no_contact:       '💬',
     activity_update:  '✏️',
     webboard_comment: '💬',
+    updated:          '✏️',
+    info:             'ℹ️',
   }
   return map[notiType] || '🔔'
 }
@@ -189,6 +194,8 @@ function iconBg(notiType) {
     no_contact:       'bg-yellow-100',
     activity_update:  'bg-green-100',
     webboard_comment: 'bg-teal-100',
+    updated:          'bg-green-100',
+    info:             'bg-slate-100',
   }
   return map[notiType] || 'bg-slate-100'
 }
@@ -202,6 +209,8 @@ function notiTypeLabel(notiType) {
     no_contact:       'ไม่ได้ติดต่อ',
     activity_update:  'อัปเดต',
     webboard_comment: 'เว็บบอร์ด',
+    updated:          'อัปเดต',
+    info:             'ข้อมูล',
   }
   return map[notiType] || 'แจ้งเตือน'
 }
@@ -221,7 +230,9 @@ function timeAgo(dateStr) {
 function onNewNotification() {
   // มี notification ใหม่เข้ามา — reload หน้า 1 โดยไม่แสดง loading spinner
   page.value = 1
-  api.get('/notifications', { params: { page: 1, limit: LIMIT } })
+  const params = { page: 1, limit: LIMIT }
+  if (unreadOnly.value) params.unread_only = 'true'
+  api.get('/notifications', { params })
     .then(({ data }) => {
       notifications.value = data.data
       unreadCount.value = data.unread_count

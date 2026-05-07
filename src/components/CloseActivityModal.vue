@@ -69,6 +69,18 @@
                 </div>
               </div>
 
+              <div v-if="form.call_result === 'no_answer'" class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 space-y-2">
+                <label class="flex items-start gap-2 cursor-pointer">
+                  <input v-model="form.skip_retry_today" type="checkbox" class="mt-0.5" />
+                  <span>
+                    <span class="block text-sm font-semibold text-amber-800">ไม่ต้องโทรซ้ำวันนี้</span>
+                    <span class="block text-xs text-amber-700 mt-0.5">
+                      ถ้าไม่เลือก ระบบจะสร้างงานโทรซ้ำอัตโนมัติตาม Follow-up Policy และแจ้งเตือนเมื่อถึงเวลา
+                    </span>
+                  </span>
+                </label>
+              </div>
+
               <div v-if="form.call_result === 'answered' || form.duration_sec > 0">
                 <label class="modal-label">
                   ⏱ ระยะเวลา
@@ -203,13 +215,14 @@
               class="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
               ยกเลิก
             </button>
-            <button @click="confirmClose" :disabled="saving"
-              class="flex-1 py-2.5 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+            <button @click="confirmClose" :disabled="confirmDisabled"
+              :class="confirmButtonClass"
+              class="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
               <svg v-if="saving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
               </svg>
-              ✓ ยืนยันปิดงาน
+              {{ confirmLabel }}
             </button>
           </div>
         </div>
@@ -219,7 +232,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import api from '../composables/useApi.js'
 import ActivityAttachments from './ActivityAttachments.vue'
 
@@ -228,13 +241,14 @@ const props = defineProps({
   activity: { type: Object,  default: null },
 })
 
-const emit = defineEmits(['close', 'done'])
+const emit = defineEmits(['close', 'done', 'snooze'])
 
 // ── Form state ────────────────────────────────────────────────
 const form = reactive({
   outcome: '', call_phone: '', call_result: '', call_direction: 'outbound',
   duration_sec: 0, meeting_result: '',
   cdr_uuid: '', cdr_recording_url: '', cdr_start_stamp: '', cdr_end_stamp: '',
+  skip_retry_today: false,
 })
 
 const phones      = ref([])
@@ -244,6 +258,27 @@ const cdrList     = ref([])
 const cdrLoading  = ref(false)
 const cdrError    = ref('')
 const selectedCdr = ref(null)
+
+const confirmDisabled = computed(() => {
+  if (saving.value) return true
+  if (props.activity?.activity_type === 'call') return !form.call_result
+  if (props.activity?.activity_type === 'meeting') return !form.meeting_result
+  return false
+})
+
+const confirmLabel = computed(() => {
+  if (props.activity?.activity_type === 'meeting') {
+    if (form.meeting_result === 'postponed') return 'เลือกวันเลื่อน'
+    if (form.meeting_result === 'cancelled') return 'ยืนยันยกเลิก'
+  }
+  return 'ยืนยันปิดงาน'
+})
+
+const confirmButtonClass = computed(() => {
+  if (form.meeting_result === 'cancelled') return 'bg-slate-600 hover:bg-slate-700'
+  if (form.meeting_result === 'postponed') return 'bg-amber-500 hover:bg-amber-600'
+  return 'bg-green-600 hover:bg-green-700'
+})
 
 const callStatuses = [
   { key: 'answered',       label: 'ติดต่อได้',   icon: '✅' },
@@ -292,6 +327,7 @@ function resetForm() {
   form.outcome = ''; form.call_phone = ''; form.call_result = ''
   form.call_direction = 'outbound'; form.duration_sec = 0; form.meeting_result = ''
   form.cdr_uuid = ''; form.cdr_recording_url = ''; form.cdr_start_stamp = ''; form.cdr_end_stamp = ''
+  form.skip_retry_today = false
   phones.value = []; cdrList.value = []; cdrError.value = ''; selectedCdr.value = null
 }
 
@@ -331,9 +367,32 @@ function selectCdr(r) {
 // ── Confirm close ─────────────────────────────────────────────
 async function confirmClose() {
   if (saving.value) return
+  if (props.activity?.activity_type === 'call' && !form.call_result) {
+    alert('กรุณาเลือกผลการโทรก่อนปิดงาน')
+    return
+  }
   saving.value = true
   try {
     const act = props.activity
+    if (act.activity_type === 'meeting' && form.meeting_result === 'postponed') {
+      emit('snooze', act)
+      return
+    }
+
+    if (act.activity_type === 'meeting' && form.meeting_result === 'cancelled') {
+      const label = meetingStatuses.find(s => s.key === form.meeting_result)?.label || ''
+      const outcome = (form.outcome ? `${form.outcome}\n` : '') + `ผลการประชุม: ${label}`
+      const { data } = await api.patch(`/activities/${act.id}/status`, { status: 'cancelled', outcome })
+      emit('done', {
+        ...act,
+        ...data,
+        outcome,
+        status: data.activity_status || 'cancelled',
+        my_status: data.status || 'cancelled',
+      })
+      return
+    }
+
     const payload = { outcome: form.outcome || undefined }
 
     if (act.activity_type === 'call') {
@@ -345,14 +404,15 @@ async function confirmClose() {
       if (form.cdr_recording_url) payload.cdr_recording_url = form.cdr_recording_url
       if (form.cdr_start_stamp)   payload.cdr_start_stamp   = form.cdr_start_stamp
       if (form.cdr_end_stamp)     payload.cdr_end_stamp     = form.cdr_end_stamp
+      if (form.call_result === 'no_answer') payload.skip_retry_today = !!form.skip_retry_today
     }
     if (act.activity_type === 'meeting' && form.meeting_result) {
       const label = meetingStatuses.find(s => s.key === form.meeting_result)?.label || ''
       payload.outcome = (form.outcome ? form.outcome + '\n' : '') + `ผลการประชุม: ${label}`
     }
 
-    await api.patch(`/activities/${act.id}/done`, payload)
-    emit('done', act)
+    const { data } = await api.patch(`/activities/${act.id}/done`, payload)
+    emit('done', data || act)
   } catch (err) {
     alert(err.response?.data?.error || err.message || 'เกิดข้อผิดพลาด')
   } finally {

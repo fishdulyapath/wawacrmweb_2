@@ -28,11 +28,12 @@ const router = createRouter({
     { path: '/webboard/:id',         component: () => import('../views/WebboardDetail.vue'), props: true },
 
     // ── Reports ──
-    { path: '/reports',              component: () => import('../views/ReportsDashboard.vue'), meta: { requireManager: true } },
-    { path: '/sales-reports',        component: () => import('../views/SalesReportDashboard.vue'), meta: { requireManager: true } },
-    { path: '/fleet-delivery',       component: () => import('../views/FleetDeliveryDashboard.vue'), meta: { requireManager: true } },
+    { path: '/reports',              component: () => import('../views/ReportsDashboard.vue'), meta: { requireDashboard: true } },
+    { path: '/sales-reports',        component: () => import('../views/SalesReportDashboard.vue'), meta: { requireDashboard: true } },
+    { path: '/fleet-delivery',       component: () => import('../views/FleetDeliveryDashboard.vue'), meta: { requireDashboard: true } },
 
     // ── Settings ──
+    { path: '/settings/followup-policy', component: () => import('../views/FollowupPolicySettings.vue'), meta: { requireAdminManager: true } },
     { path: '/settings/users',       component: () => import('../views/UserPermissions.vue'), meta: { requireAdmin: true } },
 
     // ── LINE Profile ──
@@ -49,6 +50,8 @@ const router = createRouter({
 
 function isSuperAdmin(user) { return user?.code?.toUpperCase() === 'SUPERADMIN' }
 function isManager(user)    { return isSuperAdmin(user) || ['admin', 'manager', 'supervisor'].includes(user?.role) }
+function canViewDashboard(user) { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
+function canManagePolicy(user) { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
 function isAdmin(user)      { return isSuperAdmin(user) || user?.role === 'admin' }
 
 router.beforeEach((to) => {
@@ -57,6 +60,8 @@ router.beforeEach((to) => {
   if (!to.meta.public && !auth.isLoggedIn) return { path: '/login' }
   if (to.path === '/login' && auth.isLoggedIn) return { path: '/notifications' }
   if (to.meta.requireManager && !isManager(auth.user)) return { path: '/activities' }
+  if (to.meta.requireDashboard && !canViewDashboard(auth.user)) return { path: '/activities' }
+  if (to.meta.requireAdminManager && !canManagePolicy(auth.user)) return { path: '/activities' }
   if (to.meta.requireAdmin   && !isAdmin(auth.user))   return { path: '/activities' }
 })
 

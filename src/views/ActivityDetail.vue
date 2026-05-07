@@ -7,6 +7,14 @@
       :activity="activity"
       @close="closeModal.show = false"
       @done="onActivityDone"
+      @snooze="onCloseRequestedSnooze"
+    />
+
+    <SnoozeActivityModal
+      :show="snoozeModal.show"
+      :activity="activity"
+      @close="snoozeModal.show = false"
+      @snoozed="onSnoozed"
     />
 
     <!-- Header -->
@@ -20,10 +28,14 @@
         <h1 class="text-xl font-bold text-slate-800">รายละเอียดกิจกรรม</h1>
       </div>
       <!-- ปุ่มปิดงาน (ถ้ายังไม่เสร็จ) -->
-      <button v-if="activity && (activity.my_status || activity.status) === 'open'" @click="openCloseModal"
+      <button v-if="activity && (activity.my_status || activity.status) === 'open' && canCloseActivity(activity)" @click="openCloseModal"
         class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors">
         ✓ ปิดงาน
       </button>
+      <span v-else-if="activity && (activity.my_status || activity.status) === 'open' && activity.requires_owner_assignment"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-100 text-amber-700 text-sm font-medium">
+        รอระบุผู้รับผิดชอบ
+      </span>
       <span v-else-if="activity && (activity.my_status || activity.status) === 'done'"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-green-100 text-green-700 text-sm font-medium">
         ✓ เสร็จแล้ว
@@ -66,6 +78,23 @@
           :class="priorityClass(activity.priority)">
           {{ priorityLabel(activity.priority) }}
         </span>
+        <span v-if="activity.system_created"
+          class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border bg-indigo-50 text-indigo-700 border-indigo-200">
+          สร้างโดยระบบ
+        </span>
+        <span v-if="activity.followup_type === 'no_answer_retry'"
+          class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-200">
+          โทรซ้ำ{{ activity.attempt_no ? ` #${activity.attempt_no}` : '' }}
+        </span>
+        <span v-if="activity.requires_owner_assignment"
+          class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-200">
+          รอระบุผู้รับผิดชอบ
+        </span>
+      </div>
+
+      <div v-if="activity.requires_owner_assignment"
+        class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        ลูกค้ารายนี้ยังไม่มีทีมผู้ดูแล CRM ตอนระบบสร้างงาน กรุณาระบุผู้รับผิดชอบก่อนติดตามงานต่อ
       </div>
 
       <!-- Main card -->
@@ -140,6 +169,10 @@
               <div v-if="activity.end_datetime" class="mt-1">
                 <p class="text-xs text-slate-400 font-medium">สิ้นสุด</p>
                 <p class="text-sm text-slate-700">{{ fmtDateTime(activity.end_datetime) }}</p>
+              </div>
+              <div v-if="activity.retry_due_at" class="mt-1">
+                <p class="text-xs text-slate-400 font-medium">เวลาแจ้งโทรซ้ำ</p>
+                <p class="text-sm text-amber-700 font-semibold">{{ fmtDateTime(activity.retry_due_at) }}</p>
               </div>
             </template>
           </div>
@@ -284,6 +317,7 @@ import { useRoute } from 'vue-router'
 import api from '../composables/useApi.js'
 import ActivityAttachments from '../components/ActivityAttachments.vue'
 import CloseActivityModal from '../components/CloseActivityModal.vue'
+import SnoozeActivityModal from '../components/SnoozeActivityModal.vue'
 import { usePermissions } from '../composables/usePermissions.js'
 
 const { canEdit } = usePermissions()
@@ -304,14 +338,38 @@ function showToast(type, message) {
 
 // ── Close modal (lightweight — logic in shared component) ────
 const closeModal = reactive({ show: false })
+const snoozeModal = reactive({ show: false })
 
 function openCloseModal() {
   closeModal.show = true
 }
 
-function onActivityDone() {
+function canCloseActivity(act) {
+  return !act?.requires_owner_assignment
+}
+
+function onCloseRequestedSnooze() {
   closeModal.show = false
-  activity.value = { ...activity.value, status: 'done', my_status: 'done' }
+  snoozeModal.show = true
+}
+
+function onSnoozed(data) {
+  snoozeModal.show = false
+  if (data) {
+    activity.value = { ...activity.value, due_date: data.due_date, start_datetime: data.start_datetime, end_datetime: data.end_datetime }
+  }
+  showToast('success', 'เลื่อนงานแล้ว')
+}
+
+function onActivityDone(doneActivity) {
+  closeModal.show = false
+  const nextStatus = doneActivity?.activity_status || doneActivity?.status || 'done'
+  activity.value = { ...activity.value, ...(doneActivity || {}), status: nextStatus, my_status: nextStatus }
+  if (doneActivity?.retry?.created) {
+    showToast('success', `สร้างงานโทรซ้ำ #${doneActivity.retry.activity_id} แล้ว`)
+  } else if (doneActivity?.retry?.skipped) {
+    showToast('success', retrySkippedMessage(doneActivity.retry))
+  }
 }
 
 const activity   = ref(null)
@@ -370,6 +428,16 @@ function fmtDuration(sec) {
 }
 
 // ── Labels ────────────────────────────────────────────────────
+function retrySkippedMessage(retry) {
+  const reason = retry?.reason
+  if (reason === 'skip_today') return 'บันทึกแล้ว: ข้ามการโทรซ้ำวันนี้'
+  if (reason === 'max_attempts') return `บันทึกแล้ว: โทรครบ ${retry.max_attempts || ''} ครั้งวันนี้`
+  if (reason === 'already_exists') return 'บันทึกแล้ว: มีงานโทรซ้ำเปิดอยู่แล้ว'
+  if (reason === 'customer_disabled') return 'บันทึกแล้ว: ลูกค้ารายนี้ปิด follow-up อยู่'
+  if (reason === 'customer_paused') return 'บันทึกแล้ว: ลูกค้ารายนี้พัก follow-up อยู่'
+  return 'บันทึกแล้ว: ไม่ได้สร้างงานโทรซ้ำ'
+}
+
 function typeLabel(t) { return { task: 'งาน', call: 'โทรศัพท์', meeting: 'ประชุม' }[t] || t }
 function typeIcon(t)  { return { task: '✅', call: '📞', meeting: '👥' }[t] || '' }
 function typeClass(t) {

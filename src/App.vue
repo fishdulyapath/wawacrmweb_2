@@ -100,23 +100,29 @@
               </svg>
               ตรวจสอบกิจกรรม
             </RouterLink>
-            <RouterLink to="/reports" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+            <RouterLink v-if="canViewDashboards" to="/reports" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
               </svg>
               รายงานและประวัติ
             </RouterLink>
-            <RouterLink to="/sales-reports" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+            <RouterLink v-if="canViewDashboards" to="/sales-reports" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
               รายงานยอดขาย
             </RouterLink>
-            <RouterLink to="/fleet-delivery" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+            <RouterLink v-if="canViewDashboards" to="/fleet-delivery" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 17h8m-4-4v4M3 10l1.5-6h15L21 10M3 10h18M3 10l1 7h16l1-7"/>
               </svg>
               Dashboard ขนส่ง
+            </RouterLink>
+            <RouterLink v-if="canManageFollowupPolicy" to="/settings/followup-policy" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+              <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3M5 11h14M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2zm4-6h4"/>
+              </svg>
+              ตั้งค่า Follow-up
             </RouterLink>
           </template>
 
@@ -291,7 +297,7 @@ import { usePermissions } from "./composables/usePermissions.js";
 const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
-const { canCreate, isManager, isSuperAdmin } = usePermissions()
+const { canCreate, isManager, isSuperAdmin, canViewDashboards, canManageFollowupPolicy } = usePermissions()
 const isAdmin = computed(() => isSuperAdmin.value || auth.user?.role === 'admin')
 
 const unreadNotif = ref(0);

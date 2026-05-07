@@ -1,6 +1,5 @@
 <template>
   <div class="p-6 max-w-4xl">
-
     <!-- Header -->
     <div class="flex items-center gap-3 mb-6">
       <RouterLink to="/customers"
@@ -307,39 +306,6 @@
         </div>
 
         <!-- ══════════════════════════════
-             AI Summary Card (แสดงใน CRM tab เมื่อ edit mode)
-        ══════════════════════════════ -->
-        <div v-show="activeTab === 'crm' && isEdit" class="card p-4 border border-purple-200 bg-purple-50/40">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-              <span class="text-lg">🤖</span>
-              <h3 class="text-sm font-semibold text-purple-800">AI สรุปประวัติลูกค้า</h3>
-              <span class="text-xs text-purple-500">(Gemini AI)</span>
-            </div>
-            <button type="button" @click="loadAiSummary"
-              :disabled="aiSummaryLoading"
-              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 transition-colors">
-              <svg v-if="aiSummaryLoading" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-              </svg>
-              <svg v-else class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-              </svg>
-              {{ aiSummaryLoading ? 'กำลังวิเคราะห์...' : 'วิเคราะห์' }}
-            </button>
-          </div>
-          <div v-if="aiSummaryText"
-            class="text-sm text-slate-700 whitespace-pre-line bg-white rounded-lg p-3 border border-purple-100 leading-relaxed">
-            {{ aiSummaryText }}
-          </div>
-          <p v-else-if="!aiSummaryLoading" class="text-xs text-purple-400 italic">
-            กดปุ่ม "วิเคราะห์" เพื่อให้ AI สรุปประวัติลูกค้าและแนะนำ action ถัดไป
-          </p>
-          <p v-if="aiSummaryError" class="text-xs text-red-500 mt-2">{{ aiSummaryError }}</p>
-        </div>
-
-        <!-- ══════════════════════════════
              TAB: CRM Info
         ══════════════════════════════ -->
         <div v-show="activeTab === 'crm'" class="card p-6">
@@ -384,14 +350,67 @@
               </select>
             </div>
 
-            <div>
-              <label class="label-text">พนักงาน CRM ผู้ดูแล</label>
-              <select v-model="form.crm.owner_user_id" class="input-field">
-                <option value="">— ไม่ระบุ —</option>
-                <option v-for="u in crmUsers" :key="u.id" :value="u.id">
-                  {{ u.code }} — {{ u.name }}
-                </option>
-              </select>
+            <div class="col-span-2">
+              <label class="label-text">ทีมผู้ดูแลลูกค้า CRM</label>
+              <div class="space-y-2">
+                <div class="relative">
+                  <input v-model="crmOwnerSearch"
+                         @focus="crmOwnerOpen = true"
+                         @blur="crmOwnerBlur"
+                         class="input-field"
+                         placeholder="ค้นหาชื่อหรือรหัสพนักงาน CRM..." />
+                  <div v-if="crmOwnerOpen && filteredCrmOwnerOptions.length"
+                       class="absolute z-20 mt-1 w-full max-h-60 overflow-auto bg-white border border-slate-200 rounded-xl shadow-lg">
+                    <button v-for="u in filteredCrmOwnerOptions" :key="u.id" type="button"
+                            @mousedown.prevent="addCrmOwner(u.id)"
+                            class="w-full text-left px-3 py-2.5 hover:bg-blue-50 flex items-center justify-between gap-3">
+                      <span class="min-w-0">
+                        <span class="block text-sm font-medium text-slate-800 truncate">{{ u.name }}</span>
+                        <span class="block text-xs text-slate-400 truncate">{{ u.code }}</span>
+                      </span>
+                      <span class="text-xs text-blue-600 flex-shrink-0">เพิ่ม</span>
+                    </button>
+                  </div>
+                  <div v-else-if="crmOwnerOpen && crmOwnerSearch && !filteredCrmOwnerOptions.length"
+                       class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg px-3 py-3 text-sm text-slate-400">
+                    ไม่พบพนักงานที่ค้นหา หรือเลือกไว้แล้ว
+                  </div>
+                </div>
+
+                <div v-if="selectedCrmOwnerUsers.length"
+                     class="border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden bg-white">
+                  <div v-for="u in selectedCrmOwnerUsers" :key="u.id"
+                       class="flex items-center gap-3 px-3 py-2.5">
+                    <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">
+                      {{ ownerInitial(u) }}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-slate-800 truncate">{{ u.name }}</p>
+                      <p class="text-xs text-slate-400 truncate">{{ u.code }}</p>
+                    </div>
+                    <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                      <input type="radio"
+                             name="primaryCrmOwner"
+                             :checked="isPrimaryCrmOwner(u.id)"
+                             @change="setPrimaryCrmOwner(u.id)"
+                             class="w-3.5 h-3.5 border-slate-300 text-blue-600" />
+                      หลัก
+                    </label>
+                    <button type="button"
+                            @click="removeCrmOwner(u.id)"
+                            class="w-7 h-7 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center"
+                            title="ลบผู้ดูแล">
+                      ×
+                    </button>
+                  </div>
+                </div>
+                <div v-else class="border border-dashed border-slate-200 rounded-xl px-3 py-4 text-sm text-slate-400 text-center">
+                  ยังไม่ได้เลือกผู้ดูแล CRM
+                </div>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">
+                คนที่เลือกไว้จะถูกใช้เป็นค่าเริ่มต้นเวลาสร้างกิจกรรมของลูกค้านี้
+              </p>
             </div>
 
             <div>
@@ -486,6 +505,76 @@
 
           <template v-else>
 
+            <section v-if="followupSummary" class="card p-4 border border-blue-100 bg-blue-50/40">
+              <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+                <div>
+                  <h3 class="text-sm font-semibold text-slate-800">Follow-up ลูกค้า</h3>
+                  <p class="text-xs text-slate-500 mt-0.5">
+                    งานเปิด {{ followupSummary.open_followup_count || 0 }} รายการ
+                    <span class="mx-1">•</span>
+                    ไม่รับสายวันนี้ {{ followupSummary.no_answer_attempts_today || 0 }} ครั้ง
+                  </p>
+                </div>
+                <button v-if="isManager" type="button" @click="toggleCustomerFollowup"
+                  :disabled="savingFollowup"
+                  :class="followupForm.followup_enabled ? 'bg-blue-600' : 'bg-slate-300'"
+                  class="relative w-12 h-7 rounded-full transition-colors flex-shrink-0 disabled:opacity-60">
+                  <span :class="followupForm.followup_enabled ? 'translate-x-6' : 'translate-x-1'"
+                    class="absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform" />
+                </button>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label class="label-text">วันติดตามถัดไป</label>
+                  <div class="flex gap-2">
+                    <input v-model="followupForm.next_followup" type="date" class="input-field text-sm" :disabled="!isManager" />
+                    <button v-if="isManager" type="button" @click="saveFollowupOverride({ next_followup: followupForm.next_followup || null })"
+                      :disabled="savingFollowup"
+                      class="px-3 rounded-lg bg-white border border-blue-200 text-blue-700 text-xs font-semibold hover:bg-blue-50 disabled:opacity-60">
+                      บันทึก
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label class="label-text">พักถึงวันที่</label>
+                  <input v-model="followupForm.followup_pause_until" type="date" class="input-field text-sm" :disabled="!isManager" />
+                </div>
+                <div>
+                  <label class="label-text">เหตุผลพัก</label>
+                  <div class="flex gap-2">
+                    <input v-model="followupForm.followup_pause_reason" class="input-field text-sm" placeholder="เช่น รอลูกค้าติดต่อกลับ" :disabled="!isManager" />
+                    <button v-if="isManager" type="button" @click="pauseCustomerFollowup"
+                      :disabled="savingFollowup || !followupForm.followup_pause_until"
+                      class="px-3 rounded-lg bg-white border border-amber-200 text-amber-700 text-xs font-semibold hover:bg-amber-50 disabled:opacity-60">
+                      พัก
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <span v-if="!followupForm.followup_enabled" class="px-2 py-1 rounded bg-slate-100 text-slate-600">ปิด follow-up</span>
+                <span v-if="followupForm.followup_pause_until" class="px-2 py-1 rounded bg-amber-100 text-amber-700">
+                  พักถึง {{ formatActDate(followupForm.followup_pause_until) }}
+                </span>
+                <span v-if="followupSummary.next_open_followup" class="px-2 py-1 rounded bg-white border border-slate-200">
+                  งานถัดไป: {{ followupSummary.next_open_followup.subject }} • {{ formatActDateTime(followupSummary.next_open_followup.start_datetime || followupSummary.next_open_followup.retry_due_at || followupSummary.next_open_followup.due_date) }}
+                </span>
+                <span v-if="followupSummary.policy" class="px-2 py-1 rounded bg-white border border-slate-200">
+                  โทรทุก {{ followupSummary.policy.default_call_interval_days }} วัน • โทรซ้ำ {{ followupSummary.policy.no_answer_retry_minutes }} นาที
+                </span>
+                <span v-if="!isManager" class="ml-auto text-slate-400">ดูได้อย่างเดียว</span>
+                <button v-if="isManager && (followupForm.followup_pause_until || !followupForm.followup_enabled)"
+                  type="button"
+                  @click="resumeCustomerFollowup"
+                  :disabled="savingFollowup"
+                  class="ml-auto text-blue-700 font-semibold hover:underline disabled:opacity-60">
+                  เปิดใช้งานอีกครั้ง
+                </button>
+              </div>
+            </section>
+
             <!-- Toolbar: ค้นหา + ตัวกรองสถานะ + ปุ่มสร้าง -->
             <div class="flex flex-wrap items-center gap-3">
               <div class="relative flex-1 min-w-[180px]">
@@ -548,6 +637,16 @@
                         <p class="text-xs text-slate-400 mt-0.5">
                           {{ actTypeLabel(act.activity_type) }}
                           <span v-if="act.group_id" class="ml-1 text-purple-500" title="กิจกรรมกลุ่ม">👥</span>
+                          <span v-if="act.followup_type === 'no_answer_retry'" class="ml-1 text-amber-600 font-semibold">
+                            โทรซ้ำ {{ act.attempt_no ? `#${act.attempt_no}` : '' }}
+                          </span>
+                          <span v-else-if="act.system_created" class="ml-1 text-indigo-600 font-semibold">สร้างโดยระบบ</span>
+                        </p>
+                        <p v-if="act.activity_type === 'call' && (act.call_direction || act.call_result)" class="text-xs mt-0.5">
+                          <span class="text-slate-400">{{ act.call_direction === 'outbound' ? 'โทรออก' : act.call_direction === 'inbound' ? 'รับสาย' : '' }}</span>
+                          <span v-if="act.call_result" :class="act.call_result === 'answered' ? 'text-green-600' : 'text-red-500'">
+                            {{ act.call_direction ? ' • ' : '' }}{{ callResultLabel(act.call_result) }}
+                          </span>
                         </p>
                       </div>
                     </div>
@@ -945,29 +1044,12 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { RouterLink, useRouter, useRoute } from 'vue-router'
 import api from '../composables/useApi.js'
 import MapPicker from '../components/MapPicker.vue'
+import { usePermissions } from '../composables/usePermissions.js'
 
 // ── Props ─────────────────────────────────
 const props = defineProps({ code: { type: String, default: null } })
 const isEdit = computed(() => !!props.code)
-
-// ── AI Summary ────────────────────────────
-const aiSummaryText    = ref('')
-const aiSummaryLoading = ref(false)
-const aiSummaryError   = ref('')
-
-async function loadAiSummary() {
-  if (!props.code) return
-  aiSummaryLoading.value = true
-  aiSummaryError.value   = ''
-  try {
-    const res = await api.get(`/customers/${props.code}/ai-summary`)
-    aiSummaryText.value = res.data.summary
-  } catch (e) {
-    aiSummaryError.value = e.response?.data?.error || e.message
-  } finally {
-    aiSummaryLoading.value = false
-  }
-}
+const { isManager } = usePermissions()
 
 // ── Router ────────────────────────────────
 const router = useRouter()
@@ -1070,6 +1152,33 @@ function empBlur() {
   setTimeout(() => { empOpen.value = false }, 150)
 }
 
+// CRM owner searchable multi-select
+const crmOwnerSearch = ref('')
+const crmOwnerOpen   = ref(false)
+const selectedCrmOwnerUsers = computed(() =>
+  form.crm.owners.map(o => {
+    const user = crmUsers.value.find(u => Number(u.id) === Number(o.user_id))
+    return user || { id: o.user_id, code: `#${o.user_id}`, name: `User #${o.user_id}` }
+  })
+)
+const filteredCrmOwnerOptions = computed(() => {
+  const q = crmOwnerSearch.value.trim().toLowerCase()
+  return crmUsers.value
+    .filter(u => !isCrmOwnerSelected(u.id))
+    .filter(u => {
+      if (!q) return true
+      return String(u.name || '').toLowerCase().includes(q) ||
+             String(u.code || '').toLowerCase().includes(q)
+    })
+    .slice(0, 20)
+})
+function crmOwnerBlur() {
+  setTimeout(() => { crmOwnerOpen.value = false }, 150)
+}
+function ownerInitial(u) {
+  return String(u.name || u.code || '?').trim().charAt(0).toUpperCase()
+}
+
 // Notes state
 const notes       = ref([])
 const loadingNotes = ref(false)
@@ -1084,6 +1193,14 @@ const loadingActivities = ref(false)
 const actStatusFilter   = ref('all')
 const actSearchQuery    = ref('')
 const actLimit          = ref(10)
+const followupSummary   = ref(null)
+const savingFollowup    = ref(false)
+const followupForm = reactive({
+  followup_enabled: true,
+  followup_pause_until: '',
+  followup_pause_reason: '',
+  next_followup: '',
+})
 
 // Purchase history state
 const purchaseHistory = ref([])
@@ -1122,6 +1239,7 @@ const defaultForm = () => ({
     priority: 'normal',
     source: '',
     owner_user_id: '',
+    owners: [],
     next_followup: '',
     crm_remark: ''
   }
@@ -1266,9 +1384,18 @@ async function loadCustomer() {
       form.crm.priority       = data.crm.priority      || 'normal'
       form.crm.source         = data.crm.source        || ''
       form.crm.owner_user_id  = data.crm.owner_user_id || ''
+      form.crm.owners         = Array.isArray(data.crm.owners)
+        ? data.crm.owners.map(o => ({ user_id: Number(o.user_id), is_primary: !!o.is_primary }))
+        : (data.crm.owner_user_id ? [{ user_id: Number(data.crm.owner_user_id), is_primary: true }] : [])
       form.crm.next_followup  = data.crm.next_followup ? data.crm.next_followup.split('T')[0] : ''
       form.crm.crm_remark     = data.crm.crm_remark    || ''
     }
+
+    followupSummary.value = data.followup_summary || null
+    followupForm.followup_enabled = data.crm?.followup_enabled !== false
+    followupForm.followup_pause_until = data.crm?.followup_pause_until ? data.crm.followup_pause_until.split('T')[0] : ''
+    followupForm.followup_pause_reason = data.crm?.followup_pause_reason || ''
+    followupForm.next_followup = data.crm?.next_followup ? data.crm.next_followup.split('T')[0] : form.crm.next_followup
   } catch (e) {
     showToast('error', e.message)
   } finally {
@@ -1287,6 +1414,54 @@ function addTransport() {
   form.transport_labels.push({ country: 'ไทย', address: '', province: '', amper: '', tambon: '', zip_code: '', latitude: 0.0, longitude: 0.0 })
 }
 function removeTransport(i) { form.transport_labels.splice(i, 1) }
+
+function isCrmOwnerSelected(id) {
+  return form.crm.owners.some(o => Number(o.user_id) === Number(id))
+}
+
+function isPrimaryCrmOwner(id) {
+  return form.crm.owners.some(o => Number(o.user_id) === Number(id) && o.is_primary)
+}
+
+function toggleCrmOwner(id) {
+  const userId = Number(id)
+  const idx = form.crm.owners.findIndex(o => Number(o.user_id) === userId)
+  if (idx >= 0) {
+    removeCrmOwner(userId)
+  } else {
+    addCrmOwner(userId)
+  }
+}
+
+function syncPrimaryCrmOwner() {
+  const primary = form.crm.owners.find(o => o.is_primary) || form.crm.owners[0]
+  form.crm.owners.forEach(o => { o.is_primary = Number(o.user_id) === Number(primary?.user_id) })
+  form.crm.owner_user_id = primary?.user_id || ''
+}
+
+function addCrmOwner(id) {
+  const userId = Number(id)
+  if (!userId || isCrmOwnerSelected(userId)) return
+  form.crm.owners.push({ user_id: userId, is_primary: form.crm.owners.length === 0 })
+  crmOwnerSearch.value = ''
+  crmOwnerOpen.value = true
+  syncPrimaryCrmOwner()
+}
+
+function removeCrmOwner(id) {
+  const userId = Number(id)
+  const idx = form.crm.owners.findIndex(o => Number(o.user_id) === userId)
+  if (idx < 0) return
+  form.crm.owners.splice(idx, 1)
+  syncPrimaryCrmOwner()
+}
+
+function setPrimaryCrmOwner(id) {
+  const userId = Number(id)
+  if (!isCrmOwnerSelected(userId)) return
+  form.crm.owners.forEach(o => { o.is_primary = Number(o.user_id) === userId })
+  form.crm.owner_user_id = userId
+}
 
 // ── Notes ─────────────────────────────────
 async function loadNotes() {
@@ -1371,6 +1546,51 @@ async function loadActivities(reset = false) {
   loadingActivities.value = false
 }
 
+function applyFollowupOverride(data = {}) {
+  followupForm.followup_enabled = data.followup_enabled !== false
+  followupForm.followup_pause_until = data.followup_pause_until ? String(data.followup_pause_until).split('T')[0] : ''
+  followupForm.followup_pause_reason = data.followup_pause_reason || ''
+  followupForm.next_followup = data.next_followup ? String(data.next_followup).split('T')[0] : ''
+  form.crm.next_followup = followupForm.next_followup
+  if (followupSummary.value) {
+    followupSummary.value = { ...followupSummary.value }
+  }
+}
+
+async function saveFollowupOverride(patch) {
+  if (!props.code || savingFollowup.value) return
+  savingFollowup.value = true
+  try {
+    const { data } = await api.patch(`/customers/${props.code}/followup`, patch)
+    applyFollowupOverride(data)
+    showToast('success', 'บันทึกการติดตามลูกค้าแล้ว')
+  } catch (e) {
+    showToast('error', e.response?.data?.error || e.message)
+  } finally {
+    savingFollowup.value = false
+  }
+}
+
+function toggleCustomerFollowup() {
+  saveFollowupOverride({ followup_enabled: !followupForm.followup_enabled })
+}
+
+function pauseCustomerFollowup() {
+  saveFollowupOverride({
+    followup_enabled: true,
+    followup_pause_until: followupForm.followup_pause_until,
+    followup_pause_reason: followupForm.followup_pause_reason || null,
+  })
+}
+
+function resumeCustomerFollowup() {
+  saveFollowupOverride({
+    followup_enabled: true,
+    followup_pause_until: null,
+    followup_pause_reason: null,
+  })
+}
+
 function loadMoreActivities() {
   actLimit.value += 10
   loadActivities()
@@ -1386,6 +1606,14 @@ function actTypeIcon(t) {
   if (t === 'task') return '📋'
   if (t === 'call') return '📞'
   return '📅'
+}
+
+function callResultLabel(r) {
+  if (r === 'answered') return 'รับสาย'
+  if (r === 'no_answer') return 'ไม่รับสาย'
+  if (r === 'busy') return 'สายไม่ว่าง'
+  if (r === 'left_voicemail') return 'ฝากข้อความ'
+  return r
 }
 
 function actStatusBadge(status, a) {
@@ -1448,6 +1676,8 @@ function submit() {
 async function doSubmit() {
   saving.value = true
   try {
+    const primaryOwner = form.crm.owners.find(o => o.is_primary) || form.crm.owners[0]
+    form.crm.owner_user_id = primaryOwner?.user_id || ''
     const payload = { ...form }
     if (isEdit.value) {
       await api.put(`/customers/${props.code}`, payload)

@@ -124,15 +124,15 @@
             </td>
             <td class="px-4 py-3 text-slate-600">{{ c.province || '—' }}</td>
             <td class="px-4 py-3">
-              <template v-if="c.crm?.owner_name || c.sale_name">
+              <template v-if="crmOwnerNames(c) || c.sale_name">
                 <div class="flex items-center gap-2">
                   <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                       :class="c.crm?.owner_name ? 'bg-blue-600' : 'bg-slate-500'">
-                    {{ (c.crm?.owner_name || c.sale_name).charAt(0) }}
+                       :class="crmOwnerNames(c) ? 'bg-blue-600' : 'bg-slate-500'">
+                    {{ (crmOwnerNames(c) || c.sale_name).charAt(0) }}
                   </div>
                   <div>
-                    <p class="text-slate-700 text-sm leading-tight">{{ c.crm?.owner_name || c.sale_name }}</p>
-                    <p v-if="c.crm?.owner_name && c.sale_name && c.crm.owner_name !== c.sale_name"
+                    <p class="text-slate-700 text-sm leading-tight">{{ crmOwnerNames(c) || c.sale_name }}</p>
+                    <p v-if="crmOwnerNames(c) && c.sale_name"
                        class="text-xs text-slate-400 leading-tight">POS: {{ c.sale_name }}</p>
                   </div>
                 </div>
@@ -354,6 +354,12 @@ function showToast(type, message) {
   toast.message = message
   toast.show    = true
   setTimeout(() => { toast.show = false }, 3500)
+}
+
+function crmOwnerNames(c) {
+  const owners = c.crm?.owners || []
+  if (owners.length) return owners.map(o => o.name || o.code).filter(Boolean).join(', ')
+  return c.crm?.owner_name || ''
 }
 
 function statusBadge(s) {
