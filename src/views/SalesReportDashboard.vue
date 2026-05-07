@@ -509,17 +509,20 @@
           <div id="sales-map" style="height:520px;width:100%"></div>
         </div>
 
-        <!-- Province rank -->
+        <!-- District rank -->
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col">
           <div class="px-4 py-3 border-b border-slate-100">
-            <h3 class="text-sm font-semibold text-slate-700">ยอดขายตามจังหวัด</h3>
+            <h3 class="text-sm font-semibold text-slate-700">ยอดขายตามอำเภอ</h3>
           </div>
           <div class="flex-1 overflow-y-auto divide-y divide-slate-50">
             <div v-if="!mapProvinces.length" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูล</div>
-            <div v-for="(p, i) in mapProvinces" :key="p.province" class="px-4 py-2.5 hover:bg-slate-50">
+            <div v-for="(p, i) in mapProvinces" :key="`${p.province || ''}-${p.district || p.province}`" class="px-4 py-2.5 hover:bg-slate-50">
               <div class="flex items-center gap-2 mb-1">
                 <span class="text-xs text-slate-400 w-5 text-right shrink-0">{{ i + 1 }}</span>
-                <span class="text-sm font-medium text-slate-700 flex-1 truncate">{{ p.province }}</span>
+                <span class="text-sm font-medium text-slate-700 flex-1 truncate">
+                  {{ p.district || p.province }}
+                  <span v-if="p.province" class="text-xs font-normal text-slate-400">/ {{ p.province }}</span>
+                </span>
                 <span class="text-xs text-slate-400">{{ p.cust_count }} ร้าน</span>
               </div>
               <div class="ml-7">
@@ -919,7 +922,7 @@ async function loadMap() {
   const res = await api.get('/sales/map', { params: buildParams() })
     .then(r => r.data).catch(() => ({ markers: [], provinces: [] }))
   mapMarkers.value   = res.markers   || []
-  mapProvinces.value = res.provinces || []
+  mapProvinces.value = res.districts || res.provinces || []
   loadingMap.value   = false
   await nextTick()
   renderLeaflet()

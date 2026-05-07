@@ -213,7 +213,7 @@
               <button @click="openCloseModal(a)"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 border border-green-200 text-green-700 text-xs font-semibold hover:bg-green-100 transition-colors">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-                ปิดงาน
+                ส่งงาน
               </button>
               <button @click="openSnoozeModal(a)"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition-colors">
@@ -224,7 +224,7 @@
             <span v-else-if="a.status === 'done'"
               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-50 border border-green-200 text-green-600 text-xs font-semibold">
               <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-              ปิดแล้ว
+              ส่งแล้ว
             </span>
             <span v-else-if="a.status === 'cancelled'"
               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 text-xs font-semibold">
@@ -295,7 +295,7 @@ function openSnoozeModal(a) {
 
 function onActivityDone() {
   closeModal.show = false
-  showToast('ปิดงานเรียบร้อย ✓')
+  showToast('ส่งงานเรียบร้อย ✓')
   setTimeout(() => loadDetail(), 800)
 }
 

@@ -27,10 +27,10 @@
       <div class="flex-1">
         <h1 class="text-xl font-bold text-slate-800">รายละเอียดกิจกรรม</h1>
       </div>
-      <!-- ปุ่มปิดงาน (ถ้ายังไม่เสร็จ) -->
+      <!-- ปุ่มส่งงาน (ถ้ายังไม่เสร็จ) -->
       <button v-if="activity && (activity.my_status || activity.status) === 'open' && canCloseActivity(activity)" @click="openCloseModal"
         class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors">
-        ✓ ปิดงาน
+        ✓ ส่งงาน
       </button>
       <span v-else-if="activity && (activity.my_status || activity.status) === 'open' && activity.requires_owner_assignment"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-100 text-amber-700 text-sm font-medium">
@@ -38,7 +38,7 @@
       </span>
       <span v-else-if="activity && (activity.my_status || activity.status) === 'done'"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-green-100 text-green-700 text-sm font-medium">
-        ✓ เสร็จแล้ว
+        ✓ ส่งแล้ว
       </span>
       <RouterLink v-if="canEdit" :to="`/activities/${activityId}/edit`"
         class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-200 transition-colors">

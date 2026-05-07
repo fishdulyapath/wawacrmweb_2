@@ -123,6 +123,19 @@
             </div>
           </div>
 
+          <div class="trip-images images-row" v-if="tripReleaseImages(selectedTrip).length || tripReturnImages(selectedTrip).length">
+            <figure v-for="image in tripReleaseImages(selectedTrip)" :key="image.key">
+              <img v-if="imageSrc(image.path)" :src="imageSrc(image.path)" :alt="image.label" />
+              <figcaption>{{ image.label }}</figcaption>
+              <small v-if="!imageSrc(image.path)">{{ image.path }}</small>
+            </figure>
+            <figure v-for="image in tripReturnImages(selectedTrip)" :key="image.key">
+              <img v-if="imageSrc(image.path)" :src="imageSrc(image.path)" :alt="image.label" />
+              <figcaption>{{ image.label }}</figcaption>
+              <small v-if="!imageSrc(image.path)">{{ image.path }}</small>
+            </figure>
+          </div>
+
           <div class="stops-list">
             <article v-for="stop in selectedTrip.stops" :key="stop.list_id" class="stop-card">
               <div class="stop-top">
@@ -160,16 +173,16 @@
 
               <p v-if="stop.visit_note" class="note">{{ stop.visit_note }}</p>
 
-              <div class="images-row" v-if="stop.image_check_in || stop.image_bill">
-                <figure v-if="stop.image_check_in">
-                  <img v-if="imageSrc(stop.image_check_in)" :src="imageSrc(stop.image_check_in)" alt="Check-in" />
+              <div class="images-row" v-if="stopCheckInImage(stop) || stopCheckOutImage(stop)">
+                <figure v-if="stopCheckInImage(stop)">
+                  <img v-if="imageSrc(stopCheckInImage(stop))" :src="imageSrc(stopCheckInImage(stop))" alt="Check-in" />
                   <figcaption>รูป Check-in</figcaption>
-                  <small v-if="!imageSrc(stop.image_check_in)">{{ stop.image_check_in }}</small>
+                  <small v-if="!imageSrc(stopCheckInImage(stop))">{{ stopCheckInImage(stop) }}</small>
                 </figure>
-                <figure v-if="stop.image_bill">
-                  <img v-if="imageSrc(stop.image_bill)" :src="imageSrc(stop.image_bill)" alt="Check-out" />
+                <figure v-if="stopCheckOutImage(stop)">
+                  <img v-if="imageSrc(stopCheckOutImage(stop))" :src="imageSrc(stopCheckOutImage(stop))" alt="Check-out" />
                   <figcaption>รูป Check-out</figcaption>
-                  <small v-if="!imageSrc(stop.image_bill)">{{ stop.image_bill }}</small>
+                  <small v-if="!imageSrc(stopCheckOutImage(stop))">{{ stopCheckOutImage(stop) }}</small>
                 </figure>
               </div>
 
@@ -183,9 +196,9 @@
                   <span :class="problem.is_resolved ? 'resolved' : 'open-problem'">
                     {{ problem.is_resolved ? 'แก้แล้ว' : 'ค้างอยู่' }}
                   </span>
-                  <figure v-if="problem.image_problem">
-                    <img v-if="imageSrc(problem.image_problem)" :src="imageSrc(problem.image_problem)" alt="Problem" />
-                    <small v-else>{{ problem.image_problem }}</small>
+                  <figure v-if="problemImage(problem)">
+                    <img v-if="imageSrc(problemImage(problem))" :src="imageSrc(problemImage(problem))" alt="Problem" />
+                    <small v-else>{{ problemImage(problem) }}</small>
                   </figure>
                 </div>
               </div>
@@ -263,11 +276,16 @@ function revokeFleetImages() {
 
 function collectImagePaths(trip) {
   const paths = []
+  tripReleaseImages(trip).forEach(image => paths.push(image.path))
+  tripReturnImages(trip).forEach(image => paths.push(image.path))
   for (const stop of trip?.stops || []) {
-    if (stop.image_check_in) paths.push(stop.image_check_in)
-    if (stop.image_bill) paths.push(stop.image_bill)
+    const checkInImage = stopCheckInImage(stop)
+    const checkOutImage = stopCheckOutImage(stop)
+    if (checkInImage) paths.push(checkInImage)
+    if (checkOutImage) paths.push(checkOutImage)
     for (const problem of stop.problems || []) {
-      if (problem.image_problem) paths.push(problem.image_problem)
+      const path = problemImage(problem)
+      if (path) paths.push(path)
     }
   }
   return [...new Set(paths.map(p => String(p).trim()).filter(Boolean))]
@@ -370,6 +388,66 @@ function stopStatusClass(stop) {
   if (stop.date_time_check_out) return 'done'
   if (stop.date_time_check_in) return 'active'
   return ''
+}
+
+function firstImagePath(...values) {
+  return values.map(value => String(value || '').trim()).find(Boolean) || ''
+}
+
+function tripReleaseImages(trip) {
+  const images = [
+    ['image_mileage', 'รูปเลขไมล์'],
+    ['image_front', 'รูปหน้ารถ'],
+    ['image_around_1', 'รูปรอบรถ 1'],
+    ['image_around_2', 'รูปรอบรถ 2'],
+    ['image_around_3', 'รูปรอบรถ 3'],
+    ['image_around_4', 'รูปรอบรถ 4'],
+  ]
+
+  const releaseImages = images
+    .map(([key, label]) => ({ key, label, path: firstImagePath(trip?.[key]) }))
+    .filter(image => image.path)
+
+  if (!releaseImages.length) {
+    const fallback = firstImagePath(trip?.car_release_image, trip?.image_car_release)
+    if (fallback) releaseImages.push({ key: 'car_release_image', label: 'รูปปล่อยรถ', path: fallback })
+  }
+
+  return releaseImages
+}
+
+function tripReturnImages(trip) {
+  const images = [
+    ['return_image_mileage', 'คืนรถ - รูปเลขไมล์'],
+    ['return_image_front', 'คืนรถ - รูปหน้ารถ'],
+    ['return_image_around_1', 'คืนรถ - รูปรอบรถ 1'],
+    ['return_image_around_2', 'คืนรถ - รูปรอบรถ 2'],
+    ['return_image_around_3', 'คืนรถ - รูปรอบรถ 3'],
+    ['return_image_around_4', 'คืนรถ - รูปรอบรถ 4'],
+  ]
+
+  const returnImages = images
+    .map(([key, label]) => ({ key, label, path: firstImagePath(trip?.[key]) }))
+    .filter(image => image.path)
+
+  if (!returnImages.length) {
+    const fallback = firstImagePath(trip?.car_return_image, trip?.image_car_return)
+    if (fallback) returnImages.push({ key: 'car_return_image', label: 'รูปคืนรถ', path: fallback })
+  }
+
+  return returnImages
+}
+
+function stopCheckInImage(stop) {
+  return firstImagePath(stop?.check_in_image, stop?.image_check_in)
+}
+
+function stopCheckOutImage(stop) {
+  return firstImagePath(stop?.check_out_image, stop?.image_bill)
+}
+
+function problemImage(problem) {
+  return firstImagePath(problem?.problem_image, problem?.image_problem)
 }
 
 function imageSrc(path) {
@@ -620,6 +698,12 @@ td span {
 
 .metric-row div:last-child { border-right: none; }
 .metric-row strong { display: block; margin-top: 3px; font-size: 16px; }
+
+.trip-images {
+  margin: 0;
+  padding: 14px 16px;
+  border-bottom: 1px solid #edf1f6;
+}
 
 .stops-list {
   display: grid;

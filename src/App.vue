@@ -282,6 +282,13 @@
           <span>บอร์ด</span>
         </RouterLink>
 
+        <RouterLink v-if="canViewDashboards" to="/fleet-delivery-summary" class="bottom-nav-item" active-class="bottom-nav-active">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V8m5 8V5m5 11v-6M5 19h14a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1v12a1 1 0 001 1z"/>
+          </svg>
+          <span>ขนส่ง</span>
+        </RouterLink>
+
         <RouterLink to="/line-profile" class="bottom-nav-item" active-class="bottom-nav-active">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -375,7 +382,8 @@ function roleBadgeDark(role) {
 
 /* Bottom nav */
 .bottom-nav-item {
-  @apply flex flex-col items-center gap-0.5 px-3 py-2 text-slate-400 text-[10px] font-medium rounded-xl transition-colors;
+  @apply flex flex-col items-center gap-0.5 px-2 py-2 text-slate-400 text-[10px] font-medium rounded-xl transition-colors;
+  min-width: 44px;
 }
 .bottom-nav-active {
   @apply text-blue-600;

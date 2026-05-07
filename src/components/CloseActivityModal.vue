@@ -3,7 +3,12 @@
     <Transition name="modal-fade">
       <div v-if="show" class="fixed inset-0 z-50 flex items-end lg:items-center justify-center px-0 lg:px-4">
         <div class="absolute inset-0 bg-black/50" @click="$emit('close')"></div>
-        <div class="relative bg-white w-full lg:max-w-md rounded-t-2xl lg:rounded-2xl shadow-2xl flex flex-col max-h-[90dvh]">
+        <div
+          class="relative bg-white w-full lg:max-w-md rounded-t-2xl lg:rounded-2xl shadow-2xl flex flex-col max-h-[92dvh] lg:max-h-[90dvh]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="close-activity-title"
+        >
 
           <!-- Handle (mobile) -->
           <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-3 lg:hidden"></div>
@@ -15,16 +20,17 @@
               {{ typeIcon(activity?.activity_type) }}
             </div>
             <div class="flex-1 min-w-0">
-              <p class="font-semibold text-slate-800 text-sm truncate">{{ activity?.subject }}</p>
-              <p class="text-xs text-slate-400">ปิดงาน — บันทึกผลลัพธ์</p>
+              <p id="close-activity-title" class="font-semibold text-slate-800 text-sm truncate">ส่งงาน</p>
+              <p class="text-xs text-slate-400 truncate">{{ activity?.subject || 'บันทึกผลก่อนปิดงาน' }}</p>
+              <p class="text-xs text-slate-400">บันทึกผลก่อนปิดงาน</p>
             </div>
-            <button @click="$emit('close')" class="text-slate-300 hover:text-slate-500 p-1">
+            <button @click="$emit('close')" class="text-slate-300 hover:text-slate-500 p-2 -mr-2 rounded-lg" aria-label="ปิด dialog">
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
           </div>
 
           <!-- Body -->
-          <div class="overflow-y-auto px-5 py-4 space-y-4 flex-1">
+          <div class="overflow-y-auto px-5 py-4 space-y-4 flex-1 overscroll-contain">
 
             <!-- CALL fields -->
             <template v-if="activity?.activity_type === 'call'">
@@ -201,29 +207,34 @@
                     : 'เช่น ดำเนินการเสร็จแล้ว...'">
               </textarea>
             </div>
-          </div>
 
-          <!-- ไฟล์แนบ -->
-          <div v-if="activity?.id" class="px-5 pb-3">
-            <label class="modal-label mb-2 block">📎 ไฟล์แนบ</label>
-            <ActivityAttachments :activity-id="activity.id" />
+            <!-- ไฟล์แนบ -->
+            <div v-if="activity?.id" class="pt-1">
+              <label class="modal-label mb-2 block">📎 ไฟล์แนบ</label>
+              <ActivityAttachments :activity-id="activity.id" />
+            </div>
           </div>
 
           <!-- Footer -->
-          <div class="px-5 py-4 border-t border-slate-100 flex gap-3">
-            <button @click="$emit('close')"
-              class="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
-              ยกเลิก
-            </button>
-            <button @click="confirmClose" :disabled="confirmDisabled"
-              :class="confirmButtonClass"
-              class="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
-              <svg v-if="saving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-              </svg>
-              {{ confirmLabel }}
-            </button>
+          <div class="sticky bottom-0 bg-white px-5 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-slate-100 shadow-[0_-8px_18px_rgba(15,23,42,0.05)]">
+            <p v-if="confirmHint" class="mb-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+              {{ confirmHint }}
+            </p>
+            <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <button @click="$emit('close')"
+                class="flex-1 min-h-[44px] py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
+                ยกเลิก
+              </button>
+              <button @click="confirmClose" :disabled="confirmDisabled"
+                :class="confirmButtonClass"
+                class="flex-1 sm:flex-[1.25] min-h-[46px] py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                <svg v-if="saving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+                {{ confirmLabel }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -266,12 +277,22 @@ const confirmDisabled = computed(() => {
   return false
 })
 
+const confirmHint = computed(() => {
+  if (saving.value) return ''
+  if (props.activity?.activity_type === 'call' && !form.call_result) return 'เลือกผลการโทรก่อนส่งงาน'
+  if (props.activity?.activity_type === 'meeting' && !form.meeting_result) return 'เลือกผลการประชุมก่อนส่งงาน'
+  return ''
+})
+
 const confirmLabel = computed(() => {
+  if (props.activity?.activity_type === 'call') return 'บันทึกผลการโทร'
   if (props.activity?.activity_type === 'meeting') {
     if (form.meeting_result === 'postponed') return 'เลือกวันเลื่อน'
-    if (form.meeting_result === 'cancelled') return 'ยืนยันยกเลิก'
+    if (form.meeting_result === 'cancelled') return 'ยืนยันยกเลิกนัด'
+    if (form.meeting_result === 'completed') return 'บันทึกผลประชุม'
+    return 'บันทึกผลประชุม'
   }
-  return 'ยืนยันปิดงาน'
+  return 'ส่งงาน'
 })
 
 const confirmButtonClass = computed(() => {
@@ -368,7 +389,7 @@ function selectCdr(r) {
 async function confirmClose() {
   if (saving.value) return
   if (props.activity?.activity_type === 'call' && !form.call_result) {
-    alert('กรุณาเลือกผลการโทรก่อนปิดงาน')
+    alert('กรุณาเลือกผลการโทรก่อนส่งงาน')
     return
   }
   saving.value = true
