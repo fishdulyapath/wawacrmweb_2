@@ -22,9 +22,9 @@
           </button>
         </div>
         <!-- Custom date range -->
-        <input v-model="filter.date_from" type="date" class="filter-input" @change="onManualDateChange" />
+        <DateInput v-model="filter.date_from" class="filter-input" @change="onManualDateChange" />
         <span class="text-slate-400 text-sm">—</span>
-        <input v-model="filter.date_to"   type="date" class="filter-input" @change="onManualDateChange" />
+        <DateInput v-model="filter.date_to" class="filter-input" @change="onManualDateChange" />
         <!-- Owner filter -->
         <div class="relative w-56">
           <input
@@ -527,6 +527,7 @@ import {
   CategoryScale, LinearScale, BarElement, Title,
 } from 'chart.js'
 import api from '../composables/useApi.js'
+import DateInput from '../components/DateInput.vue'
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title)
 

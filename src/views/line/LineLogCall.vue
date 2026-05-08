@@ -98,7 +98,7 @@
       <!-- Followup -->
       <div class="form-section" v-if="form.call_status === 'no_answer' || form.call_status === 'callback'">
         <p class="section-label">📅 นัด Follow-up</p>
-        <input v-model="form.followup_date" type="date" class="form-input"/>
+        <DateInput v-model="form.followup_date" class="form-input"/>
         <p class="form-hint">ระบบจะสร้าง Task ให้อัตโนมัติ</p>
       </div>
 
@@ -177,6 +177,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import liffApi, { ensureLiffAuth } from '../../composables/useLiffApi.js'
 import { useSpeech } from '../../composables/useSpeech.js'
+import DateInput from '../../components/DateInput.vue'
 
 const router = useRouter()
 const route  = useRoute()

@@ -320,7 +320,7 @@
       <!-- ── TASK: Due Date ─────────────────────── -->
       <div v-if="form.activity_type === 'task'">
         <label class="label">วันที่ครบกำหนด <span class="text-red-500">*</span></label>
-        <input v-model="form.due_date" type="date" class="input" required />
+        <DateInput v-model="form.due_date" class="input" required />
         <div class="flex gap-2 mt-2">
           <button v-for="s in dateShortcuts" :key="s.label" type="button"
             @click="setDueDate(s.days)"
@@ -333,7 +333,7 @@
       <!-- ── CALL: วันเวลาโทร ───────────────────── -->
       <div v-if="form.activity_type === 'call'">
         <label class="label">วันและเวลาโทร <span class="text-red-500">*</span></label>
-        <input v-model="form.start_datetime" type="datetime-local" class="input" required />
+        <DateTimeInput v-model="form.start_datetime" class="input" required />
         <div class="flex gap-2 mt-2">
           <button v-for="s in dateShortcuts" :key="s.label" type="button"
             @click="setStartDate(s.days)"
@@ -353,11 +353,13 @@
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="label">{{ form.all_day ? 'วันเริ่ม' : 'วันและเวลาเริ่ม' }} <span class="text-red-500">*</span></label>
-            <input v-model="form.start_datetime" :type="form.all_day ? 'date' : 'datetime-local'" class="input" required />
+            <DateInput v-if="form.all_day" v-model="form.start_datetime" class="input" required />
+            <DateTimeInput v-else v-model="form.start_datetime" class="input" required />
           </div>
           <div>
             <label class="label">{{ form.all_day ? 'วันสิ้นสุด' : 'วันและเวลาสิ้นสุด' }}</label>
-            <input v-model="form.end_datetime" :type="form.all_day ? 'date' : 'datetime-local'" class="input" />
+            <DateInput v-if="form.all_day" v-model="form.end_datetime" class="input" />
+            <DateTimeInput v-else v-model="form.end_datetime" class="input" />
           </div>
         </div>
         <div class="flex gap-2 -mt-2">
@@ -557,6 +559,8 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '../composables/useApi.js'
 import { useAuthStore } from '../stores/auth.js'
 import ActivityAttachments from '../components/ActivityAttachments.vue'
+import DateInput from '../components/DateInput.vue'
+import DateTimeInput from '../components/DateTimeInput.vue'
 import { useSpeech } from '../composables/useSpeech.js'
 
 const props = defineProps({ id: String })
@@ -669,22 +673,22 @@ const dateShortcuts = [
 
 const TZ = 'Asia/Bangkok'
 function toLocalDateStr(d) {
-  // YYYY-MM-DD ใน timezone Bangkok (สำหรับ input type="date")
+  // YYYY-MM-DD ใน timezone Bangkok (สำหรับส่ง API)
   return d.toLocaleDateString('sv-SE', { timeZone: TZ })
 }
 function toLocalDateTimeStr(d) {
-  // YYYY-MM-DDTHH:mm ใน timezone Bangkok (สำหรับ input type="datetime-local")
+  // YYYY-MM-DDTHH:mm ใน timezone Bangkok (สำหรับส่ง API)
   const s = d.toLocaleString('sv-SE', { timeZone: TZ }).replace(' ', 'T')
   return s.slice(0, 16)
 }
 function bkkDateSlice(v) {
-  // แปลง timestamp จาก DB เป็น YYYY-MM-DD ใน Bangkok time (สำหรับ input type="date")
+  // แปลง timestamp จาก DB เป็น YYYY-MM-DD ใน Bangkok time
   if (!v) return ''
   const d = new Date(typeof v === 'string' && v.length === 10 ? v + 'T00:00:00+07:00' : v)
   return d.toLocaleDateString('sv-SE', { timeZone: TZ })
 }
 function bkkDateTimeSlice(v) {
-  // แปลง timestamp จาก DB เป็น YYYY-MM-DDTHH:mm ใน Bangkok time (สำหรับ input type="datetime-local")
+  // แปลง timestamp จาก DB เป็น YYYY-MM-DDTHH:mm ใน Bangkok time
   if (!v) return ''
   const d = new Date(v)
   return d.toLocaleString('sv-SE', { timeZone: TZ }).replace(' ', 'T').slice(0, 16)

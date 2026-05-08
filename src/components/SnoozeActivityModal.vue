@@ -34,7 +34,7 @@
             <!-- Date picker -->
             <div>
               <label class="modal-label">หรือเลือกวันที่เอง</label>
-              <input v-model="date" type="date" class="modal-input" :min="todayStr" />
+              <DateInput v-model="date" class="modal-input" :min="todayStr" />
             </div>
           </div>
 
@@ -61,6 +61,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import api from '../composables/useApi.js'
+import DateInput from './DateInput.vue'
 
 const props = defineProps({
   show:     { type: Boolean, default: false },

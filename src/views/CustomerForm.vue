@@ -214,7 +214,7 @@
               </div>
               <div>
                 <label class="label-text">วันเกิด</label>
-                <input v-model="c.birthday" type="date" class="input-field"/>
+                <DateInput v-model="c.birthday" class="input-field"/>
               </div>
               <div class="col-span-2">
                 <label class="label-text">Line ID</label>
@@ -415,7 +415,7 @@
 
             <div>
               <label class="label-text">วันที่ Follow-up ถัดไป</label>
-              <input v-model="form.crm.next_followup" type="date" class="input-field"/>
+              <DateInput v-model="form.crm.next_followup" class="input-field"/>
             </div>
 
             <div class="col-span-2">
@@ -528,7 +528,7 @@
                 <div>
                   <label class="label-text">วันติดตามถัดไป</label>
                   <div class="flex gap-2">
-                    <input v-model="followupForm.next_followup" type="date" class="input-field text-sm" :disabled="!isManager" />
+                    <DateInput v-model="followupForm.next_followup" class="input-field text-sm" :disabled="!isManager" />
                     <button v-if="isManager" type="button" @click="saveFollowupOverride({ next_followup: followupForm.next_followup || null })"
                       :disabled="savingFollowup"
                       class="px-3 rounded-lg bg-white border border-blue-200 text-blue-700 text-xs font-semibold hover:bg-blue-50 disabled:opacity-60">
@@ -538,7 +538,7 @@
                 </div>
                 <div>
                   <label class="label-text">พักถึงวันที่</label>
-                  <input v-model="followupForm.followup_pause_until" type="date" class="input-field text-sm" :disabled="!isManager" />
+                  <DateInput v-model="followupForm.followup_pause_until" class="input-field text-sm" :disabled="!isManager" />
                 </div>
                 <div>
                   <label class="label-text">เหตุผลพัก</label>
@@ -722,13 +722,13 @@
                 class="input-field w-32 text-sm" placeholder="รหัสพนักงาน..." />
               <div class="flex items-center gap-1.5">
                 <span class="text-xs text-slate-500">จาก</span>
-                <input v-model="purchaseFilter.date_from" @change="loadPurchaseHistory(1)"
-                  type="date" class="input-field text-sm" />
+                <DateInput v-model="purchaseFilter.date_from" @change="loadPurchaseHistory(1)"
+                  class="input-field text-sm" />
               </div>
               <div class="flex items-center gap-1.5">
                 <span class="text-xs text-slate-500">ถึง</span>
-                <input v-model="purchaseFilter.date_to" @change="loadPurchaseHistory(1)"
-                  type="date" class="input-field text-sm" />
+                <DateInput v-model="purchaseFilter.date_to" @change="loadPurchaseHistory(1)"
+                  class="input-field text-sm" />
               </div>
             </div>
 
@@ -1044,6 +1044,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { RouterLink, useRouter, useRoute } from 'vue-router'
 import api from '../composables/useApi.js'
 import MapPicker from '../components/MapPicker.vue'
+import DateInput from '../components/DateInput.vue'
 import { usePermissions } from '../composables/usePermissions.js'
 
 // ── Props ─────────────────────────────────

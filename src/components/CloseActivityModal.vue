@@ -115,12 +115,12 @@
                   <div class="flex gap-2">
                     <div class="flex-1">
                       <p class="text-[10px] text-slate-400 mb-0.5">จากวันที่</p>
-                      <input v-model="cdrSearch.date_from" type="date"
+                      <DateInput v-model="cdrSearch.date_from"
                         class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-400" />
                     </div>
                     <div class="flex-1">
                       <p class="text-[10px] text-slate-400 mb-0.5">ถึงวันที่</p>
-                      <input v-model="cdrSearch.date_to" type="date"
+                      <DateInput v-model="cdrSearch.date_to"
                         class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-400" />
                     </div>
                   </div>
@@ -246,6 +246,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import api from '../composables/useApi.js'
 import ActivityAttachments from './ActivityAttachments.vue'
+import DateInput from './DateInput.vue'
 
 const props = defineProps({
   show:     { type: Boolean, default: false },

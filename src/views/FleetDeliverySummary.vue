@@ -37,9 +37,9 @@
         </div>
         <div class="date-group">
           <span class="date-label">จาก</span>
-          <input v-model="filter.from" type="date" @change="onFilterChange" class="date-input" :disabled="loading" />
+          <DateInput v-model="filter.from" @change="onFilterChange" class="date-input" :disabled="loading" />
           <span class="date-label">ถึง</span>
-          <input v-model="filter.to" type="date" @change="onFilterChange" class="date-input" :disabled="loading" />
+          <DateInput v-model="filter.to" @change="onFilterChange" class="date-input" :disabled="loading" />
           <button @click="loadAll" :disabled="loading || !!dateRangeError" class="load-btn">
             {{ loading ? 'กำลังโหลด' : 'โหลดข้อมูล' }}
           </button>
@@ -616,6 +616,7 @@ import { Bar } from 'vue-chartjs'
 import { Chart, registerables } from 'chart.js'
 import { useAuthStore } from '../stores/auth.js'
 import apiBase from '../composables/useApi.js'
+import DateInput from '../components/DateInput.vue'
 
 Chart.register(...registerables)
 

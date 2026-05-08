@@ -26,11 +26,11 @@
       <div class="flex flex-wrap items-center gap-2">
         <div class="flex items-center gap-1.5">
           <label class="text-xs text-slate-500 whitespace-nowrap">จากวันที่</label>
-          <input v-model="filter.date_from" type="date" class="filter-input" />
+          <DateInput v-model="filter.date_from" class="filter-input" />
         </div>
         <div class="flex items-center gap-1.5">
           <label class="text-xs text-slate-500 whitespace-nowrap">ถึงวันที่</label>
-          <input v-model="filter.date_to" type="date" class="filter-input" />
+          <DateInput v-model="filter.date_to" class="filter-input" />
         </div>
         <!-- Searchable salesperson picker -->
         <div class="relative">
@@ -660,6 +660,7 @@ import {
 } from 'chart.js'
 import api from '../composables/useApi.js'
 import { useAuthStore } from '../stores/auth.js'
+import DateInput from '../components/DateInput.vue'
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, LineElement, PointElement, Title, Filler, BarElement)
 
