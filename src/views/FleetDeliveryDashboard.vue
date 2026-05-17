@@ -125,12 +125,28 @@
 
           <div class="trip-images images-row" v-if="tripReleaseImages(selectedTrip).length || tripReturnImages(selectedTrip).length">
             <figure v-for="image in tripReleaseImages(selectedTrip)" :key="image.key">
-              <img v-if="imageSrc(image.path)" :src="imageSrc(image.path)" :alt="image.label" />
+              <button
+                v-if="imageSrc(image.path)"
+                type="button"
+                class="image-thumb"
+                :aria-label="`ขยาย${image.label}`"
+                @click="openImagePreview(imageSrc(image.path), image.label, image.path)"
+              >
+                <img :src="imageSrc(image.path)" :alt="image.label" />
+              </button>
               <figcaption>{{ image.label }}</figcaption>
               <small v-if="!imageSrc(image.path)">{{ image.path }}</small>
             </figure>
             <figure v-for="image in tripReturnImages(selectedTrip)" :key="image.key">
-              <img v-if="imageSrc(image.path)" :src="imageSrc(image.path)" :alt="image.label" />
+              <button
+                v-if="imageSrc(image.path)"
+                type="button"
+                class="image-thumb"
+                :aria-label="`ขยาย${image.label}`"
+                @click="openImagePreview(imageSrc(image.path), image.label, image.path)"
+              >
+                <img :src="imageSrc(image.path)" :alt="image.label" />
+              </button>
               <figcaption>{{ image.label }}</figcaption>
               <small v-if="!imageSrc(image.path)">{{ image.path }}</small>
             </figure>
@@ -173,16 +189,32 @@
 
               <p v-if="stop.visit_note" class="note">{{ stop.visit_note }}</p>
 
-              <div class="images-row" v-if="stopCheckInImage(stop) || stopCheckOutImage(stop)">
+              <div class="images-row" v-if="stopCheckInImage(stop) || stopCheckOutImages(stop).length">
                 <figure v-if="stopCheckInImage(stop)">
-                  <img v-if="imageSrc(stopCheckInImage(stop))" :src="imageSrc(stopCheckInImage(stop))" alt="Check-in" />
+                  <button
+                    v-if="imageSrc(stopCheckInImage(stop))"
+                    type="button"
+                    class="image-thumb"
+                    aria-label="ขยายรูป Check-in"
+                    @click="openImagePreview(imageSrc(stopCheckInImage(stop)), 'รูป Check-in', stopCheckInImage(stop))"
+                  >
+                    <img :src="imageSrc(stopCheckInImage(stop))" alt="Check-in" />
+                  </button>
                   <figcaption>รูป Check-in</figcaption>
                   <small v-if="!imageSrc(stopCheckInImage(stop))">{{ stopCheckInImage(stop) }}</small>
                 </figure>
-                <figure v-if="stopCheckOutImage(stop)">
-                  <img v-if="imageSrc(stopCheckOutImage(stop))" :src="imageSrc(stopCheckOutImage(stop))" alt="Check-out" />
-                  <figcaption>รูป Check-out</figcaption>
-                  <small v-if="!imageSrc(stopCheckOutImage(stop))">{{ stopCheckOutImage(stop) }}</small>
+                <figure v-for="image in stopCheckOutImages(stop)" :key="image.key">
+                  <button
+                    v-if="imageSrc(image.path)"
+                    type="button"
+                    class="image-thumb"
+                    :aria-label="`ขยาย${image.label}`"
+                    @click="openImagePreview(imageSrc(image.path), image.label, image.path)"
+                  >
+                    <img :src="imageSrc(image.path)" :alt="image.label" />
+                  </button>
+                  <figcaption>{{ image.label }}</figcaption>
+                  <small v-if="!imageSrc(image.path)">{{ image.path }}</small>
                 </figure>
               </div>
 
@@ -197,7 +229,15 @@
                     {{ problem.is_resolved ? 'แก้แล้ว' : 'ค้างอยู่' }}
                   </span>
                   <figure v-if="problemImage(problem)">
-                    <img v-if="imageSrc(problemImage(problem))" :src="imageSrc(problemImage(problem))" alt="Problem" />
+                    <button
+                      v-if="imageSrc(problemImage(problem))"
+                      type="button"
+                      class="image-thumb"
+                      aria-label="ขยายรูปปัญหา"
+                      @click="openImagePreview(imageSrc(problemImage(problem)), problem.problem_type || 'รูปปัญหา', problemImage(problem))"
+                    >
+                      <img :src="imageSrc(problemImage(problem))" alt="Problem" />
+                    </button>
                     <small v-else>{{ problemImage(problem) }}</small>
                   </figure>
                 </div>
@@ -207,6 +247,53 @@
         </template>
       </aside>
     </section>
+
+    <Teleport to="body">
+      <div
+        v-if="imagePreview.open"
+        class="image-preview-overlay"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="imagePreview.label || 'ดูรูปภาพ'"
+        @click.self="closeImagePreview"
+      >
+        <div class="image-preview-dialog">
+          <div class="image-preview-head">
+            <div>
+              <h3>{{ imagePreview.label || 'รูปภาพ' }}</h3>
+              <p v-if="imagePreview.path">{{ imagePreview.path }}</p>
+            </div>
+            <div class="image-preview-actions">
+              <button type="button" aria-label="ซูมออก" @click="zoomImage(-0.25)">−</button>
+              <span>{{ Math.round(imagePreview.scale * 100) }}%</span>
+              <button type="button" aria-label="ซูมเข้า" @click="zoomImage(0.25)">+</button>
+              <button type="button" aria-label="รีเซ็ตซูม" @click="resetImageZoom">Reset</button>
+              <button type="button" class="image-preview-close" aria-label="ปิด" @click="closeImagePreview">
+                ×
+              </button>
+            </div>
+          </div>
+          <div
+            class="image-preview-body"
+            :class="{ zoomed: imagePreview.scale > 1 }"
+            @wheel.prevent="onImageWheel"
+            @pointerdown="startImagePan"
+            @pointermove="moveImagePan"
+            @pointerup="endImagePan"
+            @pointercancel="endImagePan"
+            @pointerleave="endImagePan"
+          >
+            <img
+              :src="imagePreview.src"
+              :alt="imagePreview.label || 'รูปภาพ'"
+              :style="imageTransformStyle"
+              draggable="false"
+              @dblclick="toggleImageZoom"
+            />
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </main>
 </template>
 
@@ -227,6 +314,21 @@ const detailLoading = ref(false)
 const error = ref('')
 const lastSyncedAt = ref('')
 const imageUrls = reactive({})
+const imagePreview = reactive({
+  open: false,
+  src: '',
+  label: '',
+  path: '',
+  scale: 1,
+  x: 0,
+  y: 0,
+  dragging: false,
+  startX: 0,
+  startY: 0,
+  originX: 0,
+  originY: 0,
+})
+const imageTransformStyle = ref('')
 let imageBatch = 0
 
 function params(offset = 0) {
@@ -283,6 +385,7 @@ function collectImagePaths(trip) {
     const checkOutImage = stopCheckOutImage(stop)
     if (checkInImage) paths.push(checkInImage)
     if (checkOutImage) paths.push(checkOutImage)
+    stopCheckOutImages(stop).forEach(image => paths.push(image.path))
     for (const problem of stop.problems || []) {
       const path = problemImage(problem)
       if (path) paths.push(path)
@@ -446,6 +549,27 @@ function stopCheckOutImage(stop) {
   return firstImagePath(stop?.check_out_image, stop?.image_bill)
 }
 
+function stopCheckOutImages(stop) {
+  const seen = new Set()
+  const images = []
+  const addImage = (path, label, key) => {
+    const value = firstImagePath(path)
+    if (!value || seen.has(value)) return
+    seen.add(value)
+    images.push({ key: key || value, label: label || `รูป Check-out ${images.length + 1}`, path: value })
+  }
+
+  addImage(stopCheckOutImage(stop), 'รูป Check-out', 'check_out_image')
+  for (const image of stop?.check_out_images || []) {
+    addImage(
+      image.image_path ?? image.image_check_out ?? image.path,
+      `รูป Check-out ${images.length + 1}`,
+      image.image_check_out_id
+    )
+  }
+  return images
+}
+
 function problemImage(problem) {
   return firstImagePath(problem?.problem_image, problem?.image_problem)
 }
@@ -454,6 +578,90 @@ function imageSrc(path) {
   if (!path) return ''
   const value = String(path).trim()
   return imageUrls[value] || ''
+}
+
+function openImagePreview(src, label = '', path = '') {
+  if (!src) return
+  imagePreview.open = true
+  imagePreview.src = src
+  imagePreview.label = label
+  imagePreview.path = String(path || '').trim()
+  resetImageZoom()
+  document.body.classList.add('modal-open')
+}
+
+function closeImagePreview() {
+  imagePreview.open = false
+  imagePreview.src = ''
+  imagePreview.label = ''
+  imagePreview.path = ''
+  resetImageZoom()
+  document.body.classList.remove('modal-open')
+}
+
+function onPreviewKeydown(event) {
+  if (event.key === 'Escape' && imagePreview.open) closeImagePreview()
+  if (!imagePreview.open) return
+  if (event.key === '+' || event.key === '=') zoomImage(0.25)
+  if (event.key === '-') zoomImage(-0.25)
+  if (event.key === '0') resetImageZoom()
+}
+
+function updateImageTransform() {
+  imageTransformStyle.value = `transform: translate(${imagePreview.x}px, ${imagePreview.y}px) scale(${imagePreview.scale});`
+}
+
+function setImageScale(nextScale) {
+  imagePreview.scale = Math.min(5, Math.max(1, Number(nextScale.toFixed(2))))
+  if (imagePreview.scale === 1) {
+    imagePreview.x = 0
+    imagePreview.y = 0
+  }
+  updateImageTransform()
+}
+
+function zoomImage(delta) {
+  setImageScale(imagePreview.scale + delta)
+}
+
+function resetImageZoom() {
+  imagePreview.scale = 1
+  imagePreview.x = 0
+  imagePreview.y = 0
+  imagePreview.dragging = false
+  updateImageTransform()
+}
+
+function toggleImageZoom() {
+  if (imagePreview.scale > 1) resetImageZoom()
+  else setImageScale(2)
+}
+
+function onImageWheel(event) {
+  zoomImage(event.deltaY < 0 ? 0.2 : -0.2)
+}
+
+function startImagePan(event) {
+  if (imagePreview.scale <= 1) return
+  imagePreview.dragging = true
+  imagePreview.startX = event.clientX
+  imagePreview.startY = event.clientY
+  imagePreview.originX = imagePreview.x
+  imagePreview.originY = imagePreview.y
+  event.currentTarget?.setPointerCapture?.(event.pointerId)
+}
+
+function moveImagePan(event) {
+  if (!imagePreview.dragging) return
+  imagePreview.x = imagePreview.originX + (event.clientX - imagePreview.startX)
+  imagePreview.y = imagePreview.originY + (event.clientY - imagePreview.startY)
+  updateImageTransform()
+}
+
+function endImagePan(event) {
+  if (!imagePreview.dragging) return
+  imagePreview.dragging = false
+  event.currentTarget?.releasePointerCapture?.(event.pointerId)
 }
 
 function problemNote(problem) {
@@ -471,13 +679,17 @@ onMounted(() => {
   if (token) apiBase.defaults.headers.common.Authorization = `Bearer ${token}`
   searchTrips(0)
   loadSyncStatus()
+  window.addEventListener('keydown', onPreviewKeydown)
 })
 
 watch(selectedTrip, trip => {
+  if (imagePreview.open) closeImagePreview()
   loadSelectedTripImages(trip)
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', onPreviewKeydown)
+  closeImagePreview()
   imageBatch++
   revokeFleetImages()
 })
@@ -803,7 +1015,45 @@ figure {
   background: #f8fafc;
 }
 
-figure img {
+.image-thumb {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  position: relative;
+}
+
+.image-thumb::after {
+  content: 'ขยาย';
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, .72);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity .16s ease, transform .16s ease;
+}
+
+.image-thumb:hover::after,
+.image-thumb:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.image-thumb:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, .35);
+  outline-offset: -3px;
+}
+
+figure img,
+.image-thumb img {
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
@@ -863,6 +1113,117 @@ figure small {
 .resolved { background: #dcfce7; color: #166534; }
 .open-problem { background: #fee2e2; color: #991b1b; }
 
+.image-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(15, 23, 42, .82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.image-preview-dialog {
+  width: min(1120px, 100%);
+  max-height: calc(100vh - 40px);
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .35);
+  display: flex;
+  flex-direction: column;
+}
+
+.image-preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, .06);
+  color: #fff;
+}
+
+.image-preview-head h3 {
+  font-size: 15px;
+}
+
+.image-preview-head p {
+  margin-top: 3px;
+  color: #cbd5e1;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.image-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.image-preview-actions button {
+  min-width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.image-preview-actions span {
+  min-width: 48px;
+  text-align: center;
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.image-preview-close {
+  width: 34px;
+  height: 34px;
+  font-size: 24px;
+}
+
+.image-preview-body {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  touch-action: none;
+  user-select: none;
+  cursor: zoom-in;
+}
+
+.image-preview-body.zoomed {
+  cursor: grab;
+}
+
+.image-preview-body.zoomed:active {
+  cursor: grabbing;
+}
+
+.image-preview-body img {
+  max-width: 100%;
+  max-height: calc(100vh - 150px);
+  object-fit: contain;
+  border-radius: 6px;
+  transform-origin: center center;
+  transition: transform .12s ease-out;
+  will-change: transform;
+}
+
+:global(body.modal-open) {
+  overflow: hidden;
+}
+
 @media (max-width: 980px) {
   .fleet-page { padding: 14px; }
   .fleet-header { align-items: stretch; flex-direction: column; }
@@ -874,6 +1235,30 @@ figure small {
 }
 
 @media (max-width: 560px) {
+  .image-preview-overlay {
+    padding: 0;
+  }
+
+  .image-preview-dialog {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+  }
+
+  .image-preview-head {
+    flex-direction: column;
+  }
+
+  .image-preview-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .image-preview-body img {
+    max-height: calc(100vh - 96px);
+  }
+
   .metric-row,
   .timeline,
   .note-grid,
