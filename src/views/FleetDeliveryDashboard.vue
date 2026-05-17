@@ -264,11 +264,11 @@
               <p v-if="imagePreview.path">{{ imagePreview.path }}</p>
             </div>
             <div class="image-preview-actions">
-              <button type="button" aria-label="ซูมออก" @click="zoomImage(-0.25)">−</button>
+              <button type="button" aria-label="ซูมออก" @click="zoomImage(-0.25)" style="border:0px;">−</button>
               <span>{{ Math.round(imagePreview.scale * 100) }}%</span>
-              <button type="button" aria-label="ซูมเข้า" @click="zoomImage(0.25)">+</button>
-              <button type="button" aria-label="รีเซ็ตซูม" @click="resetImageZoom">Reset</button>
-              <button type="button" class="image-preview-close" aria-label="ปิด" @click="closeImagePreview">
+              <button type="button" aria-label="ซูมเข้า" @click="zoomImage(0.25)" style="border:0px;">+</button>
+              <button type="button" aria-label="รีเซ็ตซูม" @click="resetImageZoom" style="border:0px;">Reset</button>
+              <button type="button" class="image-preview-close" aria-label="ปิด" @click="closeImagePreview" style="border:0px;">
                 ×
               </button>
             </div>
@@ -1167,9 +1167,7 @@ figure small {
 .image-preview-actions button {
   min-width: 34px;
   height: 34px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, .18);
-  background: rgba(255, 255, 255, .08);
+
   color: #fff;
   font-size: 13px;
   font-weight: 700;
