@@ -123,104 +123,119 @@
             </div>
           </div>
 
-          <div class="trip-images images-row" v-if="tripReleaseImages(selectedTrip).length || tripReturnImages(selectedTrip).length">
-            <figure v-for="image in tripReleaseImages(selectedTrip)" :key="image.key">
+          <div class="trip-images vehicle-gallery" v-if="vehicleImages.length">
+            <figure v-for="image in vehicleImages" :key="image.key">
               <button
-                v-if="imageSrc(image.path)"
                 type="button"
-                class="image-thumb"
-                :aria-label="`ขยาย${image.label}`"
-                @click="openImagePreview(imageSrc(image.path), image.label, image.path)"
+                class="image-thumb vehicle-thumb"
+                :class="{ loading: isImageLoading(image.path), 'has-image': imageSrc(image.path) }"
+                :disabled="isImageLoading(image.path)"
+                :aria-label="image.label"
+                @click="openImagePreviewPath(image.path, image.label)"
               >
-                <img :src="imageSrc(image.path)" :alt="image.label" />
+                <img v-if="imageSrc(image.path)" :src="imageSrc(image.path)" :alt="image.label" />
+                <span v-else class="image-load-state">{{ imageActionLabel(image.path) }}</span>
               </button>
-              <figcaption>{{ image.label }}</figcaption>
-              <small v-if="!imageSrc(image.path)">{{ image.path }}</small>
-            </figure>
-            <figure v-for="image in tripReturnImages(selectedTrip)" :key="image.key">
-              <button
-                v-if="imageSrc(image.path)"
-                type="button"
-                class="image-thumb"
-                :aria-label="`ขยาย${image.label}`"
-                @click="openImagePreview(imageSrc(image.path), image.label, image.path)"
-              >
-                <img :src="imageSrc(image.path)" :alt="image.label" />
-              </button>
-              <figcaption>{{ image.label }}</figcaption>
-              <small v-if="!imageSrc(image.path)">{{ image.path }}</small>
+              <figcaption :title="image.path">{{ image.label }}</figcaption>
             </figure>
           </div>
 
-          <div class="stops-list">
-            <article v-for="stop in selectedTrip.stops" :key="stop.list_id" class="stop-card">
-              <div class="stop-top">
-                <div>
+          <div class="bill-workspace">
+            <div class="bill-list" role="list" aria-label="รายการบิล">
+              <template v-for="stop in allStops" :key="stopKey(stop)">
+                <button
+                  type="button"
+                  class="bill-row"
+                  :class="{ active: selectedStopId === stopKey(stop) }"
+                  @click="selectStop(stop)"
+                >
                   <span class="seq">#{{ stop.sequence_no || '-' }}</span>
-                  <h3>{{ stop.store_name_result || stop.store_name || stop.store_id || '-' }}</h3>
-                  <p>{{ stop.data_store_no || stop.zone || stop.list_id }}</p>
-                </div>
-                <span class="status" :class="stopStatusClass(stop)">
-                  {{ stopStatus(stop) }}
-                </span>
-              </div>
+                  <span class="bill-main">
+                    <strong>{{ stop.store_name_result || stop.store_name || stop.store_id || '-' }}</strong>
+                    <small>{{ billNo(stop) }}</small>
+                  </span>
+                  <span class="bill-meta">
+                    <strong>{{ fmtMoney(stop.amount) }}</strong>
+                    <em :class="stopStatusClass(stop)">{{ stopStatus(stop) }}</em>
+                  </span>
+                  <span class="bill-tags">
+                    <span v-if="stopImageCount(stop)" class="bill-badge">{{ fmt(stopImageCount(stop)) }} รูป</span>
+                    <span v-if="problemCount(stop)" class="bill-badge warn">{{ fmt(problemCount(stop)) }} ปัญหา</span>
+                  </span>
+                </button>
 
-              <div class="timeline">
-                <div>
-                  <span>Check-in</span>
-                  <strong>{{ fmtDateTime(stop.date_time_check_in) }}</strong>
-                </div>
-                <div>
-                  <span>Check-out</span>
-                  <strong>{{ fmtDateTime(stop.date_time_check_out) }}</strong>
-                </div>
-              </div>
+                <div v-if="selectedStopId === stopKey(stop) && stopDetailLoading" class="bill-empty">กำลังโหลดบิล</div>
+                <div v-else-if="selectedStopId === stopKey(stop) && stopDetailError" class="bill-empty error">{{ stopDetailError }}</div>
+                <article v-else-if="selectedStopId === stopKey(stop) && selectedStop" class="stop-card bill-detail">
+                  <div class="stop-top">
+                    <div>
+                      <span class="seq">#{{ selectedStop.sequence_no || '-' }}</span>
+                      <h3>{{ selectedStop.store_name_result || selectedStop.store_name || selectedStop.store_id || '-' }}</h3>
+                      <p>{{ selectedStop.data_store_no || selectedStop.zone || selectedStop.list_id }}</p>
+                    </div>
+                    <span class="status" :class="stopStatusClass(selectedStop)">
+                      {{ stopStatus(selectedStop) }}
+                    </span>
+                  </div>
 
-              <div class="note-grid">
-                <div>
-                  <span>ยอด</span>
-                  <strong>{{ fmtMoney(stop.amount) }}</strong>
-                </div>
-                <div>
-                  <span>Visit</span>
-                  <strong>{{ displayVisit(stop.visit) }}</strong>
-                </div>
-              </div>
+                  <div class="timeline">
+                    <div>
+                      <span>Check-in</span>
+                      <strong>{{ fmtDateTime(selectedStop.date_time_check_in) }}</strong>
+                    </div>
+                    <div>
+                      <span>Check-out</span>
+                      <strong>{{ fmtDateTime(selectedStop.date_time_check_out) }}</strong>
+                    </div>
+                  </div>
 
-              <p v-if="stop.visit_note" class="note">{{ stop.visit_note }}</p>
+                  <div class="note-grid">
+                    <div>
+                      <span>ยอด</span>
+                      <strong>{{ fmtMoney(selectedStop.amount) }}</strong>
+                    </div>
+                    <div>
+                      <span>Visit</span>
+                      <strong>{{ displayVisit(selectedStop.visit) }}</strong>
+                    </div>
+                  </div>
 
-              <div class="images-row" v-if="stopCheckInImage(stop) || stopCheckOutImages(stop).length">
-                <figure v-if="stopCheckInImage(stop)">
-                  <button
-                    v-if="imageSrc(stopCheckInImage(stop))"
-                    type="button"
-                    class="image-thumb"
-                    aria-label="ขยายรูป Check-in"
-                    @click="openImagePreview(imageSrc(stopCheckInImage(stop)), 'รูป Check-in', stopCheckInImage(stop))"
-                  >
-                    <img :src="imageSrc(stopCheckInImage(stop))" alt="Check-in" />
-                  </button>
-                  <figcaption>รูป Check-in</figcaption>
-                  <small v-if="!imageSrc(stopCheckInImage(stop))">{{ stopCheckInImage(stop) }}</small>
-                </figure>
-                <figure v-for="image in stopCheckOutImages(stop)" :key="image.key">
-                  <button
-                    v-if="imageSrc(image.path)"
-                    type="button"
-                    class="image-thumb"
-                    :aria-label="`ขยาย${image.label}`"
-                    @click="openImagePreview(imageSrc(image.path), image.label, image.path)"
-                  >
-                    <img :src="imageSrc(image.path)" :alt="image.label" />
-                  </button>
-                  <figcaption>{{ image.label }}</figcaption>
-                  <small v-if="!imageSrc(image.path)">{{ image.path }}</small>
-                </figure>
-              </div>
+                  <p v-if="selectedStop.visit_note" class="note">{{ selectedStop.visit_note }}</p>
 
-              <div v-if="stop.problems?.length" class="problems">
-                <h4>ปัญหา</h4>
-                <div v-for="problem in stop.problems" :key="problem.problem_id" class="problem-item">
+                  <div class="images-row" v-if="stopCheckInImage(selectedStop) || stopCheckOutImages(selectedStop).length">
+                    <figure v-if="stopCheckInImage(selectedStop)">
+                      <button
+                        type="button"
+                        class="image-thumb"
+                        :class="{ loading: isImageLoading(stopCheckInImage(selectedStop)), 'has-image': imageSrc(stopCheckInImage(selectedStop)) }"
+                        :disabled="isImageLoading(stopCheckInImage(selectedStop))"
+                        aria-label="รูป Check-in"
+                        @click="openImagePreviewPath(stopCheckInImage(selectedStop), 'รูป Check-in')"
+                      >
+                        <img v-if="imageSrc(stopCheckInImage(selectedStop))" :src="imageSrc(stopCheckInImage(selectedStop))" alt="Check-in" />
+                        <span v-else class="image-load-state">{{ imageActionLabel(stopCheckInImage(selectedStop)) }}</span>
+                      </button>
+                      <figcaption :title="stopCheckInImage(selectedStop)">รูป Check-in</figcaption>
+                    </figure>
+                    <figure v-for="image in stopCheckOutImages(selectedStop)" :key="image.key">
+                      <button
+                        type="button"
+                        class="image-thumb"
+                        :class="{ loading: isImageLoading(image.path), 'has-image': imageSrc(image.path) }"
+                        :disabled="isImageLoading(image.path)"
+                        :aria-label="image.label"
+                        @click="openImagePreviewPath(image.path, image.label)"
+                      >
+                        <img v-if="imageSrc(image.path)" :src="imageSrc(image.path)" :alt="image.label" />
+                        <span v-else class="image-load-state">{{ imageActionLabel(image.path) }}</span>
+                      </button>
+                      <figcaption :title="image.path">{{ image.label }}</figcaption>
+                    </figure>
+                  </div>
+
+                  <div v-if="selectedStop.problems?.length" class="problems">
+                    <h4>ปัญหา</h4>
+                    <div v-for="problem in selectedStop.problems" :key="problem.problem_id" class="problem-item">
                   <div>
                     <strong>{{ problem.problem_type || 'ไม่ระบุประเภท' }}</strong>
                     <p>{{ problem.description || problemNote(problem) || '-' }}</p>
@@ -228,21 +243,25 @@
                   <span :class="problem.is_resolved ? 'resolved' : 'open-problem'">
                     {{ problem.is_resolved ? 'แก้แล้ว' : 'ค้างอยู่' }}
                   </span>
-                  <figure v-if="problemImage(problem)">
+                  <figure v-for="image in problemImages(problem)" :key="image.key">
                     <button
-                      v-if="imageSrc(problemImage(problem))"
                       type="button"
                       class="image-thumb"
-                      aria-label="ขยายรูปปัญหา"
-                      @click="openImagePreview(imageSrc(problemImage(problem)), problem.problem_type || 'รูปปัญหา', problemImage(problem))"
+                      :class="{ loading: isImageLoading(image.path), 'has-image': imageSrc(image.path) }"
+                      :disabled="isImageLoading(image.path)"
+                      aria-label="รูปปัญหา"
+                      @click="openImagePreviewPath(image.path, image.label)"
                     >
-                      <img :src="imageSrc(problemImage(problem))" alt="Problem" />
+                      <img v-if="imageSrc(image.path)" :src="imageSrc(image.path)" alt="Problem" />
+                      <span v-else class="image-load-state">{{ imageActionLabel(image.path) }}</span>
                     </button>
-                    <small v-else>{{ problemImage(problem) }}</small>
+                    <figcaption :title="image.path">{{ image.label }}</figcaption>
                   </figure>
-                </div>
-              </div>
-            </article>
+                    </div>
+                  </div>
+                </article>
+              </template>
+            </div>
           </div>
         </template>
       </aside>
@@ -298,7 +317,7 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import apiBase from '../composables/useApi.js'
 
 const filters = reactive({
@@ -314,6 +333,11 @@ const detailLoading = ref(false)
 const error = ref('')
 const lastSyncedAt = ref('')
 const imageUrls = reactive({})
+const imageLoadingPaths = reactive({})
+const selectedStopId = ref('')
+const selectedStopDetail = ref(null)
+const stopDetailLoading = ref(false)
+const stopDetailError = ref('')
 const imagePreview = reactive({
   open: false,
   src: '',
@@ -329,7 +353,17 @@ const imagePreview = reactive({
   originY: 0,
 })
 const imageTransformStyle = ref('')
+let detailRequestSeq = 0
+let stopDetailRequestSeq = 0
 let imageBatch = 0
+
+const allStops = computed(() => selectedTrip.value?.stops || [])
+const selectedStopSummary = computed(() => allStops.value.find(stop => stopKey(stop) === selectedStopId.value) || null)
+const selectedStop = computed(() => selectedStopDetail.value || selectedStopSummary.value)
+const vehicleImages = computed(() => [
+  ...tripReleaseImages(selectedTrip.value),
+  ...tripReturnImages(selectedTrip.value),
+])
 
 function params(offset = 0) {
   const p = new URLSearchParams({ limit: '20', offset: String(Math.max(0, offset)) })
@@ -345,9 +379,7 @@ async function searchTrips(offset = 0) {
     const { data } = await apiBase.get(`/fleet/trips?${params(offset)}`)
     trips.value = data.data || []
     meta.value = data.meta || { total: 0, limit: 20, offset }
-    if (!selectedTrip.value && trips.value.length) {
-      await openTrip(trips.value[0].car_release_id)
-    } else if (selectedTrip.value && !trips.value.some(t => t.car_release_id === selectedTrip.value.car_release_id)) {
+    if (selectedTrip.value && !trips.value.some(t => t.car_release_id === selectedTrip.value.car_release_id)) {
       selectedTrip.value = null
     }
   } catch (e) {
@@ -358,14 +390,20 @@ async function searchTrips(offset = 0) {
 }
 
 async function openTrip(id) {
+  if (!id) return
+  if (selectedTrip.value?.car_release_id === id && !detailLoading.value) return
+  const seq = ++detailRequestSeq
   detailLoading.value = true
+  error.value = ''
   try {
-    const { data } = await apiBase.get(`/fleet/trips/${encodeURIComponent(id)}`)
+    const { data } = await apiBase.get(`/fleet/trips/${encodeURIComponent(id)}?summary=1`)
+    if (seq !== detailRequestSeq) return
     selectedTrip.value = data.data
   } catch (e) {
+    if (seq !== detailRequestSeq) return
     error.value = e.response?.data?.error || e.message
   } finally {
-    detailLoading.value = false
+    if (seq === detailRequestSeq) detailLoading.value = false
   }
 }
 
@@ -376,31 +414,15 @@ function revokeFleetImages() {
   Object.keys(imageUrls).forEach(key => delete imageUrls[key])
 }
 
-function collectImagePaths(trip) {
-  const paths = []
-  tripReleaseImages(trip).forEach(image => paths.push(image.path))
-  tripReturnImages(trip).forEach(image => paths.push(image.path))
-  for (const stop of trip?.stops || []) {
-    const checkInImage = stopCheckInImage(stop)
-    const checkOutImage = stopCheckOutImage(stop)
-    if (checkInImage) paths.push(checkInImage)
-    if (checkOutImage) paths.push(checkOutImage)
-    stopCheckOutImages(stop).forEach(image => paths.push(image.path))
-    for (const problem of stop.problems || []) {
-      const path = problemImage(problem)
-      if (path) paths.push(path)
-    }
-  }
-  return [...new Set(paths.map(p => String(p).trim()).filter(Boolean))]
-}
-
-async function loadFleetImage(path, batch) {
+async function loadFleetImage(path, batch = imageBatch) {
   const value = String(path || '').trim()
-  if (!value || imageUrls[value]) return
+  if (!value) return ''
+  if (imageUrls[value]) return imageUrls[value]
   if (/^https?:\/\//i.test(value)) {
     imageUrls[value] = value
-    return
+    return value
   }
+  imageLoadingPaths[value] = true
   try {
     const { data } = await apiBase.get('/fleet/image', {
       params: { path: value },
@@ -409,19 +431,95 @@ async function loadFleetImage(path, batch) {
     const url = URL.createObjectURL(data)
     if (batch !== imageBatch) {
       URL.revokeObjectURL(url)
-      return
+      return ''
     }
     imageUrls[value] = url
+    return url
   } catch (e) {
     console.warn('[fleet image]', value, e.message)
+    return ''
+  } finally {
+    delete imageLoadingPaths[value]
   }
 }
 
-async function loadSelectedTripImages(trip) {
-  const batch = ++imageBatch
-  revokeFleetImages()
-  const paths = collectImagePaths(trip)
-  await Promise.all(paths.map(path => loadFleetImage(path, batch)))
+function isImageLoading(path) {
+  const value = String(path || '').trim()
+  return Boolean(value && imageLoadingPaths[value])
+}
+
+function imageActionLabel(path) {
+  return isImageLoading(path) ? 'กำลังโหลดรูป' : 'ดูรูป'
+}
+
+async function openImagePreviewPath(path, label = '') {
+  const src = await loadFleetImage(path)
+  if (src) openImagePreview(src, label, path)
+}
+
+function loadVehicleImages() {
+  const batch = imageBatch
+  vehicleImages.value.forEach(image => loadFleetImage(image.path, batch))
+}
+
+function stopImagePaths(stop) {
+  const paths = []
+  const checkInImage = stopCheckInImage(stop)
+  if (checkInImage) paths.push(checkInImage)
+  stopCheckOutImages(stop).forEach(image => paths.push(image.path))
+  for (const problem of stop?.problems || []) {
+    problemImages(problem).forEach(image => paths.push(image.path))
+  }
+  return [...new Set(paths.map(path => String(path || '').trim()).filter(Boolean))]
+}
+
+function loadStopImages(stop) {
+  const batch = imageBatch
+  stopImagePaths(stop).forEach(path => loadFleetImage(path, batch))
+}
+
+function stopKey(stop) {
+  return String(stop?.list_id || stop?.check_out_id || stop?.payment_id || stop?.sequence_no || '')
+}
+
+async function selectStop(stop) {
+  const key = stopKey(stop)
+  if (!key || !selectedTrip.value?.car_release_id) return
+  if (selectedStopId.value === key && selectedStopDetail.value && !stopDetailLoading.value) return
+  const seq = ++stopDetailRequestSeq
+  selectedStopId.value = key
+  selectedStopDetail.value = null
+  stopDetailError.value = ''
+  if (imagePreview.open) closeImagePreview()
+  stopDetailLoading.value = true
+  try {
+    const tripId = encodeURIComponent(selectedTrip.value.car_release_id)
+    const listId = encodeURIComponent(key)
+    const { data } = await apiBase.get(`/fleet/trips/${tripId}/stops/${listId}`)
+    if (seq !== stopDetailRequestSeq) return
+    selectedStopDetail.value = data.data
+    loadStopImages(data.data)
+  } catch (e) {
+    if (seq !== stopDetailRequestSeq) return
+    stopDetailError.value = e.response?.data?.error || e.message || 'โหลดบิลไม่สำเร็จ'
+  } finally {
+    if (seq === stopDetailRequestSeq) stopDetailLoading.value = false
+  }
+}
+
+function billNo(stop) {
+  return stop?.payment_id || stop?.check_out_id || stop?.data_store_no || stop?.list_id || '-'
+}
+
+function stopImageCount(stop) {
+  if (stop?.image_count != null) return Number(stop.image_count || 0)
+  const problemImageCount = (stop?.problems || []).reduce((sum, problem) => sum + problemImages(problem).length, 0)
+  return (stopCheckInImage(stop) ? 1 : 0) + stopCheckOutImages(stop).length + problemImageCount
+}
+
+function problemCount(stop) {
+  if (stop?.problem_count != null) return Number(stop.problem_count || 0)
+  return stop?.problems?.length || 0
 }
 
 function clearSearch() {
@@ -487,7 +585,7 @@ function stopStatus(stop) {
 }
 
 function stopStatusClass(stop) {
-  if (stop.bypass || stop.problems?.length) return 'warn'
+  if (stop.bypass || problemCount(stop)) return 'warn'
   if (stop.date_time_check_out) return 'done'
   if (stop.date_time_check_in) return 'active'
   return ''
@@ -572,6 +670,31 @@ function stopCheckOutImages(stop) {
 
 function problemImage(problem) {
   return firstImagePath(problem?.problem_image, problem?.image_problem)
+}
+
+function problemImages(problem) {
+  const seen = new Set()
+  const images = []
+  const addImage = (path, label, key) => {
+    const value = firstImagePath(path)
+    if (!value || seen.has(value)) return
+    seen.add(value)
+    images.push({
+      key: key || value,
+      label: label || `รูปปัญหา ${images.length + 1}`,
+      path: value,
+    })
+  }
+
+  addImage(problemImage(problem), problem?.problem_type || 'รูปปัญหา', 'problem_image')
+  for (const image of problem?.problem_images || []) {
+    addImage(
+      image.image_path ?? image.problem_image ?? image.image_problem ?? image.path,
+      image.note || `${problem?.problem_type || 'รูปปัญหา'} ${images.length + 1}`,
+      image.image_problem_id
+    )
+  }
+  return images
 }
 
 function imageSrc(path) {
@@ -682,15 +805,22 @@ onMounted(() => {
   window.addEventListener('keydown', onPreviewKeydown)
 })
 
-watch(selectedTrip, trip => {
+watch(selectedTrip, () => {
   if (imagePreview.open) closeImagePreview()
-  loadSelectedTripImages(trip)
+  selectedStopId.value = ''
+  selectedStopDetail.value = null
+  stopDetailLoading.value = false
+  stopDetailError.value = ''
+  stopDetailRequestSeq++
+  imageBatch++
+  Object.keys(imageLoadingPaths).forEach(key => delete imageLoadingPaths[key])
+  revokeFleetImages()
+  loadVehicleImages()
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onPreviewKeydown)
   closeImagePreview()
-  imageBatch++
   revokeFleetImages()
 })
 </script>
@@ -913,14 +1043,163 @@ td span {
 
 .trip-images {
   margin: 0;
-  padding: 14px 16px;
+  padding: 10px 16px 12px;
   border-bottom: 1px solid #edf1f6;
 }
 
-.stops-list {
+.vehicle-gallery {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 132px;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.vehicle-gallery figure {
+  min-width: 0;
+}
+
+.vehicle-thumb {
+  min-height: 86px;
+}
+
+.vehicle-thumb img {
+  aspect-ratio: 4 / 3;
+}
+
+.vehicle-gallery figcaption {
+  padding: 5px 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+}
+
+.bill-workspace {
   display: grid;
   gap: 12px;
   padding: 12px;
+}
+
+.bill-list {
+  display: grid;
+  gap: 8px;
+}
+
+.bill-row {
+  width: 100%;
+  align-self: auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px 10px;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #dce4ee;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.bill-row:hover,
+.bill-row.active {
+  background: #f1f6ff;
+  border-color: #bfdbfe;
+}
+
+.bill-row.active {
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+
+.bill-main {
+  min-width: 0;
+}
+
+.bill-main strong {
+  display: block;
+  color: #172033;
+  font-size: 13px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bill-main small {
+  display: block;
+  margin-top: 2px;
+  color: #7b8798;
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.bill-meta {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bill-meta strong {
+  display: block;
+  color: #172033;
+  font-size: 13px;
+}
+
+.bill-meta em {
+  display: inline-block;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #4b5b70;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.bill-meta em.done { background: #dcfce7; color: #166534; }
+.bill-meta em.active { background: #dbeafe; color: #1d4ed8; }
+.bill-meta em.warn { background: #fff7ed; color: #c2410c; }
+
+.bill-tags {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bill-badge {
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #075985;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bill-badge.warn {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.bill-detail {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+
+.bill-empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #607086;
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 13px;
+}
+
+.bill-empty.error {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #b42318;
 }
 
 .stop-card {
@@ -1016,16 +1295,40 @@ figure {
 }
 
 .image-thumb {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  padding: 0;
+  min-height: 96px;
+  padding: 14px;
   border: 0;
-  background: transparent;
-  cursor: zoom-in;
+  background: #fff;
+  color: #2563eb;
+  cursor: pointer;
   position: relative;
 }
 
-.image-thumb::after {
+.image-thumb.has-image {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.image-thumb.loading {
+  color: #64748b;
+  cursor: progress;
+}
+
+.image-load-state {
+  border-radius: 999px;
+  background: #e0ecff;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.image-thumb.has-image::after {
   content: 'ขยาย';
   position: absolute;
   right: 8px;
@@ -1041,8 +1344,8 @@ figure {
   transition: opacity .16s ease, transform .16s ease;
 }
 
-.image-thumb:hover::after,
-.image-thumb:focus-visible::after {
+.image-thumb.has-image:hover::after,
+.image-thumb.has-image:focus-visible::after {
   opacity: 1;
   transform: translateY(0);
 }
