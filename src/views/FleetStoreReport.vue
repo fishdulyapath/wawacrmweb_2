@@ -1356,7 +1356,7 @@ button:disabled {
   text-align: left;
 }
 .history-row:last-child {
-  border-bottom: 0;
+  border-bottom: 1px solid #bdbdbd;
 }
 .history-row:hover,
 .history-row.expanded {
@@ -1381,7 +1381,7 @@ button:disabled {
 }
 .history-group:last-child .history-inline-card,
 .history-group:last-child .history-row {
-  border-bottom: 0;
+  border-bottom: 1px solid #bdbdbd;
 }
 .pagination {
   display: flex;
