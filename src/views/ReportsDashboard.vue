@@ -2,13 +2,15 @@
   <div class="p-4 lg:p-6 max-w-7xl mx-auto">
 
     <!-- ── Header ──────────────────────────────────────────────── -->
-    <div class="flex flex-col lg:flex-row lg:items-center gap-3 mb-6">
-      <div class="flex-1">
-        <h1 class="text-xl font-bold text-slate-800">รายงานและประวัติ</h1>
-        <p class="text-sm text-slate-500 mt-0.5">วิเคราะห์กิจกรรมและติดตามการทำงาน</p>
+    <div class="mb-6">
+      <div class="flex items-center justify-between gap-3 mb-3">
+        <div>
+          <h1 class="text-xl font-bold text-slate-800">รายงานและประวัติ</h1>
+          <p class="text-sm text-slate-500 mt-0.5">วิเคราะห์กิจกรรมและติดตามการทำงาน</p>
+        </div>
       </div>
 
-      <!-- Filters -->
+      <!-- Filters row -->
       <div class="flex flex-wrap items-center gap-2">
         <!-- Date preset -->
         <div class="flex gap-1 bg-slate-100 rounded-lg p-1">
@@ -84,10 +86,6 @@
         <button @click="resetFilters" :disabled="loadingMain"
           class="px-3 py-1.5 border border-slate-200 text-slate-600 bg-white rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50 transition-colors">
           รีเซ็ต
-        </button>
-        <button @click="exportCurrentTab" :disabled="loadingMain || trendLoading || loadingAudit"
-          class="px-3 py-1.5 border border-slate-200 text-slate-600 bg-white rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50 transition-colors">
-          Export CSV
         </button>
       </div>
     </div>

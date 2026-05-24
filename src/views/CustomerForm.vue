@@ -1381,7 +1381,7 @@ async function loadCustomer() {
 
     if (data.crm) {
       form.crm.customer_type  = data.crm.customer_type || 'B2C'
-      form.crm.status         = data.crm.crm_status    || 'active'
+      form.crm.status         = data.crm.crm_status || data.crm.status || 'active'
       form.crm.priority       = data.crm.priority      || 'normal'
       form.crm.source         = data.crm.source        || ''
       form.crm.owner_user_id  = data.crm.owner_user_id || ''

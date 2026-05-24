@@ -13,6 +13,34 @@
       <div>
         <h1 class="text-lg lg:text-xl font-bold text-slate-800">📋 ตรวจสอบกิจกรรม</h1>
         <p class="text-xs lg:text-sm text-slate-500 mt-0.5">ภาพรวมกิจกรรมทั้งหมด แบบจัดกลุ่ม</p>
+        <!-- Owner search -->
+        <div class="relative w-48">
+          <input
+            v-model="ownerSearch"
+            type="text"
+            placeholder="ค้นหาพนักงาน..."
+            class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8"
+            @focus="ownerDropdown = true"
+            @input="onOwnerSearchInput"
+            @blur="hideOwnerDropdown"
+          />
+          <button v-if="ownerSearch || ownerFilter" type="button"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            @mousedown.prevent="clearOwnerFilter">×</button>
+          <div v-if="ownerDropdown"
+            class="absolute z-30 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+            <button type="button"
+              class="w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50"
+              @mousedown.prevent="selectOwner(null)">พนักงานทุกคน</button>
+            <button v-for="u in filteredUsers" :key="u.id" type="button"
+              class="w-full px-3 py-2 text-left hover:bg-blue-50"
+              @mousedown.prevent="selectOwner(u)">
+              <span class="block text-sm font-medium text-slate-700">{{ u.name }}</span>
+              <span class="block text-[11px] text-slate-400">{{ u.code }}</span>
+            </button>
+            <div v-if="!filteredUsers.length" class="px-3 py-3 text-sm text-slate-400">ไม่พบพนักงาน</div>
+          </div>
+        </div>
       </div>      <RouterLink :to="{ path: '/activities/new', query: { from: '/activities/review' } }"
         class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -49,7 +77,7 @@
             <circle cx="11" cy="11" r="8" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke-width="2"/>
           </svg>
           <input v-model="searchInput" @input="onSearch"
-            placeholder="ค้นหาชื่อกิจกรรม..."
+            placeholder="ค้นหากิจกรรม/AR/ผู้รับผิดชอบ..."
             class="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
 
@@ -290,6 +318,34 @@ const activeStatus = ref('')
 const typeFilter   = ref('')
 const searchInput  = ref('')
 let searchTimer    = null
+const ownerFilter  = ref('')
+const users         = ref([])
+const ownerSearch   = ref('')
+const ownerDropdown = ref(false)
+const selectedUser  = ref(null)
+
+const filteredUsers = computed(() => {
+  const q = ownerSearch.value.trim().toLowerCase()
+  if (!q || selectedUser.value?.name === ownerSearch.value) return users.value
+  return users.value.filter(u => u.name.toLowerCase().includes(q) || (u.code || '').toLowerCase().includes(q))
+})
+
+function onOwnerSearchInput() {
+  ownerDropdown.value = true
+  if (selectedUser.value?.name !== ownerSearch.value) ownerFilter.value = ''
+}
+function hideOwnerDropdown() { setTimeout(() => { ownerDropdown.value = false }, 150) }
+function selectOwner(u) {
+  selectedUser.value = u
+  ownerSearch.value = u?.name || ''
+  ownerFilter.value = u ? String(u.id) : ''
+  ownerDropdown.value = false
+  loadGroups(1)
+}
+function clearOwnerFilter() {
+  selectedUser.value = null; ownerSearch.value = ''; ownerFilter.value = ''
+  loadGroups(1)
+}
 
 // ── Filters ─────────────────────────────────────────────────
 const statusFilters = [
@@ -305,7 +361,7 @@ const typeOptions = [
   { value: 'meeting', label: 'ประชุม', icon: '👥', activeClass: 'bg-orange-50 text-orange-700 border-orange-300' },
 ]
 
-const hasFilter = computed(() => activeStatus.value !== '' || typeFilter.value !== '' || searchInput.value !== '')
+const hasFilter = computed(() => activeStatus.value !== '' || typeFilter.value !== '' || searchInput.value !== '' || ownerFilter.value !== '')
 
 function setStatusFilter(key) { activeStatus.value = key; loadGroups(1) }
 function toggleType(val) {
@@ -314,6 +370,7 @@ function toggleType(val) {
 }
 function clearFilter() {
   activeStatus.value = ''; typeFilter.value = ''; searchInput.value = ''
+  ownerSearch.value = ''; selectedUser.value = null; ownerFilter.value = ''
   loadGroups(1)
 }
 function onSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadGroups(1), 300) }
@@ -326,6 +383,7 @@ async function loadGroups(page = 1) {
     if (activeStatus.value) params.status = activeStatus.value
     if (typeFilter.value) params.type = typeFilter.value
     if (searchInput.value.trim()) params.search = searchInput.value.trim()
+  if (ownerFilter.value) params.owner_id = ownerFilter.value
 
     const { data } = await api.get('/activities/groups', { params })
     groups.value = data.data
@@ -418,7 +476,10 @@ function groupStatusClass(s) {
   return 'badge-red'
 }
 
-onMounted(() => loadGroups())
+onMounted(() => {
+  api.get('/employees/crm-users').then(r => { users.value = r.data || [] }).catch(() => {})
+  loadGroups()
+})
 </script>
 
 <style scoped>

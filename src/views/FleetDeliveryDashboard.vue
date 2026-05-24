@@ -30,12 +30,32 @@
           @keyup.enter="searchTrips(0)"
         />
       </label>
-      <button class="primary-btn" :disabled="loading" @click="searchTrips(0)">
-        {{ loading ? 'กำลังค้นหา' : 'ค้นหา' }}
-      </button>
-      <button class="ghost-btn" :disabled="loading" @click="clearSearch">
-        ล้าง
-      </button>
+      <label>
+        <span>ชื่อร้าน</span>
+        <input
+          v-model.trim="filters.store"
+          type="search"
+          placeholder="ชื่อร้านค้า"
+          @keyup.enter="searchTrips(0)"
+        />
+      </label>
+      <label>
+        <span>เลขที่บิล</span>
+        <input
+          v-model.trim="filters.bill"
+          type="search"
+          placeholder="เลขที่บิล"
+          @keyup.enter="searchTrips(0)"
+        />
+      </label>
+      <div class="search-actions">
+        <button class="primary-btn" :disabled="loading" @click="searchTrips(0)">
+          {{ loading ? 'กำลังค้นหา' : 'ค้นหา' }}
+        </button>
+        <button class="ghost-btn" :disabled="loading" @click="clearSearch">
+          ล้าง
+        </button>
+      </div>
     </section>
 
     <section class="content-grid">
@@ -141,8 +161,17 @@
           </div>
 
           <div class="bill-workspace">
+            <div class="bill-search">
+              <input
+                v-model.trim="stopSearch"
+                type="search"
+                placeholder="ค้นหาชื่อร้าน / เลขที่บิล"
+                class="stop-search-input"
+              />
+              <span v-if="stopSearch" class="stop-search-count">{{ filteredStops.length }} / {{ allStops.length }}</span>
+            </div>
             <div class="bill-list" role="list" aria-label="รายการบิล">
-              <template v-for="stop in allStops" :key="stopKey(stop)">
+              <template v-for="stop in filteredStops" :key="stopKey(stop)">
                 <button
                   type="button"
                   class="bill-row"
@@ -171,7 +200,7 @@
                     <div>
                       <span class="seq">#{{ selectedStop.sequence_no || '-' }}</span>
                       <h3>{{ selectedStop.store_name_result || selectedStop.store_name || selectedStop.store_id || '-' }}</h3>
-                      <p>{{ selectedStop.data_store_no || selectedStop.zone || selectedStop.list_id }}</p>
+                      <p>Payment ID: {{ selectedStop.payment_id || selectedStop.zone || selectedStop.list_id }}</p>
                     </div>
                     <span class="status" :class="stopStatusClass(selectedStop)">
                       {{ stopStatus(selectedStop) }}
@@ -323,6 +352,8 @@ import apiBase from '../composables/useApi.js'
 const filters = reactive({
   trip: '',
   driver: '',
+  store: '',
+  bill: '',
 })
 
 const trips = ref([])
@@ -358,17 +389,32 @@ let stopDetailRequestSeq = 0
 let imageBatch = 0
 
 const allStops = computed(() => selectedTrip.value?.stops || [])
+const stopSearch = ref('')
+const filteredStops = computed(() => {
+  const q = stopSearch.value.toLowerCase().trim()
+  if (!q) return allStops.value
+  const words = q.split(/\s+/).filter(Boolean)
+  return allStops.value.filter(stop => {
+    const name = (stop.store_name_result || stop.store_name || stop.store_id || '').toLowerCase()
+    const bill = (stop.data_store_no || '').toLowerCase()
+    const haystack = `${name} ${bill}`
+    return words.every(w => haystack.includes(w))
+  })
+})
 const selectedStopSummary = computed(() => allStops.value.find(stop => stopKey(stop) === selectedStopId.value) || null)
 const selectedStop = computed(() => selectedStopDetail.value || selectedStopSummary.value)
 const vehicleImages = computed(() => [
   ...tripReleaseImages(selectedTrip.value),
   ...tripReturnImages(selectedTrip.value),
 ])
+watch(() => selectedTrip.value?.car_release_id, () => { stopSearch.value = '' })
 
 function params(offset = 0) {
   const p = new URLSearchParams({ limit: '20', offset: String(Math.max(0, offset)) })
   if (filters.trip) p.set('q', filters.trip)
   if (filters.driver) p.set('driver', filters.driver)
+  if (filters.store) p.set('store', filters.store)
+  if (filters.bill) p.set('bill', filters.bill)
   return p.toString()
 }
 
@@ -508,7 +554,7 @@ async function selectStop(stop) {
 }
 
 function billNo(stop) {
-  return stop?.payment_id || stop?.check_out_id || stop?.data_store_no || stop?.list_id || '-'
+  return stop?.data_store_no || stop?.check_out_id || stop?.payment_id || stop?.list_id || '-'
 }
 
 function stopImageCount(stop) {
@@ -525,6 +571,8 @@ function problemCount(stop) {
 function clearSearch() {
   filters.trip = ''
   filters.driver = ''
+  filters.store = ''
+  filters.bill = ''
   selectedTrip.value = null
   searchTrips(0)
 }
@@ -892,12 +940,24 @@ label span,
 
 .search-panel {
   display: grid;
-  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 1fr) auto auto;
+  grid-template-columns: repeat(4, 1fr) auto;
+  align-items: end;
   gap: 10px;
   background: #fff;
   border: 1px solid #dce4ee;
   border-radius: 8px;
   padding: 12px;
+}
+
+.search-actions {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.search-actions button {
+  flex: 1;
+  white-space: nowrap;
 }
 
 label input {
@@ -1080,6 +1140,28 @@ td span {
   display: grid;
   gap: 12px;
   padding: 12px;
+}
+
+.bill-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stop-search-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+
+  color: inherit;
+  font-size: 0.85rem;
+}
+
+.stop-search-count {
+  font-size: 0.75rem;
+  color: var(--muted, #888);
+  white-space: nowrap;
 }
 
 .bill-list {
@@ -1529,8 +1611,8 @@ figure small {
   .fleet-page { padding: 14px; }
   .fleet-header { align-items: stretch; flex-direction: column; }
   .sync-chip { text-align: left; }
-  .search-panel { grid-template-columns: 1fr; }
-  button { align-self: stretch; }
+  .search-panel { grid-template-columns: 1fr 1fr; }
+  .search-actions { grid-column: 1 / -1; }
   .content-grid { grid-template-columns: 1fr; }
   .detail-panel { position: static; max-height: none; }
 }

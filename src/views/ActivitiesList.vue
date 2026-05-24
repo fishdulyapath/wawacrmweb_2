@@ -30,6 +30,34 @@
       <div>
         <h1 class="text-lg lg:text-xl font-bold text-slate-800">กิจกรรม</h1>
         <p class="text-xs lg:text-sm text-slate-500 mt-0.5">จัดการงาน, การโทร และการประชุม</p>
+        <!-- Owner search -->
+        <div class="relative w-48">
+          <input
+            v-model="ownerSearch"
+            type="text"
+            placeholder="ค้นหาพนักงาน..."
+            class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8"
+            @focus="ownerDropdown = true"
+            @input="onOwnerSearchInput"
+            @blur="hideOwnerDropdown"
+          />
+          <button v-if="ownerSearch || reportFilter.owner_id" type="button"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            @mousedown.prevent="clearOwnerFilter">×</button>
+          <div v-if="ownerDropdown"
+            class="absolute z-30 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+            <button type="button"
+              class="w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50"
+              @mousedown.prevent="selectOwner(null)">พนักงานทุกคน</button>
+            <button v-for="u in filteredUsers" :key="u.id" type="button"
+              class="w-full px-3 py-2 text-left hover:bg-blue-50"
+              @mousedown.prevent="selectOwner(u)">
+              <span class="block text-sm font-medium text-slate-700">{{ u.name }}</span>
+              <span class="block text-[11px] text-slate-400">{{ u.code }}</span>
+            </button>
+            <div v-if="!filteredUsers.length" class="px-3 py-3 text-sm text-slate-400">ไม่พบพนักงาน</div>
+          </div>
+        </div>
       </div>
       <RouterLink v-if="canCreate" to="/activities/new"
         class="hidden lg:inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
@@ -95,7 +123,7 @@
             <circle cx="11" cy="11" r="8" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke-width="2"/>
           </svg>
           <input v-model="searchInput" @input="onSearch"
-            placeholder="ค้นหา..."
+            placeholder="ค้นหากิจกรรม/AR/ผู้รับผิดชอบ..."
             class="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
 
@@ -382,6 +410,33 @@ const quickFilter = ref('')
 const typeFilter  = ref([])
 const searchInput = ref('')
 const reportFilter = reactive({ owner_id: '', date_from: '', date_to: '', call_result: '', status: '' })
+const users         = ref([])
+const ownerSearch   = ref('')
+const ownerDropdown = ref(false)
+const selectedUser  = ref(null)
+
+const filteredUsers = computed(() => {
+  const q = ownerSearch.value.trim().toLowerCase()
+  if (!q || selectedUser.value?.name === ownerSearch.value) return users.value
+  return users.value.filter(u => u.name.toLowerCase().includes(q) || (u.code || '').toLowerCase().includes(q))
+})
+
+function onOwnerSearchInput() {
+  ownerDropdown.value = true
+  if (selectedUser.value?.name !== ownerSearch.value) reportFilter.owner_id = ''
+}
+function hideOwnerDropdown() { setTimeout(() => { ownerDropdown.value = false }, 150) }
+function selectOwner(u) {
+  selectedUser.value = u
+  ownerSearch.value = u?.name || ''
+  reportFilter.owner_id = u ? String(u.id) : ''
+  ownerDropdown.value = false
+  loadActivities(1)
+}
+function clearOwnerFilter() {
+  selectedUser.value = null; ownerSearch.value = ''; reportFilter.owner_id = ''
+  loadActivities(1)
+}
 let searchTimer   = null
 
 // ── Close-task modal (lightweight — logic lives in CloseActivityModal) ──
@@ -465,6 +520,7 @@ function toggleType(val) {
 }
 function clearFilter() {
   quickFilter.value = ''; typeFilter.value = []; searchInput.value = ''
+  ownerSearch.value = ''; selectedUser.value = null
   Object.assign(reportFilter, { owner_id: '', date_from: '', date_to: '', call_result: '', status: '' })
   loadActivities(1)
 }
@@ -665,6 +721,7 @@ watch(() => route.query, (query) => {
 })
 
 onMounted(() => {
+    api.get('/employees/crm-users').then(r => { users.value = r.data || [] }).catch(() => {})
   if (route.query.report) syncReportFilter(route.query)
   else syncQueueFilter(route.query.queue)
   loadStats()

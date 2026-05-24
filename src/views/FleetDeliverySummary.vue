@@ -182,7 +182,7 @@
           <div class="section-label">คนขับและรถ</div>
           <h2 class="section-title">อันดับผลงานขนส่ง</h2>
           <p class="section-desc">จัดอันดับพนักงานขับรถและรถตามรายได้และจำนวนเที่ยวขนส่ง</p>
-          <div class="grid-2">
+          <div class="grid-3">
             <div class="panel">
               <div class="panel-header">
                 <div>
@@ -219,7 +219,7 @@
                 <li v-for="(c, i) in topCars.slice(0, 10)" :key="c.car_id" class="rank-item">
                   <span class="rank-num" :class="rankNumClass(i)">{{ String(i+1).padStart(2,'0') }}</span>
                   <div class="rank-main">
-                    <span class="rank-name">{{ c.car_name || c.license_plate || c.car_id }}</span>
+                    <span class="rank-name">{{ c.license_plate || c.car_name || c.car_id }}</span>
                     <span class="rank-meta-txt">{{ c.trips }} เที่ยว</span>
                     <div class="rank-bar-track">
                       <div class="rank-bar-fill car" :style="{ width: pct(c.revenue, topCars[0]?.revenue) + '%', animationDelay: (i*80) + 'ms' }"></div>
@@ -228,6 +228,30 @@
                   <div class="rank-stat">{{ fmtB(c.revenue) }}<span class="rank-stat-unit">รายได้</span></div>
                 </li>
                 <li v-if="!topCars.length" class="rank-empty">ไม่มีข้อมูล</li>
+              </ol>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header">
+                <div>
+                  <div class="panel-title">คนขับเที่ยวรถมากสุด</div>
+                  <div class="panel-sub">{{ topDriversByTrips.length }} คนขับ · จัดอันดับตามจำนวนเที่ยวในช่วงที่เลือก</div>
+                </div>
+                <div class="panel-meta">อันดับ</div>
+              </div>
+              <ol class="rank-list">
+                <li v-for="(d, i) in topDriversByTrips.slice(0, 10)" :key="d.user_id" class="rank-item">
+                  <span class="rank-num" :class="rankNumClass(i)">{{ String(i+1).padStart(2,'0') }}</span>
+                  <div class="rank-main">
+                    <span class="rank-name">{{ d.driver_name || d.user_id }}</span>
+                    <span class="rank-meta-txt">รายได้ {{ fmtB(d.revenue) }}</span>
+                    <div class="rank-bar-track">
+                      <div class="rank-bar-fill trips" :style="{ width: pct(d.trips, topDriversByTrips[0]?.trips) + '%', animationDelay: (i*80) + 'ms' }"></div>
+                    </div>
+                  </div>
+                  <div class="rank-stat">{{ d.trips }}<span class="rank-stat-unit">เที่ยว</span></div>
+                </li>
+                <li v-if="!topDriversByTrips.length" class="rank-empty">ไม่มีข้อมูล</li>
               </ol>
             </div>
           </div>
@@ -698,6 +722,7 @@ const lastSyncedAt      = ref('')
 const syncRows          = ref([])
 const topDrivers        = ref([])
 const topCars           = ref([])
+const topDriversByTrips = ref([])
 const topStoresVisits   = ref([])
 const topStoresRevenue  = ref([])
 const dayOfWeek         = ref([])
@@ -1306,6 +1331,7 @@ async function loadAll() {
       { key: 'monthly', label: 'กราฟรายเดือน', fallback: [], request: api.get(`/dashboard/monthly${q}`) },
       { key: 'topDrivers', label: 'อันดับคนขับ', fallback: [], request: api.get(`/dashboard/top-drivers${qs({ limit: 15 })}`) },
       { key: 'topCars', label: 'อันดับรถ', fallback: [], request: api.get(`/dashboard/top-cars${qs({ limit: 15 })}`) },
+      { key: 'topDriversByTrips', label: 'อันดับเที่ยวรถ', fallback: [], request: api.get(`/dashboard/top-drivers-trips${qs({ limit: 15 })}`) },
       { key: 'topStoresVisits', label: 'ร้านที่ไปบ่อย', fallback: [], request: api.get(`/dashboard/top-stores${qs({ limit: 15, by: 'visits' })}`) },
       { key: 'topStoresRevenue', label: 'ร้านยอดขายสูง', fallback: [], request: api.get(`/dashboard/top-stores${qs({ limit: 15, by: 'revenue' })}`) },
       { key: 'dayOfWeek', label: 'กราฟรายวัน', fallback: [], request: api.get(`/dashboard/day-of-week${q}`) },
@@ -1323,10 +1349,11 @@ async function loadAll() {
     monthly.value          = val(1)
     topDrivers.value       = val(2)
     topCars.value          = val(3)
-    topStoresVisits.value  = val(4)
-    topStoresRevenue.value = val(5)
-    dayOfWeek.value        = val(6)
-    problems.value         = val(7)
+    topDriversByTrips.value = val(4)
+    topStoresVisits.value  = val(5)
+    topStoresRevenue.value = val(6)
+    dayOfWeek.value        = val(7)
+    problems.value         = val(8)
 
     if (prevRange) {
       const prevQ = qsFromRange(prevRange)
@@ -2023,6 +2050,7 @@ onBeforeUnmount(() => {
 
 /* ── GRIDS ───────────────────────────────────────────────────────────────── */
 .grid-2      { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.grid-3      { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
 .grid-stores { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
 
 /* ── CHARTS ──────────────────────────────────────────────────────────────── */
@@ -2079,6 +2107,7 @@ onBeforeUnmount(() => {
   animation: grow 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .rank-bar-fill.car   { background: var(--accent-g); }
+.rank-bar-fill.trips { background: var(--accent-o, #f59e0b); }
 .rank-bar-fill.store { background: var(--accent-a); }
 @keyframes grow { from { transform: scaleX(0); } }
 .rank-stat {
@@ -2199,7 +2228,7 @@ onBeforeUnmount(() => {
   .kpi-hero  { grid-template-columns: 1fr 1fr; }
   .kpi-cell.headline { grid-row: auto; grid-column: span 2; }
   .kpi-value { font-size: 72px !important; }
-  .grid-2, .grid-stores { grid-template-columns: 1fr; }
+  .grid-2, .grid-3, .grid-stores { grid-template-columns: 1fr; }
   .kpi-strip { grid-template-columns: repeat(2, 1fr); }
   .kpi-strip .kpi-cell:nth-child(2) { border-right: none; }
   .attention-strip { grid-template-columns: 1fr; }
@@ -2255,7 +2284,7 @@ onBeforeUnmount(() => {
   .panel-title { font-size: 20px; }
 
   /* grids */
-  .grid-2, .grid-stores { grid-template-columns: 1fr; }
+  .grid-2, .grid-3, .grid-stores { grid-template-columns: 1fr; }
   .pay-split { grid-template-columns: 1fr; }
   .pay-amount { font-size: 32px; }
   .problem-grid { grid-template-columns: repeat(2, 1fr); }
