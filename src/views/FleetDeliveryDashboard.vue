@@ -171,7 +171,7 @@
               <span v-if="stopSearch" class="stop-search-count">{{ filteredStops.length }} / {{ allStops.length }}</span>
             </div>
             <div class="bill-list" role="list" aria-label="รายการบิล">
-              <template v-for="stop in filteredStops" :key="stopKey(stop)">
+              <div v-for="stop in filteredStops" :key="stopKey(stop)" class="stop-group">
                 <button
                   type="button"
                   class="bill-row"
@@ -289,12 +289,137 @@
                     </div>
                   </div>
                 </article>
-              </template>
+              </div>
             </div>
           </div>
         </template>
       </aside>
     </section>
+
+    <Teleport to="body">
+      <!-- ── Trip Detail Dialog (mobile / iPad) ── -->
+      <div v-if="tripDialogOpen" class="trip-dialog-backdrop" @click.self="closeTripDialog">
+        <div class="trip-dialog">
+          <div class="trip-dialog-head">
+            <div>
+              <p class="eyebrow">TRIP DETAIL</p>
+              <h2>{{ selectedTrip?.car_release_code || selectedTrip?.car_release_id || 'กำลังโหลด' }}</h2>
+              <p v-if="selectedTrip">{{ selectedTrip.driver_name || '-' }} · {{ selectedTrip.license_plate || selectedTrip.car_name || '-' }}</p>
+            </div>
+            <button type="button" class="trip-dialog-close" @click="closeTripDialog">✕</button>
+          </div>
+          <div class="trip-dialog-body">
+            <div v-if="detailLoading" class="state">กำลังโหลดรายละเอียด</div>
+            <template v-else-if="selectedTrip">
+              <div class="metric-row">
+                <div><span>วันที่</span><strong>{{ fmtDate(selectedTrip.trip_date) }}</strong></div>
+                <div><span>จุดส่ง</span><strong>{{ fmt(selectedTrip.stops?.length) }}</strong></div>
+                <div><span>ยอดรวม</span><strong>{{ fmtMoney(selectedTrip.total_amount) }}</strong></div>
+              </div>
+
+              <div class="trip-images vehicle-gallery" v-if="vehicleImages.length">
+                <figure v-for="image in vehicleImages" :key="image.key">
+                  <button type="button" class="image-thumb vehicle-thumb"
+                    :class="{ loading: isImageLoading(image.path), 'has-image': imageSrc(image.path) }"
+                    :disabled="isImageLoading(image.path)" :aria-label="image.label"
+                    @click="openImagePreviewPath(image.path, image.label)">
+                    <img v-if="imageSrc(image.path)" :src="imageSrc(image.path)" :alt="image.label" />
+                    <span v-else class="image-load-state">{{ imageActionLabel(image.path) }}</span>
+                  </button>
+                  <figcaption>{{ image.label }}</figcaption>
+                </figure>
+              </div>
+
+              <div class="bill-workspace">
+                <div class="bill-search">
+                  <input v-model.trim="stopSearch" type="search" placeholder="ค้นหาชื่อร้าน / เลขที่บิล" class="stop-search-input" />
+                  <span v-if="stopSearch" class="stop-search-count">{{ filteredStops.length }} / {{ allStops.length }}</span>
+                </div>
+                <div class="bill-list" role="list">
+                  <div v-for="stop in filteredStops" :key="stopKey(stop)" class="stop-group">
+                    <button type="button" class="bill-row" :class="{ active: selectedStopId === stopKey(stop) }" @click="selectStop(stop)">
+                      <span class="seq">#{{ stop.sequence_no || '-' }}</span>
+                      <span class="bill-main">
+                        <strong>{{ stop.store_name_result || stop.store_name || stop.store_id || '-' }}</strong>
+                        <small>{{ billNo(stop) }}</small>
+                      </span>
+                      <span class="bill-meta">
+                        <strong>{{ fmtMoney(stop.amount) }}</strong>
+                        <em :class="stopStatusClass(stop)">{{ stopStatus(stop) }}</em>
+                      </span>
+                      <span class="bill-tags">
+                        <span v-if="stopImageCount(stop)" class="bill-badge">{{ fmt(stopImageCount(stop)) }} รูป</span>
+                        <span v-if="problemCount(stop)" class="bill-badge warn">{{ fmt(problemCount(stop)) }} ปัญหา</span>
+                      </span>
+                    </button>
+                    <div v-if="selectedStopId === stopKey(stop) && stopDetailLoading" class="bill-empty">กำลังโหลดบิล</div>
+                    <div v-else-if="selectedStopId === stopKey(stop) && stopDetailError" class="bill-empty error">{{ stopDetailError }}</div>
+                    <article v-else-if="selectedStopId === stopKey(stop) && selectedStop" class="stop-card bill-detail">
+                      <div class="stop-top">
+                        <div>
+                          <span class="seq">#{{ selectedStop.sequence_no || '-' }}</span>
+                          <h3>{{ selectedStop.store_name_result || selectedStop.store_name || selectedStop.store_id || '-' }}</h3>
+                          <p>Payment ID: {{ selectedStop.payment_id || selectedStop.zone || selectedStop.list_id }}</p>
+                        </div>
+                        <span class="status" :class="stopStatusClass(selectedStop)">{{ stopStatus(selectedStop) }}</span>
+                      </div>
+                      <div class="timeline">
+                        <div><span>Check-in</span><strong>{{ fmtDateTime(selectedStop.date_time_check_in) }}</strong></div>
+                        <div><span>Check-out</span><strong>{{ fmtDateTime(selectedStop.date_time_check_out) }}</strong></div>
+                      </div>
+                      <div class="note-grid">
+                        <div><span>ยอด</span><strong>{{ fmtMoney(selectedStop.amount) }}</strong></div>
+                        <div><span>Visit</span><strong>{{ displayVisit(selectedStop.visit) }}</strong></div>
+                      </div>
+                      <p v-if="selectedStop.visit_note" class="note">{{ selectedStop.visit_note }}</p>
+                      <div class="images-row" v-if="stopCheckInImage(selectedStop) || stopCheckOutImages(selectedStop).length">
+                        <figure v-if="stopCheckInImage(selectedStop)">
+                          <button type="button" class="image-thumb"
+                            :class="{ loading: isImageLoading(stopCheckInImage(selectedStop)), 'has-image': imageSrc(stopCheckInImage(selectedStop)) }"
+                            :disabled="isImageLoading(stopCheckInImage(selectedStop))" aria-label="รูป Check-in"
+                            @click="openImagePreviewPath(stopCheckInImage(selectedStop), 'รูป Check-in')">
+                            <img v-if="imageSrc(stopCheckInImage(selectedStop))" :src="imageSrc(stopCheckInImage(selectedStop))" alt="Check-in" />
+                            <span v-else class="image-load-state">{{ imageActionLabel(stopCheckInImage(selectedStop)) }}</span>
+                          </button>
+                          <figcaption>รูป Check-in</figcaption>
+                        </figure>
+                        <figure v-for="image in stopCheckOutImages(selectedStop)" :key="image.key">
+                          <button type="button" class="image-thumb"
+                            :class="{ loading: isImageLoading(image.path), 'has-image': imageSrc(image.path) }"
+                            :disabled="isImageLoading(image.path)" :aria-label="image.label"
+                            @click="openImagePreviewPath(image.path, image.label)">
+                            <img v-if="imageSrc(image.path)" :src="imageSrc(image.path)" :alt="image.label" />
+                            <span v-else class="image-load-state">{{ imageActionLabel(image.path) }}</span>
+                          </button>
+                          <figcaption>{{ image.label }}</figcaption>
+                        </figure>
+                      </div>
+                      <div v-if="selectedStop.problems?.length" class="problems">
+                        <h4>ปัญหา</h4>
+                        <div v-for="problem in selectedStop.problems" :key="problem.problem_id" class="problem-item">
+                          <div><strong>{{ problem.problem_type || 'ไม่ระบุประเภท' }}</strong><p>{{ problem.description || problemNote(problem) || '-' }}</p></div>
+                          <span :class="problem.is_resolved ? 'resolved' : 'open-problem'">{{ problem.is_resolved ? 'แก้แล้ว' : 'ค้างอยู่' }}</span>
+                          <figure v-for="image in problemImages(problem)" :key="image.key">
+                            <button type="button" class="image-thumb"
+                              :class="{ loading: isImageLoading(image.path), 'has-image': imageSrc(image.path) }"
+                              :disabled="isImageLoading(image.path)" aria-label="รูปปัญหา"
+                              @click="openImagePreviewPath(image.path, image.label)">
+                              <img v-if="imageSrc(image.path)" :src="imageSrc(image.path)" alt="Problem" />
+                              <span v-else class="image-load-state">{{ imageActionLabel(image.path) }}</span>
+                            </button>
+                            <figcaption>{{ image.label }}</figcaption>
+                          </figure>
+                        </div>
+                      </div>
+                    </article>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <Teleport to="body">
       <div
@@ -369,6 +494,9 @@ const selectedStopId = ref('')
 const selectedStopDetail = ref(null)
 const stopDetailLoading = ref(false)
 const stopDetailError = ref('')
+const tripDialogOpen = ref(false)
+const isMobileOrTablet = () => window.matchMedia('(max-width: 1024px)').matches
+
 const imagePreview = reactive({
   open: false,
   src: '',
@@ -437,7 +565,11 @@ async function searchTrips(offset = 0) {
 
 async function openTrip(id) {
   if (!id) return
-  if (selectedTrip.value?.car_release_id === id && !detailLoading.value) return
+  if (selectedTrip.value?.car_release_id === id && !detailLoading.value) {
+    if (isMobileOrTablet()) tripDialogOpen.value = true
+    return
+  }
+  if (isMobileOrTablet()) tripDialogOpen.value = true
   const seq = ++detailRequestSeq
   detailLoading.value = true
   error.value = ''
@@ -451,6 +583,10 @@ async function openTrip(id) {
   } finally {
     if (seq === detailRequestSeq) detailLoading.value = false
   }
+}
+
+function closeTripDialog() {
+  tripDialogOpen.value = false
 }
 
 function revokeFleetImages() {
@@ -1169,6 +1305,10 @@ td span {
   gap: 8px;
 }
 
+.stop-group {
+  display: contents;
+}
+
 .bill-row {
   width: 100%;
   align-self: auto;
@@ -1607,14 +1747,73 @@ figure small {
   overflow: hidden;
 }
 
-@media (max-width: 980px) {
+/* ── Trip Dialog (mobile / iPad) ── */
+.trip-dialog-backdrop {
+  display: none;
+}
+@media (max-width: 1024px) {
+  .trip-dialog-backdrop {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, .55);
+    z-index: 70;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .trip-dialog {
+    width: 100%;
+    max-height: 94dvh;
+    background: #fff;
+    border-radius: 20px 20px 0 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 -6px 40px rgba(15,23,42,.18);
+  }
+  .trip-dialog-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid #edf1f6;
+    flex-shrink: 0;
+  }
+  .trip-dialog-head h2 { font-size: 18px; }
+  .trip-dialog-head p { color: #607086; font-size: 13px; margin-top: 4px; }
+  .trip-dialog-close {
+    flex: 0 0 auto;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #d6dbe4;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    font-size: 16px;
+    border-radius: 8px;
+  }
+  .trip-dialog-body {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .trip-dialog-body .bill-workspace {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 1024px) {
   .fleet-page { padding: 14px; }
   .fleet-header { align-items: stretch; flex-direction: column; }
   .sync-chip { text-align: left; }
   .search-panel { grid-template-columns: 1fr 1fr; }
   .search-actions { grid-column: 1 / -1; }
   .content-grid { grid-template-columns: 1fr; }
-  .detail-panel { position: static; max-height: none; }
+  /* hide static detail panel — use dialog instead */
+  .detail-panel { display: none; }
+  /* make table rows clearly tappable */
+  tbody tr td { padding: 13px 12px; }
 }
 
 @media (max-width: 560px) {

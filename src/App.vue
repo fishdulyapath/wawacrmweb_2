@@ -16,7 +16,7 @@
 
     <!-- ══ Sidebar ══ -->
     <Transition name="slide">
-      <aside v-show="sidebarOpen || isDesktop" class="fixed lg:static inset-y-0 left-0 z-40 w-60 bg-slate-900 flex flex-col flex-shrink-0 lg:translate-x-0 transition-transform duration-200">
+      <aside v-show="sidebarOpen || isDesktop" style="z-index:9999" class="fixed lg:static inset-y-0 left-0 z-40 w-60 bg-slate-900 flex flex-col flex-shrink-0 lg:translate-x-0 transition-transform duration-200">
         <!-- Logo -->
         <div class="px-5 py-5 border-b border-slate-700/60">
           <div class="flex items-center gap-3">
@@ -62,7 +62,6 @@
             การแจ้งเตือน
           </RouterLink>
 
-
           <RouterLink to="/activities" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
             <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -87,7 +86,11 @@
           </RouterLink>
           <RouterLink to="/webboard" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
             <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"/>
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"
+              />
             </svg>
             เว็บบอร์ด
           </RouterLink>
@@ -96,43 +99,55 @@
             <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-widest mt-4 mb-2">จัดการ</p>
             <RouterLink to="/activities/review" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                />
               </svg>
               ตรวจสอบกิจกรรม
             </RouterLink>
             <RouterLink v-if="canViewDashboards" to="/reports" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
               </svg>
               รายงานและประวัติ
             </RouterLink>
             <RouterLink v-if="canViewDashboards" to="/sales-reports" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
               รายงานยอดขาย
             </RouterLink>
             <RouterLink v-if="canViewDashboards" to="/fleet-delivery" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8 17h8m-4-4v4M3 10l1.5-6h15L21 10M3 10h18M3 10l1 7h16l1-7"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 17h8m-4-4v4M3 10l1.5-6h15L21 10M3 10h18M3 10l1 7h16l1-7" />
               </svg>
               Dashboard ขนส่ง
             </RouterLink>
             <RouterLink v-if="canViewDashboards" to="/fleet-delivery-summary" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V8m5 8V5m5 11v-6M5 19h14a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1v12a1 1 0 001 1z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V8m5 8V5m5 11v-6M5 19h14a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1v12a1 1 0 001 1z" />
               </svg>
               Summary ขนส่ง
             </RouterLink>
             <RouterLink v-if="canViewDashboards" to="/fleet-store-report" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M5 7l1 12h12l1-12M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2M9 11h6M9 15h6"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M5 7l1 12h12l1-12M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2M9 11h6M9 15h6" />
               </svg>
               รายงานร้านค้า
             </RouterLink>
             <RouterLink v-if="canManageFollowupPolicy" to="/settings/followup-policy" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3M5 11h14M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2zm4-6h4"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3M5 11h14M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2zm4-6h4" />
               </svg>
               ตั้งค่า Follow-up
             </RouterLink>
@@ -143,7 +158,7 @@
             <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-widest mt-4 mb-2">ตั้งค่า</p>
             <RouterLink to="/settings/users" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
               กำหนดสิทธิ์ผู้ใช้
             </RouterLink>
@@ -168,22 +183,20 @@
           <div class="flex items-center gap-3 px-3 py-2 mb-2">
             <!-- Avatar with superadmin crown -->
             <div class="relative flex-shrink-0">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                :class="isSuperAdmin ? 'bg-yellow-500' : avatarBgByRole(auth.user?.role)">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" :class="isSuperAdmin ? 'bg-yellow-500' : avatarBgByRole(auth.user?.role)">
                 {{ auth.user?.name?.charAt(0) || "?" }}
               </div>
-              <span v-if="isSuperAdmin"
-                class="absolute -top-1.5 -right-1.5 text-[11px] leading-none">👑</span>
+              <span v-if="isSuperAdmin" class="absolute -top-1.5 -right-1.5 text-[11px] leading-none">👑</span>
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-white text-sm font-medium truncate">{{ auth.user?.name }}</p>
               <div class="flex items-center gap-1.5 mt-0.5">
                 <!-- Role badge -->
-                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none"
-                  :class="isSuperAdmin
-                    ? 'bg-yellow-500/20 text-yellow-400'
-                    : roleBadgeDark(auth.user?.role)">
-                  {{ isSuperAdmin ? 'ผู้ดูแลระบบ' : roleLabel(auth.user?.role) }}
+                <span
+                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none"
+                  :class="isSuperAdmin ? 'bg-yellow-500/20 text-yellow-400' : roleBadgeDark(auth.user?.role)"
+                >
+                  {{ isSuperAdmin ? "ผู้ดูแลระบบ" : roleLabel(auth.user?.role) }}
                 </span>
                 <span class="text-slate-500 text-[10px] truncate">{{ auth.user?.code }}</span>
               </div>
@@ -233,7 +246,23 @@
       </main>
 
       <!-- ══ Bottom nav (mobile only) ══ -->
-      <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-20 bg-white border-t border-slate-200 flex items-center justify-around px-2 py-1 safe-bottom">
+      <!-- <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-20 bg-white border-t border-slate-200 flex items-center justify-around px-2 py-1 safe-bottom">
+        <RouterLink to="/notifications" class="bottom-nav-item" active-class="bottom-nav-active">
+          <div class="relative">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+              />
+            </svg>
+            <span v-if="unreadNotif > 0" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+              {{ unreadNotif > 9 ? "9+" : unreadNotif }}
+            </span>
+          </div>
+          <span>แจ้งเตือน</span>
+        </RouterLink>
         <RouterLink to="/customers" class="bottom-nav-item" active-class="bottom-nav-active">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
@@ -264,33 +293,20 @@
           </svg>
         </RouterLink>
 
-        <RouterLink to="/notifications" class="bottom-nav-item" active-class="bottom-nav-active">
-          <div class="relative">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-              />
-            </svg>
-            <span v-if="unreadNotif > 0" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-              {{ unreadNotif > 9 ? "9+" : unreadNotif }}
-            </span>
-          </div>
-          <span>แจ้งเตือน</span>
-        </RouterLink>
-
         <RouterLink to="/webboard" class="bottom-nav-item" active-class="bottom-nav-active">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"/>
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"
+            />
           </svg>
           <span>บอร์ด</span>
         </RouterLink>
 
         <RouterLink v-if="canViewDashboards" to="/fleet-delivery-summary" class="bottom-nav-item" active-class="bottom-nav-active">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V8m5 8V5m5 11v-6M5 19h14a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1v12a1 1 0 001 1z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V8m5 8V5m5 11v-6M5 19h14a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1v12a1 1 0 001 1z" />
           </svg>
           <span>ขนส่ง</span>
         </RouterLink>
@@ -301,7 +317,7 @@
           </svg>
           <span>บัญชี</span>
         </RouterLink>
-      </nav>
+      </nav> -->
     </div>
   </div>
 </template>
@@ -316,8 +332,8 @@ import { usePermissions } from "./composables/usePermissions.js";
 const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
-const { canCreate, isManager, isSuperAdmin, canViewDashboards, canManageFollowupPolicy } = usePermissions()
-const isAdmin = computed(() => isSuperAdmin.value || auth.user?.role === 'admin')
+const { canCreate, isManager, isSuperAdmin, canViewDashboards, canManageFollowupPolicy } = usePermissions();
+const isAdmin = computed(() => isSuperAdmin.value || auth.user?.role === "admin");
 
 const unreadNotif = ref(0);
 const sidebarOpen = ref(false);
@@ -361,20 +377,22 @@ async function doLogout() {
 }
 
 function roleLabel(role) {
-  return { admin: 'ผู้ดูแลระบบ', manager: 'ผู้จัดการ', supervisor: 'หัวหน้าทีม', sales_rep: 'พนักงาน' }[role] || 'พนักงาน'
+  return { admin: "ผู้ดูแลระบบ", manager: "ผู้จัดการ", supervisor: "หัวหน้าทีม", sales_rep: "พนักงาน" }[role] || "พนักงาน";
 }
 
 function avatarBgByRole(role) {
-  return { admin: 'bg-red-600', manager: 'bg-indigo-600', supervisor: 'bg-blue-500', sales_rep: 'bg-slate-500' }[role] || 'bg-slate-500'
+  return { admin: "bg-red-600", manager: "bg-indigo-600", supervisor: "bg-blue-500", sales_rep: "bg-slate-500" }[role] || "bg-slate-500";
 }
 
 function roleBadgeDark(role) {
-  return {
-    admin:      'bg-red-500/20 text-red-400',
-    manager:    'bg-indigo-500/20 text-indigo-300',
-    supervisor: 'bg-blue-500/20 text-blue-300',
-    sales_rep:  'bg-slate-500/20 text-slate-400',
-  }[role] || 'bg-slate-500/20 text-slate-400'
+  return (
+    {
+      admin: "bg-red-500/20 text-red-400",
+      manager: "bg-indigo-500/20 text-indigo-300",
+      supervisor: "bg-blue-500/20 text-blue-300",
+      sales_rep: "bg-slate-500/20 text-slate-400",
+    }[role] || "bg-slate-500/20 text-slate-400"
+  );
 }
 </script>
 

@@ -4,22 +4,8 @@
       <div>
         <p class="eyebrow">FLEET STORE HISTORY</p>
         <h1>รายงานร้านค้า</h1>
-        <p>ค้นหาร้านแล้วดูประวัติส่งของ คืนของ ร้านปิด ปัญหา และรูปภาพประกอบรายร้าน</p>
       </div>
-      <div class="report-actions">
-        <label>
-          <span>จาก</span>
-          <input v-model="filters.from" type="date" />
-        </label>
-        <label>
-          <span>ถึง</span>
-          <input v-model="filters.to" type="date" />
-        </label>
-        <button :disabled="!selectedStore || reportLoading" @click="loadReport(selectedStore.store_id)">โหลดข้อมูล</button>
-        <button class="ghost-action" :disabled="!selectedStore || reportLoading" @click="copyShareLink">คัดลอกลิงก์</button>
-        <button class="ghost-action" :disabled="!timeline.length" @click="exportCsv">CSV</button>
-        <button class="ghost-action" :disabled="!selectedStore || reportLoading" @click="printReport">พิมพ์</button>
-      </div>
+
     </header>
 
     <section class="search-band">
@@ -47,8 +33,8 @@
             <b>{{ fmtMoney(store.revenue) }}</b>
             <small>ยอดรวม</small>
           </span>
-          <span v-if="Number(store.problem_count)" class="badge warn">{{ fmt(store.problem_count) }} ปัญหา</span>
-          <span v-if="Number(store.return_count)" class="badge danger">{{ fmt(store.return_count) }} คืน</span>
+          <!-- <span v-if="Number(store.problem_count)" class="badge warn">{{ fmt(store.problem_count) }} ปัญหา</span>
+          <span v-if="Number(store.return_count)" class="badge danger">{{ fmt(store.return_count) }} คืน</span> -->
         </button>
       </div>
       <p v-if="searchError" class="state error">{{ searchError }}</p>
@@ -242,53 +228,6 @@
           <p v-if="!timeline.length" class="state">ไม่พบประวัติส่งของของร้านนี้</p>
         </section>
 
-        <section v-else-if="false && activeTab === 'history'" class="timeline-list">
-          <article v-for="item in timeline" :key="item.list_id" class="history-card">
-            <div class="history-main">
-              <div>
-                <span class="date">{{ fmtDateTime(item.date_time_check_out || item.date_time_check_in || item.trip_date) }}</span>
-                <h3>{{ item.data_store_no || item.check_out_id || item.list_id }}</h3>
-                <p>{{ item.car_release_code || item.car_release_id || "-" }} · {{ item.driver_name || "-" }} · {{ item.license_plate || item.car_name || "-" }}</p>
-              </div>
-              <div class="amount-box">
-                <strong>{{ fmtMoney(item.amount) }}</strong>
-                <span>{{ item.payment_name || displayVisit(item.visit_name) }}</span>
-              </div>
-            </div>
-
-            <div class="mini-grid">
-              <span
-                >Check-in <b>{{ fmtDateTime(item.date_time_check_in) }}</b></span
-              >
-              <span
-                >Check-out <b>{{ fmtDateTime(item.date_time_check_out) }}</b></span
-              >
-              <span
-                >คืนของ <b>{{ fmtMoney(item.return_total) }}</b></span
-              >
-              <span
-                >ปัญหา <b>{{ fmt(item.problem_count) }}</b></span
-              >
-            </div>
-
-            <p v-if="item.visit_note" class="note">{{ item.visit_note }}</p>
-            <div class="tags">
-              <span v-if="item.bypass" class="tag warn">ข้ามร้าน</span>
-              <span v-if="item.off_site" class="tag warn">นอกสถานที่</span>
-              <span v-if="item.problem_types" class="tag danger">{{ item.problem_types }}</span>
-              <span v-if="item.return_count" class="tag danger">มีคืนของ {{ fmt(item.return_count) }} รายการ</span>
-            </div>
-
-            <div v-if="itemImages(item).length" class="thumb-row">
-              <button v-for="image in itemImages(item)" :key="image.key" type="button" @click="openImage(image.path, image.label)">
-                <img v-if="imageSrc(image.path)" :src="imageSrc(image.path)" :alt="image.label" />
-                <span v-else>{{ imageLoading[image.path] ? "โหลดรูป" : image.label }}</span>
-              </button>
-            </div>
-          </article>
-          <p v-if="!timeline.length" class="state">ไม่พบประวัติในช่วงวันที่เลือก</p>
-        </section>
-
         <section v-else-if="activeTab === 'returns'" class="data-panel">
           <table>
             <thead>
@@ -377,6 +316,170 @@
     </section>
 
     <Teleport to="body">
+      <div v-if="reportDialogOpen && selectedStore" class="report-dialog-backdrop" @click.self="reportDialogOpen = false">
+        <div class="report-dialog">
+          <div class="report-dialog-head">
+            <span>{{ selectedStore.store_name || selectedStore.store_id }}</span>
+            <button type="button" class="close-btn" @click="reportDialogOpen = false">✕ ปิด</button>
+          </div>
+          <div ref="reportPanel" class="report-dialog-body">
+            <div v-if="reportLoading" class="state">กำลังโหลดรายงานร้านค้า</div>
+            <div v-else-if="reportError" class="state error">{{ reportError }}</div>
+            <template v-else-if="selectedStore">
+              <div class="store-profile">
+                <div>
+                  <p class="eyebrow">STORE PROFILE</p>
+                  <h2>{{ report.store?.store_name || selectedStore.store_name || selectedStore.store_id }}</h2>
+                  <p>{{ report.store?.store_id }} · {{ report.store?.zone || 'ไม่ระบุโซน' }}</p>
+                  <p class="muted">{{ report.store?.address || 'ไม่มีที่อยู่' }}</p>
+                  <p class="muted">ข้อมูล: {{ filters.from || '-' }} ถึง {{ filters.to || 'ปัจจุบัน' }}</p>
+                </div>
+                <div class="profile-side">
+                  <span>{{ report.store?.phone || 'ไม่มีเบอร์โทร' }}</span>
+                  <strong>{{ storeRiskLabel }}</strong>
+                </div>
+              </div>
+
+              <div class="kpi-grid">
+                <div v-for="card in kpiCards" :key="card.label" class="kpi-card" :class="card.tone">
+                  <span>{{ card.label }}</span>
+                  <strong>{{ card.value }}</strong>
+                  <small>{{ card.note }}</small>
+                </div>
+              </div>
+
+              <div class="analysis-panel">
+                <div><span>ส่งสำเร็จ</span><strong>{{ successRate }}%</strong><small>{{ fmt(summary.checkouts) }} checkout จาก {{ fmt(summary.total_visits) }} รายการ</small></div>
+                <div><span>คืนของ / ยอดขาย</span><strong>{{ returnRate }}%</strong><small>{{ fmtMoney(summary.return_total) }} จาก {{ fmtMoney(summary.revenue) }}</small></div>
+                <div><span>ปัญหาหลัก</span><strong>{{ topProblemType }}</strong><small>{{ fmt(summary.problem_count) }} รายการในช่วงที่เลือก</small></div>
+              </div>
+
+              <div class="report-actions dialog-actions">
+                <label><span>จาก</span><input v-model="filters.from" type="date" /></label>
+                <label><span>ถึง</span><input v-model="filters.to" type="date" /></label>
+                <button :disabled="reportLoading" @click="loadReport(selectedStore.store_id)">โหลดข้อมูล</button>
+                <button class="ghost-action" :disabled="!timeline.length" @click="exportCsv">CSV</button>
+              </div>
+
+              <nav class="tabs">
+                <button v-for="tab in tabs" :key="tab.key" :class="{ active: activeTab === tab.key }" @click="activeTab = tab.key">
+                  {{ tab.label }}<span>{{ tab.count }}</span>
+                </button>
+              </nav>
+
+              <section v-if="activeTab === 'history'" class="history-compact">
+                <div class="history-toolbar">
+                  <input v-model.trim="historyFilter.bill" type="search" placeholder="ค้นหาเลขบิล / SO" @keyup.enter="applyHistorySearch" />
+                  <button type="button" :disabled="reportLoading" @click="applyHistorySearch">ค้นหา</button>
+                  <button v-if="historyFilter.bill" type="button" class="ghost-action" @click="clearHistorySearch">ล้าง</button>
+                </div>
+                <div class="history-table">
+                  <div v-for="item in timeline" :key="item.list_id" class="history-group">
+                    <button type="button" class="history-row" :class="{ expanded: expandedHistoryId === item.list_id }" @click="toggleHistory(item)">
+                      <span>{{ fmtDateTime(item.date_time_check_out || item.date_time_check_in || item.trip_date) }}</span>
+                      <strong>{{ item.data_store_no || item.check_out_id || item.list_id }}</strong>
+                      <strong>{{ fmtMoney(item.amount) }}</strong>
+                      <span>{{ item.car_release_code || item.car_release_id || '-' }} · {{ item.driver_name || '-' }} · {{ item.license_plate || item.car_name || '-' }}</span>
+                    </button>
+                    <article v-if="expandedHistoryId === item.list_id" class="history-card expanded-card history-inline-card">
+                      <div class="history-main">
+                        <div>
+                          <span class="date">{{ fmtDateTime(item.date_time_check_out || item.date_time_check_in || item.trip_date) }}</span>
+                          <h3>{{ item.data_store_no || item.check_out_id || item.list_id }}</h3>
+                          <p>{{ item.car_release_code || item.car_release_id || '-' }} · {{ item.driver_name || '-' }} · {{ item.license_plate || item.car_name || '-' }}</p>
+                        </div>
+                        <div class="amount-box">
+                          <strong>{{ fmtMoney(item.amount) }}</strong>
+                          <span>{{ item.payment_name || displayVisit(item.visit_name) }}</span>
+                        </div>
+                      </div>
+                      <div class="mini-grid">
+                        <span>Check-in <b>{{ fmtDateTime(item.date_time_check_in) }}</b></span>
+                        <span>Check-out <b>{{ fmtDateTime(item.date_time_check_out) }}</b></span>
+                        <span>คืนของ <b>{{ fmtMoney(item.return_total) }}</b></span>
+                        <span>ปัญหา <b>{{ fmt(item.problem_count) }}</b></span>
+                      </div>
+                      <p v-if="item.visit_note" class="note">{{ item.visit_note }}</p>
+                      <div class="tags">
+                        <span v-if="item.bypass" class="tag warn">ข้ามร้าน</span>
+                        <span v-if="item.off_site" class="tag warn">นอกสถานที่</span>
+                        <span v-if="item.problem_types" class="tag danger">{{ item.problem_types }}</span>
+                        <span v-if="item.return_count" class="tag danger">มีคืนของ {{ fmt(item.return_count) }} รายการ</span>
+                      </div>
+                      <div v-if="itemImages(item).length" class="thumb-row">
+                        <button v-for="image in itemImages(item)" :key="image.key" type="button" @click.stop="openImage(image.path, image.label)">
+                          <img v-if="imageSrc(image.path)" :src="imageSrc(image.path)" :alt="image.label" />
+                          <span v-else>{{ imageLoading[image.path] ? 'โหลดรูป' : image.label }}</span>
+                        </button>
+                      </div>
+                    </article>
+                  </div>
+                </div>
+                <div v-if="timelineMeta.total > historyFilter.limit" class="pagination">
+                  <button type="button" :disabled="historyPage <= 1 || reportLoading" @click="goHistoryPage(historyPage - 1)">ก่อนหน้า</button>
+                  <span>หน้า {{ historyPage }} / {{ historyTotalPages }} · {{ fmt(timelineMeta.total) }} รายการ</span>
+                  <button type="button" :disabled="historyPage >= historyTotalPages || reportLoading" @click="goHistoryPage(historyPage + 1)">ถัดไป</button>
+                </div>
+                <p v-if="!timeline.length" class="state">ไม่พบประวัติส่งของของร้านนี้</p>
+              </section>
+
+              <section v-else-if="activeTab === 'returns'" class="data-panel">
+                <table><thead><tr><th>วันที่</th><th>บิล/SO</th><th>เที่ยวรถ</th><th>สินค้า</th><th class="num">จำนวน</th><th class="num">มูลค่า</th></tr></thead>
+                  <tbody><tr v-for="item in returns" :key="item.return_product_id">
+                    <td>{{ fmtDate(item.date_time_check_out || item.trip_date) }}</td><td>{{ item.data_store_no || item.check_out_id }}</td>
+                    <td>{{ item.car_release_code || item.car_release_id || '-' }}</td><td>{{ item.product_name || '-' }}</td>
+                    <td class="num">{{ fmt(item.quantity) }}</td><td class="num">{{ fmtMoney(item.total) }}</td>
+                  </tr></tbody></table>
+                <p v-if="!returns.length" class="state">ยังไม่มีข้อมูลคืนของของร้านนี้</p>
+              </section>
+
+              <section v-else-if="activeTab === 'closed'" class="timeline-list">
+                <article v-for="item in issueEvents" :key="item.list_id" class="history-card">
+                  <div class="history-main">
+                    <div><span class="date">{{ fmtDateTime(item.date_time_check_out || item.date_time_check_in || item.trip_date) }}</span>
+                      <h3>{{ closedStatus(item) }}</h3>
+                      <p>{{ item.data_store_no || item.list_id }} · {{ item.car_release_code || '-' }} · {{ item.driver_name || '-' }}</p>
+                    </div>
+                    <div class="amount-box"><strong>{{ fmtMoney(item.amount) }}</strong><span>{{ item.check_out_id ? 'มี checkout' : 'ยังไม่ checkout' }}</span></div>
+                  </div>
+                  <div class="tags">
+                    <span v-if="item.bypass" class="tag warn">ข้ามร้าน</span>
+                    <span v-if="item.off_site" class="tag warn">นอกสถานที่</span>
+                    <span v-if="!item.check_out_id" class="tag danger">ไม่ได้ส่ง/ไม่มี checkout</span>
+                    <span v-if="item.problem_types" class="tag danger">{{ item.problem_types }}</span>
+                  </div>
+                </article>
+                <p v-if="!issueEvents.length" class="state">ไม่พบรายการร้านปิดหรือไม่ได้ส่งในช่วงนี้</p>
+              </section>
+
+              <section v-else-if="activeTab === 'issues'" class="issue-grid">
+                <article v-for="problem in problems" :key="problem.problem_id" class="issue-card">
+                  <div><span>{{ fmtDateTime(problem.created_at) }}</span>
+                    <h3>{{ problem.problem_type || 'ไม่ระบุปัญหา' }}</h3>
+                    <p>{{ problem.description || problem.normal_bill_note || '-' }}</p>
+                  </div>
+                  <div class="tags">
+                    <span v-if="problem.normal_bill" class="tag">บิลปกติ</span>
+                    <span v-if="problem.edit_bill" class="tag warn">แก้บิล</span>
+                    <span v-if="problem.out_of_stock" class="tag danger">ของขาด</span>
+                  </div>
+                </article>
+                <p v-if="!problems.length" class="state">ยังไม่มีปัญหาที่บันทึกไว้</p>
+              </section>
+
+              <section v-else class="gallery-grid">
+                <button v-for="image in galleryImages" :key="image.path + image.type" type="button" @click="openImage(image.path, image.label)">
+                  <img v-if="imageSrc(image.path)" :src="imageSrc(image.path)" :alt="image.label" />
+                  <span v-else>{{ image.label }}</span>
+                  <small>{{ image.label }} · {{ fmtDate(image.date) }}</small>
+                </button>
+                <p v-if="!galleryImages.length" class="state">ยังไม่มีรูปภาพของร้านนี้</p>
+              </section>
+            </template>
+          </div>
+        </div>
+      </div>
+
       <div v-if="preview.open" class="preview-backdrop" @click.self="closePreview">
         <div class="preview">
           <button type="button" @click="closePreview">ปิด</button>
@@ -400,6 +503,8 @@ const stores = ref([]);
 const selectedStore = ref(null);
 const reportPanel = ref(null);
 const searchLoading = ref(false);
+const reportDialogOpen = ref(false);
+const isTablet = () => window.matchMedia('(min-width: 601px) and (max-width: 1024px)').matches;
 const reportLoading = ref(false);
 const searchError = ref("");
 const reportError = ref("");
@@ -549,6 +654,7 @@ async function selectStore(store) {
   historyFilter.bill = "";
   historyFilter.offset = 0;
   expandedHistoryId.value = null;
+  if (isTablet()) reportDialogOpen.value = true;
   await resetReportScroll();
   await loadReport(store.store_id);
 }
@@ -1543,7 +1649,140 @@ th {
   background: #0f172a;
   margin-top: 10px;
 }
-@media (max-width: 980px) {
+/* ── iPad / Tablet (601 – 1024 px) — full-width list + dialog ── */
+@media (min-width: 601px) and (max-width: 1024px) {
+  .store-report {
+    display: block;
+    padding: 16px;
+  }
+  h1 {
+    font-size: 26px;
+  }
+  .page-head {
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .report-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .search-band {
+    max-height: none;
+    overflow: visible;
+    margin-bottom: 0;
+  }
+  /* hide the inline report panel on tablet — use dialog instead */
+  .report-body,
+  .empty-state {
+    display: none;
+  }
+  .store-row {
+    grid-template-columns: minmax(0, 1fr) 80px 100px;
+    min-height: 64px;
+  }
+}
+
+/* ── Report Dialog (tablet only) ── */
+.report-dialog-backdrop {
+  display: none;
+}
+@media (min-width: 601px) and (max-width: 1024px) {
+  .report-dialog-backdrop {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 60;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .report-dialog {
+    width: 100%;
+    max-height: 92dvh;
+    background: white;
+    border-radius: 20px 20px 0 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 -6px 40px rgba(15,23,42,0.18);
+  }
+  .report-dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #e3e7ee;
+    font-weight: 700;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .report-dialog-head .close-btn {
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #d6dbe4;
+    height: 36px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+  .report-dialog-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .report-dialog-body .store-profile {
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .report-dialog-body .store-profile h2 {
+    font-size: 20px;
+  }
+  .report-dialog-body .kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .report-dialog-body .analysis-panel {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .report-dialog-body .warning-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .report-dialog-body .insight-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .report-dialog-body .breakdown-grid {
+    grid-template-columns: 1fr;
+  }
+  .report-dialog-body .mini-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .report-dialog-body .history-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .report-dialog-body .tabs {
+    overflow-x: auto;
+  }
+  .report-dialog-body .tabs button {
+    white-space: nowrap;
+  }
+  .dialog-actions {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+    align-items: flex-end;
+  }
+  .dialog-actions label {
+    display: grid !important;
+    gap: 5px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+  }
+}
+
+/* ── Mobile (≤ 600 px) ── */
+@media (max-width: 600px) {
   .store-report {
     display: block;
     padding: 14px;
