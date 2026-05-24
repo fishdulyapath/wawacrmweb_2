@@ -32,6 +32,7 @@ const router = createRouter({
     { path: '/sales-reports',        component: () => import('../views/SalesReportDashboard.vue'), meta: { requireDashboard: true } },
     { path: '/fleet-delivery',       component: () => import('../views/FleetDeliveryDashboard.vue'), meta: { requireDashboard: true } },
     { path: '/fleet-delivery-summary', component: () => import('../views/FleetDeliverySummary.vue'), meta: { requireDashboard: true } },
+    { path: '/fleet-store-report',   component: () => import('../views/FleetStoreReport.vue'), meta: { requireDashboard: true } },
 
     // ── Settings ──
     { path: '/settings/followup-policy', component: () => import('../views/FollowupPolicySettings.vue'), meta: { requireAdminManager: true } },

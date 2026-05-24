@@ -124,6 +124,12 @@
               </svg>
               Summary ขนส่ง
             </RouterLink>
+            <RouterLink v-if="canViewDashboards" to="/fleet-store-report" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+              <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M5 7l1 12h12l1-12M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2M9 11h6M9 15h6"/>
+              </svg>
+              รายงานร้านค้า
+            </RouterLink>
             <RouterLink v-if="canManageFollowupPolicy" to="/settings/followup-policy" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3M5 11h14M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2zm4-6h4"/>

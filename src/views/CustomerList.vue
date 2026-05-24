@@ -36,7 +36,7 @@
         <!-- Status -->
         <div class="w-40">
           <label class="label-text">สถานะ CRM</label>
-          <select v-model="filter.status" @change="loadData" class="input-field">
+          <select v-model="filter.status" @change="applyFilter" class="input-field">
             <option value="">ทั้งหมด</option>
             <option value="active">ใช้งาน</option>
             <option value="inactive">ไม่ใช้งาน</option>
@@ -47,11 +47,23 @@
         <!-- Owner filter -->
         <div class="w-48">
           <label class="label-text">พนักงานผู้ดูแล</label>
-          <select v-model="filter.owner" @change="loadData" class="input-field">
+          <select v-model="filter.owner" @change="applyFilter" class="input-field">
             <option value="">ทั้งหมด</option>
             <option v-for="e in employees" :key="e.code" :value="e.code">
               {{ e.code }} — {{ e.name_1 }}
             </option>
+          </select>
+        </div>
+
+        <div class="w-48">
+          <label class="label-text">ข้อมูลส่งของ</label>
+          <select v-model="filter.fleet_status" @change="applyFilter" class="input-field">
+            <option value="">ทั้งหมด</option>
+            <option value="has_fleet">มีประวัติส่งของ</option>
+            <option value="no_fleet">ไม่มีข้อมูลส่งของ</option>
+            <option value="has_returns">มีคืนของ</option>
+            <option value="has_problems">มีปัญหา</option>
+            <option value="store_closed">ร้านปิดบ่อย/ร้านปิด</option>
           </select>
         </div>
 
@@ -98,12 +110,13 @@
             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">พนักงานผู้ดูแล</th>
             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">ประเภท</th>
             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">สถานะ</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-36">ส่งของ</th>
             <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">จัดการ</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
           <tr v-if="customers.length === 0">
-            <td colspan="7" class="py-16 text-center text-slate-400">
+            <td colspan="8" class="py-16 text-center text-slate-400">
               <svg class="mx-auto w-10 h-10 text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
@@ -148,6 +161,17 @@
               <span :class="statusBadge(c.crm?.crm_status)">
                 {{ statusLabel(c.crm?.crm_status) }}
               </span>
+            </td>
+            <td class="px-4 py-3">
+              <div v-if="c.crm?.fleet" class="space-y-1">
+                <span :class="fleetBadge(c.crm.fleet)">
+                  {{ fleetLabel(c.crm.fleet) }}
+                </span>
+                <p class="text-[11px] text-slate-400">
+                  ล่าสุด {{ fleetDate(c.crm.fleet.latest_visit_at) }}
+                </p>
+              </div>
+              <span v-else class="text-xs text-slate-400">ไม่มีข้อมูลส่งของ</span>
             </td>
             <td class="px-4 py-3">
               <div class="flex items-center justify-end gap-2">
@@ -275,7 +299,7 @@ const deleteTarget = ref(null)
 const deleting     = ref(false)
 const toast = reactive({ show: false, type: 'success', message: '' })
 
-const filter = reactive({ search: '', status: '', owner: '' })
+const filter = reactive({ search: '', status: '', owner: '', fleet_status: '' })
 
 let searchTimer = null
 
@@ -295,7 +319,14 @@ async function loadData() {
   error.value = null
   try {
     const { data } = await api.get('/customers', {
-      params: { search: filter.search, status: filter.status, owner: filter.owner, page: page.value, limit: limit.value }
+      params: {
+        search: filter.search,
+        status: filter.status,
+        owner: filter.owner,
+        fleet_status: filter.fleet_status,
+        page: page.value,
+        limit: limit.value,
+      }
     })
     customers.value = data.data
     total.value     = data.total
@@ -318,10 +349,16 @@ function onSearchInput() {
   searchTimer = setTimeout(() => { page.value = 1; loadData() }, 400)
 }
 
+function applyFilter() {
+  page.value = 1
+  loadData()
+}
+
 function resetFilter() {
   filter.search = ''
   filter.status = ''
   filter.owner  = ''
+  filter.fleet_status = ''
   page.value    = 1
   loadData()
 }
@@ -373,6 +410,24 @@ function statusLabel(s) {
        : s === 'inactive' ? 'ไม่ใช้งาน'
        : s === 'blacklist' ? 'บัญชีดำ'
        : 'ไม่ระบุ'
+}
+
+function fleetBadge(fleet) {
+  if (Number(fleet.problem_count || 0) > 0 || Number(fleet.store_closed_count || 0) > 0) return 'badge-blacklist'
+  if (Number(fleet.return_total || 0) > 0) return 'badge-inactive'
+  return 'badge-active'
+}
+
+function fleetLabel(fleet) {
+  if (Number(fleet.store_closed_count || 0) > 0) return `ร้านปิด ${fleet.store_closed_count}`
+  if (Number(fleet.problem_count || 0) > 0) return `มีปัญหา ${fleet.problem_count}`
+  if (Number(fleet.return_total || 0) > 0) return 'มีคืนของ'
+  return `ส่ง ${fleet.visits || 0} ครั้ง`
+}
+
+function fleetDate(v) {
+  if (!v) return '-'
+  return new Date(v).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })
 }
 
 // ── Init ──────────────────────────────────

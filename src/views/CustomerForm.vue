@@ -50,6 +50,10 @@
                   class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700">
               {{ custActTotal }}
             </span>
+            <span v-if="tab.key === 'fleet_delivery' && fleetSummary?.matched"
+                  class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-emerald-100 text-emerald-700">
+              {{ fleetSummary.summary?.total_visits || 0 }}
+            </span>
           </button>
         </nav>
       </div>
@@ -707,6 +711,213 @@
         <!-- ══════════════════════════════
              TAB: ประวัติการซื้อ
         ══════════════════════════════ -->
+        <div v-show="activeTab === 'fleet_delivery'" class="space-y-4">
+          <div v-if="!isEdit" class="card p-8 text-center text-slate-400 text-sm">
+            กรุณาบันทึกข้อมูลลูกค้าก่อน จึงจะดูประวัติส่งของได้
+          </div>
+
+          <template v-else>
+            <div v-if="loadingFleet" class="text-center text-slate-400 py-8 text-sm">
+              <svg class="animate-spin w-5 h-5 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              กำลังโหลดประวัติส่งของ...
+            </div>
+
+            <div v-else-if="!fleetSummary?.matched" class="card p-8 text-center text-slate-400 text-sm">
+              <svg class="mx-auto w-10 h-10 text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+              </svg>
+              <p class="font-medium text-slate-600">ยังไม่มีประวัติส่งของจาก AppSheet/Fleet</p>
+              <p class="mt-1">ลูกค้ารหัส {{ props.code }} ยังใช้งาน CRM และ POS ได้ตามปกติ</p>
+              <RouterLink to="/fleet-store-report" class="btn-secondary mt-4 inline-flex">
+                ค้นหาร้านในรายงานร้านค้า
+              </RouterLink>
+              <div class="mt-5 max-w-xl mx-auto text-left">
+                <label class="label-text">ผูกกับ store จาก AppSheet</label>
+                <div class="flex gap-2">
+                  <input v-model="fleetStoreSearch" @input="searchFleetStores" class="input-field" placeholder="ค้นหา store_id หรือชื่อร้าน..." />
+                </div>
+                <div v-if="fleetStoreResults.length" class="mt-2 border border-slate-200 rounded-xl bg-white overflow-hidden">
+                  <button v-for="store in fleetStoreResults" :key="store.store_id"
+                    type="button"
+                    :disabled="savingFleetLink"
+                    class="w-full px-3 py-2 text-left hover:bg-slate-50 border-b border-slate-100 last:border-0"
+                    @click="linkFleetStore(store.store_id)">
+                    <p class="text-sm font-medium text-slate-700">{{ store.store_name || store.store_id }}</p>
+                    <p class="text-xs text-slate-400">{{ store.store_id }} · ส่ง {{ store.visits || 0 }} ครั้ง</p>
+                  </button>
+                </div>
+                <p v-else-if="searchingFleetStores" class="text-xs text-slate-400 mt-2">กำลังค้นหา...</p>
+                <p v-else-if="fleetStoreSearch.trim()" class="text-xs text-slate-400 mt-2">ไม่พบ store ที่ค้นหา</p>
+              </div>
+            </div>
+
+            <template v-else>
+              <div class="card p-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p class="text-xs text-slate-400 font-medium">เชื่อมกับร้านส่งของ</p>
+                  <p class="font-semibold text-slate-800">
+                    {{ fleetStoreCount > 1 ? `รวม ${fleetStoreCount} store` : (fleetSummary.store?.store_name || fleetSummary.store_id) }}
+                  </p>
+                  <p class="text-xs text-slate-400 mt-0.5">store_id: {{ fleetSummary.store_id }} · {{ fleetMatchLabel(fleetSummary.match_type) }}</p>
+                </div>
+                <div v-if="fleetStoreCount > 1" class="w-full">
+                  <p class="text-xs text-amber-600 mt-1">
+                    ข้อมูลด้านล่างเป็นผลรวมทุก store; ปุ่มรายงานเต็มเปิดรายร้านตาม store แรก
+                  </p>
+                </div>
+                <RouterLink
+                  :to="{ path: '/fleet-store-report', query: { store: fleetSummary.store_id, q: fleetSummary.store_id } }"
+                  class="btn-secondary text-sm">
+                  เปิดรายงานร้านค้าเต็ม
+                </RouterLink>
+              </div>
+
+              <div v-if="fleetInsight" class="card p-4">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p class="text-xs text-slate-400 font-medium">Customer Delivery Insight</p>
+                    <div class="flex items-center gap-3 mt-1">
+                      <p class="text-3xl font-bold text-slate-800">{{ fleetInsight.score }}</p>
+                      <span :class="fleetHealthBadge(fleetInsight.health)">
+                        {{ fleetHealthLabel(fleetInsight.health) }}
+                      </span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">
+                      สำเร็จ {{ fleetInsight.success_rate || 0 }}% · คืนของ {{ fleetInsight.return_rate || 0 }}% · ปัญหา {{ fleetInsight.problem_rate || 0 }}%
+                    </p>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2 text-xs min-w-[220px]">
+                    <div class="rounded-lg bg-slate-50 px-3 py-2">
+                      <p class="text-slate-400">ส่งล่าสุด</p>
+                      <p class="font-semibold text-slate-700">{{ fleetLatestDays(fleetInsight.latest_visit_days) }}</p>
+                    </div>
+                    <div class="rounded-lg bg-slate-50 px-3 py-2">
+                      <p class="text-slate-400">ยอดเทียบเดือนก่อน</p>
+                      <p :class="['font-semibold', Number(fleetInsight.revenue_delta_last_month || 0) < 0 ? 'text-red-600' : 'text-emerald-600']">
+                        {{ fleetDeltaMoney(fleetInsight.revenue_delta_last_month) }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="fleetInsight.recommendations?.length" class="mt-4 space-y-2">
+                  <div v-for="item in fleetInsight.recommendations" :key="item.type"
+                    class="rounded-lg border border-slate-200 px-3 py-2 flex items-start gap-3">
+                    <span :class="fleetPriorityDot(item.priority)"></span>
+                    <div class="min-w-0">
+                      <p class="text-sm font-semibold text-slate-700">{{ item.title }}</p>
+                      <p class="text-xs text-slate-500 mt-0.5">{{ item.detail }}</p>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="fleetTrend.length" class="mt-4">
+                  <div class="flex items-end gap-1 h-16">
+                    <div v-for="m in fleetTrend" :key="m.month" class="flex-1 flex flex-col justify-end gap-1">
+                      <div class="rounded-t bg-blue-500 min-h-[4px]" :style="{ height: fleetTrendHeight(m.revenue) }"></div>
+                      <span class="text-[10px] text-slate-400 text-center">{{ fleetMonthLabel(m.month) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card p-4">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 class="font-semibold text-slate-700">การผูก store เพิ่มเติม</h3>
+                    <p class="text-xs text-slate-400 mt-1">ใช้สำหรับกรณีรหัสลูกค้า POS ไม่ตรงกับ store_id หรือมีหลาย store</p>
+                  </div>
+                  <div class="w-full md:w-80">
+                    <input v-model="fleetStoreSearch" @input="searchFleetStores" class="input-field text-sm" placeholder="ค้นหา store เพื่อผูก..." />
+                  </div>
+                </div>
+                <div v-if="fleetStoreResults.length" class="mt-3 border border-slate-200 rounded-xl overflow-hidden">
+                  <button v-for="store in fleetStoreResults" :key="store.store_id"
+                    type="button"
+                    :disabled="savingFleetLink"
+                    class="w-full px-3 py-2 text-left hover:bg-slate-50 border-b border-slate-100 last:border-0 flex justify-between gap-3"
+                    @click="linkFleetStore(store.store_id)">
+                    <span>
+                      <span class="block text-sm font-medium text-slate-700">{{ store.store_name || store.store_id }}</span>
+                      <span class="block text-xs text-slate-400">{{ store.store_id }} · ส่ง {{ store.visits || 0 }} ครั้ง</span>
+                    </span>
+                    <span class="text-xs text-blue-600 font-medium">ผูก</span>
+                  </button>
+                </div>
+                <p v-else-if="searchingFleetStores" class="text-xs text-slate-400 mt-2">กำลังค้นหา...</p>
+                <p v-else-if="fleetStoreSearch.trim()" class="text-xs text-slate-400 mt-2">ไม่พบ store ที่ค้นหา</p>
+                <div v-if="fleetSummary.links?.length" class="mt-3 flex flex-wrap gap-2">
+                  <span v-for="link in fleetSummary.links" :key="link.store_id" class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs">
+                    {{ link.store_name || link.store_id }}
+                    <button type="button" class="text-emerald-700 hover:text-red-600" @click="unlinkFleetStore(link.store_id)">×</button>
+                  </span>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="card p-4">
+                  <p class="text-slate-400 text-xs font-medium">ส่งทั้งหมด</p>
+                  <p class="text-lg font-bold text-slate-800 mt-1">{{ fleetFmt(fleetSummary.summary?.total_visits) }}</p>
+                </div>
+                <div class="card p-4">
+                  <p class="text-slate-400 text-xs font-medium">ยอดส่งของ</p>
+                  <p class="text-lg font-bold text-emerald-600 mt-1">{{ fleetMoney(fleetSummary.summary?.revenue) }}</p>
+                </div>
+                <div class="card p-4">
+                  <p class="text-slate-400 text-xs font-medium">คืนของ</p>
+                  <p class="text-lg font-bold text-amber-600 mt-1">{{ fleetMoney(fleetSummary.summary?.return_total) }}</p>
+                </div>
+                <div class="card p-4">
+                  <p class="text-slate-400 text-xs font-medium">ปัญหา/ร้านปิด</p>
+                  <p class="text-lg font-bold text-red-600 mt-1">
+                    {{ fleetFmt(fleetSummary.summary?.problem_count) }} / {{ fleetFmt(fleetSummary.summary?.store_closed_count) }}
+                  </p>
+                </div>
+              </div>
+
+              <div class="grid md:grid-cols-2 gap-4">
+                <div class="card p-4">
+                  <h3 class="font-semibold text-slate-700 mb-3">ประวัติล่าสุด</h3>
+                  <div v-if="!fleetSummary.timeline?.length" class="text-sm text-slate-400 py-6 text-center">ยังไม่มีรายการส่งของ</div>
+                  <div v-for="item in fleetSummary.timeline" :key="item.list_id" class="py-3 border-b border-slate-100 last:border-0">
+                    <div class="flex justify-between gap-3">
+                      <div class="min-w-0">
+                        <p class="text-sm font-medium text-slate-700">{{ item.data_store_no || item.check_out_id || item.list_id }}</p>
+                        <p class="text-xs text-slate-400 mt-0.5">{{ fleetDate(item.date_time_check_out || item.date_time_check_in || item.trip_date) }} · {{ item.driver_name || 'ไม่ระบุคนขับ' }}</p>
+                        <p v-if="fleetStatus(item) !== 'ส่งสำเร็จ'" class="text-xs text-amber-600 mt-1">{{ fleetStatus(item) }}</p>
+                      </div>
+                      <div class="text-right">
+                        <p class="text-sm font-semibold text-slate-800">{{ fleetMoney(item.amount) }}</p>
+                        <p v-if="Number(item.return_total || 0) > 0" class="text-xs text-amber-600">คืน {{ fleetMoney(item.return_total) }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="space-y-4">
+                  <div class="card p-4">
+                    <h3 class="font-semibold text-slate-700 mb-3">สินค้าคืนบ่อย</h3>
+                    <div v-if="!fleetSummary.top_return_products?.length" class="text-sm text-slate-400 py-4 text-center">ยังไม่มีข้อมูลคืนของ</div>
+                    <div v-for="item in fleetSummary.top_return_products" :key="item.product_name" class="flex justify-between gap-3 py-2 border-b border-slate-100 last:border-0">
+                      <span class="text-sm text-slate-700 truncate">{{ item.product_name }}</span>
+                      <span class="text-sm font-medium text-slate-800">{{ fleetMoney(item.total) }}</span>
+                    </div>
+                  </div>
+                  <div class="card p-4">
+                    <h3 class="font-semibold text-slate-700 mb-3">ปัญหาที่พบ</h3>
+                    <div v-if="!fleetSummary.top_problem_types?.length" class="text-sm text-slate-400 py-4 text-center">ยังไม่มีปัญหาที่บันทึก</div>
+                    <div v-for="item in fleetSummary.top_problem_types" :key="item.problem_type" class="flex justify-between gap-3 py-2 border-b border-slate-100 last:border-0">
+                      <span class="text-sm text-slate-700 truncate">{{ item.problem_type }}</span>
+                      <span class="text-sm font-medium text-slate-800">{{ item.count }} ครั้ง</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </template>
+        </div>
+
         <div v-show="activeTab === 'purchase_history'" class="space-y-4">
 
           <div v-if="!isEdit" class="card p-8 text-center text-slate-400 text-sm">
@@ -1057,7 +1268,7 @@ const router = useRouter()
 const route  = useRoute()
 
 // ── State ─────────────────────────────────
-const validTabs = ['main', 'contactors', 'transport', 'crm', 'notes', 'activities', 'purchase_history', 'credit_detail']
+const validTabs = ['main', 'contactors', 'transport', 'crm', 'notes', 'activities', 'fleet_delivery', 'purchase_history', 'credit_detail']
 const activeTab  = ref(validTabs.includes(route.query.tab) ? route.query.tab : 'main')
 const loadingInit = ref(false)
 const saving      = ref(false)
@@ -1212,6 +1423,19 @@ const expandedDoc     = ref(null)
 const expandedLines   = ref([])
 const loadingLines    = ref(false)
 
+// Fleet/AppSheet delivery state
+const fleetSummary = ref(null)
+const loadingFleet = ref(false)
+const fleetStoreSearch = ref('')
+const fleetStoreResults = ref([])
+const searchingFleetStores = ref(false)
+const savingFleetLink = ref(false)
+let fleetStoreTimer = null
+let fleetStoreSearchSeq = 0
+const fleetInsight = computed(() => fleetSummary.value?.insight || null)
+const fleetTrend = computed(() => fleetSummary.value?.monthly_trend || [])
+const fleetStoreCount = computed(() => fleetSummary.value?.store_ids?.length || (fleetSummary.value?.matched ? 1 : 0))
+
 // Credit detail state
 const creditDetail        = ref(null)
 const loadingCreditDetail = ref(false)
@@ -1224,6 +1448,7 @@ const tabs = [
   { key: 'crm',        label: 'CRM Info' },
   { key: 'notes',      label: 'บันทึก' },
   { key: 'activities',       label: 'กิจกรรม' },
+  { key: 'fleet_delivery',   label: 'ประวัติส่งของ' },
   { key: 'purchase_history', label: 'ประวัติการซื้อ' },
   { key: 'credit_detail',    label: 'หนี้คงค้าง' }
 ]
@@ -1302,6 +1527,156 @@ function phVatLabel(v) {
   return { 0: 'แยก VAT', 1: 'รวม VAT', 2: 'อัตราศูนย์', 4: 'ไม่กระทบ' }[parseInt(v)] || String(v)
 }
 
+async function loadFleetSummary() {
+  if (!isEdit.value) return
+  loadingFleet.value = true
+  try {
+    const { data } = await api.get(`/customers/${props.code}/fleet-summary`)
+    fleetSummary.value = data.data || { matched: false }
+  } catch {
+    fleetSummary.value = { matched: false, match_type: 'unavailable', store_id: props.code }
+  } finally {
+    loadingFleet.value = false
+  }
+}
+
+function searchFleetStores() {
+  clearTimeout(fleetStoreTimer)
+  const q = fleetStoreSearch.value.trim()
+  const seq = ++fleetStoreSearchSeq
+  if (!q) {
+    fleetStoreResults.value = []
+    searchingFleetStores.value = false
+    return
+  }
+  searchingFleetStores.value = true
+  fleetStoreTimer = setTimeout(async () => {
+    try {
+      const { data } = await api.get('/customers/fleet-stores/search', { params: { q, limit: 8 } })
+      if (seq !== fleetStoreSearchSeq || q !== fleetStoreSearch.value.trim()) return
+      const linked = new Set([...(fleetSummary.value?.store_ids || []), ...(fleetSummary.value?.links || []).map(link => link.store_id)])
+      fleetStoreResults.value = (data.data || []).filter(store => !linked.has(store.store_id))
+    } catch {
+      if (seq !== fleetStoreSearchSeq) return
+      fleetStoreResults.value = []
+    } finally {
+      if (seq === fleetStoreSearchSeq) searchingFleetStores.value = false
+    }
+  }, 300)
+}
+
+async function linkFleetStore(storeId) {
+  if (!props.code || !storeId || savingFleetLink.value) return
+  savingFleetLink.value = true
+  try {
+    const { data } = await api.post(`/customers/${props.code}/store-links`, { store_id: storeId })
+    fleetSummary.value = data.data
+    fleetStoreSearch.value = ''
+    fleetStoreResults.value = []
+    showToast('success', 'ผูก store กับลูกค้าแล้ว')
+  } catch (e) {
+    showToast('error', e.response?.data?.error || e.message)
+  } finally {
+    savingFleetLink.value = false
+  }
+}
+
+async function unlinkFleetStore(storeId) {
+  if (!props.code || !storeId || savingFleetLink.value) return
+  savingFleetLink.value = true
+  try {
+    const { data } = await api.delete(`/customers/${props.code}/store-links/${encodeURIComponent(storeId)}`)
+    fleetSummary.value = data.data
+    showToast('success', 'ยกเลิกการผูก store แล้ว')
+  } catch (e) {
+    showToast('error', e.response?.data?.error || e.message)
+  } finally {
+    savingFleetLink.value = false
+  }
+}
+
+function fleetFmt(v) {
+  return Number(v || 0).toLocaleString('th-TH')
+}
+
+function fleetMoney(v) {
+  const n = Number(v || 0)
+  return n ? n.toLocaleString('th-TH', { style: 'currency', currency: 'THB', maximumFractionDigits: 0 }) : '-'
+}
+
+function fleetDate(v) {
+  if (!v) return '-'
+  return new Date(v).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function fleetMatchLabel(type) {
+  if (type === 'auto_code_match') return 'รหัสตรงกับ POS'
+  if (type === 'auto_and_manual') return 'รหัสตรงและผูกเพิ่ม'
+  if (type === 'manual') return 'ผูกเอง'
+  if (type === 'list_store_only') return 'พบในประวัติส่งของ'
+  if (type === 'unavailable') return 'ระบบส่งของยังไม่พร้อม'
+  return 'ยังไม่เชื่อม'
+}
+
+function fleetHealthLabel(health) {
+  if (health === 'excellent') return 'ดีมาก'
+  if (health === 'good') return 'ปกติ'
+  if (health === 'watch') return 'ควรติดตาม'
+  if (health === 'risk') return 'เสี่ยง'
+  return 'ยังไม่มีข้อมูล'
+}
+
+function fleetHealthBadge(health) {
+  const base = 'px-2.5 py-1 rounded-full text-xs font-semibold'
+  if (health === 'excellent') return `${base} bg-emerald-100 text-emerald-700`
+  if (health === 'good') return `${base} bg-blue-100 text-blue-700`
+  if (health === 'watch') return `${base} bg-amber-100 text-amber-700`
+  if (health === 'risk') return `${base} bg-red-100 text-red-700`
+  return `${base} bg-slate-100 text-slate-600`
+}
+
+function fleetPriorityDot(priority) {
+  if (priority === 'high') return 'mt-1.5 w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0'
+  if (priority === 'medium') return 'mt-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 flex-shrink-0'
+  return 'mt-1.5 w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0'
+}
+
+function fleetLatestDays(days) {
+  if (days === null || days === undefined) return '-'
+  const n = Number(days || 0)
+  if (n <= 0) return 'วันนี้'
+  return `${n.toLocaleString('th-TH')} วันก่อน`
+}
+
+function fleetDeltaMoney(value) {
+  if (value === null || value === undefined) return '-'
+  const n = Number(value || 0)
+  const sign = n > 0 ? '+' : ''
+  return `${sign}${n.toLocaleString('th-TH', { maximumFractionDigits: 0 })}`
+}
+
+function fleetTrendHeight(value) {
+  const maxRevenue = Math.max(...fleetTrend.value.map(m => Number(m.revenue || 0)), 1)
+  const percent = Math.max(8, Math.round((Number(value || 0) / maxRevenue) * 100))
+  return `${percent}%`
+}
+
+function fleetMonthLabel(month) {
+  if (!month) return '-'
+  const [year, mon] = String(month).split('-').map(Number)
+  if (!year || !mon) return month
+  return new Date(year, mon - 1, 1).toLocaleDateString('th-TH', { month: 'short' })
+}
+
+function fleetStatus(item) {
+  if (item.problem_types?.includes('ร้านปิด')) return 'ร้านปิด'
+  if (item.bypass) return 'ข้ามร้าน'
+  if (item.off_site) return 'นอกสถานที่'
+  if (!item.check_out_id) return 'ไม่ได้ส่ง/ไม่มี checkout'
+  if (item.problem_types) return item.problem_types
+  return 'ส่งสำเร็จ'
+}
+
 async function loadCreditDetail() {
   if (!isEdit.value) return
   loadingCreditDetail.value = true
@@ -1326,6 +1701,9 @@ watch(activeTab, t => {
   }
   if (t === 'credit_detail' && isEdit.value && !creditDetail.value) {
     loadCreditDetail()
+  }
+  if (t === 'fleet_delivery' && isEdit.value && !fleetSummary.value) {
+    loadFleetSummary()
   }
 })
 
@@ -1393,6 +1771,7 @@ async function loadCustomer() {
     }
 
     followupSummary.value = data.followup_summary || null
+    fleetSummary.value = data.fleet_summary || null
     followupForm.followup_enabled = data.crm?.followup_enabled !== false
     followupForm.followup_pause_until = data.crm?.followup_pause_until ? data.crm.followup_pause_until.split('T')[0] : ''
     followupForm.followup_pause_reason = data.crm?.followup_pause_reason || ''
