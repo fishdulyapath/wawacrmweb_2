@@ -86,11 +86,11 @@
           <label class="block text-sm font-medium text-slate-700 mb-2">เวลาที่ต้องการรับ</label>
 
           <!-- Time display button -->
-          <button @click="showTimePicker = true"
+          <button type="button" @click="openTimePicker('notify_time')"
             class="flex items-center gap-3 border border-slate-200 rounded-xl px-4 py-3 hover:border-blue-400 hover:bg-blue-50/50 transition-all group w-full">
             <span class="text-blue-500 text-lg">🕐</span>
             <span class="text-2xl font-bold text-slate-800 font-mono tracking-wider group-hover:text-blue-600 transition-colors">
-              {{ notifyHour }}:{{ notifyMinute }}
+              {{ currentTime('notify_time') }}
             </span>
             <span class="text-sm text-slate-400 ml-1">น.</span>
             <svg class="w-4 h-4 text-slate-300 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -101,7 +101,8 @@
           <!-- Quick presets -->
           <div class="flex flex-wrap gap-1.5 mt-2">
             <button v-for="t in ['07:00','08:00','08:30','09:00','12:00','17:00']" :key="t"
-              @click="applyPreset(t)"
+              type="button"
+              @click="applyPreset(t, 'notify_time')"
               :class="settings.notify_time === t ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'"
               class="text-xs px-2.5 py-1 rounded-full border font-medium transition-all">
               {{ t }}
@@ -111,13 +112,31 @@
           <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label class="block">
               <span class="block text-xs font-medium text-slate-500 mb-1">แจ้งงานเลยกำหนด</span>
-              <input v-model="settings.overdue_notify_time" type="time"
-                class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400" />
+              <button type="button" @click="openTimePicker('overdue_notify_time')"
+                class="flex items-center gap-3 border border-slate-200 rounded-xl px-4 py-3 hover:border-blue-400 hover:bg-blue-50/50 transition-all group w-full">
+                <span class="text-blue-500 text-lg">🕐</span>
+                <span class="text-2xl font-bold text-slate-800 font-mono tracking-wider group-hover:text-blue-600 transition-colors">
+                  {{ currentTime('overdue_notify_time') }}
+                </span>
+                <span class="text-sm text-slate-400 ml-1">น.</span>
+                <svg class="w-4 h-4 text-slate-300 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             </label>
             <label class="block">
               <span class="block text-xs font-medium text-slate-500 mb-1">แจ้งงานครบกำหนดพรุ่งนี้</span>
-              <input v-model="settings.due_tomorrow_notify_time" type="time"
-                class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400" />
+              <button type="button" @click="openTimePicker('due_tomorrow_notify_time')"
+                class="flex items-center gap-3 border border-slate-200 rounded-xl px-4 py-3 hover:border-blue-400 hover:bg-blue-50/50 transition-all group w-full">
+                <span class="text-blue-500 text-lg">🕐</span>
+                <span class="text-2xl font-bold text-slate-800 font-mono tracking-wider group-hover:text-blue-600 transition-colors">
+                  {{ currentTime('due_tomorrow_notify_time') }}
+                </span>
+                <span class="text-sm text-slate-400 ml-1">น.</span>
+                <svg class="w-4 h-4 text-slate-300 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             </label>
           </div>
         </div>
@@ -133,7 +152,7 @@
               <div class="relative bg-white w-full max-w-sm rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
                 <!-- Header -->
                 <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-4 text-white">
-                  <p class="text-xs font-medium text-blue-200">เลือกเวลาแจ้งเตือน</p>
+                  <p class="text-xs font-medium text-blue-200">{{ timePickerTitle }}</p>
                   <p class="text-4xl font-bold font-mono tracking-wider mt-1">
                     {{ pickerHour }}:{{ pickerMinute }}
                   </p>
@@ -222,7 +241,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import api from '../composables/useApi.js'
 
 const loading = ref(true)
@@ -253,22 +272,27 @@ let countdownTimer = null
 let pollTimer = null
 
 // ── Time display (bound to settings) ────────────────────────
-const notifyHour = ref('08')
-const notifyMinute = ref('00')
+const timePickerField = ref('notify_time')
 
 // sync notify_time ↔ hour/minute display
-watch([notifyHour, notifyMinute], ([h, m]) => {
-  settings.notify_time = `${h}:${m}`
-})
-
-function parseNotifyTime(time) {
-  const [h, m] = (time || '08:00').split(':')
-  notifyHour.value = (h || '08').padStart(2, '0')
-  notifyMinute.value = (m || '00').padStart(2, '0')
+const timePickerTitles = {
+  notify_time: 'เวลาที่ต้องการรับ',
+  overdue_notify_time: 'แจ้งงานเลยกำหนด',
+  due_tomorrow_notify_time: 'แจ้งงานครบกำหนดพรุ่งนี้',
 }
+const timePickerFallbacks = {
+  notify_time: '08:00',
+  overdue_notify_time: '08:00',
+  due_tomorrow_notify_time: '17:00',
+}
+const timePickerTitle = computed(() => timePickerTitles[timePickerField.value] || 'เลือกเวลาแจ้งเตือน')
 
 function toHHMM(time, fallback = '08:00') {
   return (time || fallback).slice(0, 5)
+}
+
+function currentTime(field) {
+  return toHHMM(settings[field], timePickerFallbacks[field] || '08:00')
 }
 
 // ── Fancy Time Picker Modal ─────────────────────────────────
@@ -277,12 +301,13 @@ const pickerHour = ref('08')
 const pickerMinute = ref('00')
 
 // Open picker → copy current value into picker
-watch(showTimePicker, (open) => {
-  if (open) {
-    pickerHour.value = notifyHour.value
-    pickerMinute.value = notifyMinute.value
-  }
-})
+function openTimePicker(field) {
+  timePickerField.value = field
+  const [h, m] = currentTime(field).split(':')
+  pickerHour.value = (h || '08').padStart(2, '0')
+  pickerMinute.value = (m || '00').padStart(2, '0')
+  showTimePicker.value = true
+}
 
 function adjustPicker(unit, delta) {
   if (unit === 'hour') {
@@ -315,15 +340,13 @@ function clampPickerMinute() {
 function confirmTimePicker() {
   clampPickerHour()
   clampPickerMinute()
-  notifyHour.value = pickerHour.value
-  notifyMinute.value = pickerMinute.value
+  settings[timePickerField.value] = `${pickerHour.value}:${pickerMinute.value}`
   showTimePicker.value = false
 }
 
-function applyPreset(time) {
+function applyPreset(time, field = timePickerField.value) {
   const [h, m] = time.split(':')
-  notifyHour.value = h.padStart(2, '0')
-  notifyMinute.value = m.padStart(2, '0')
+  settings[field] = `${h.padStart(2, '0')}:${m.padStart(2, '0')}`
 }
 
 // ── API calls ───────────────────────────────────────────────
@@ -344,7 +367,6 @@ async function loadStatus() {
     settings.notify_time = lineStatus.notify_time
     settings.overdue_notify_time = lineStatus.overdue_notify_time
     settings.due_tomorrow_notify_time = lineStatus.due_tomorrow_notify_time
-    parseNotifyTime(lineStatus.notify_time)
   } catch (err) {
     console.error(err)
   } finally {
@@ -402,7 +424,6 @@ function startPolling() {
         settings.notify_time = toHHMM(data.notify_time, '08:00')
         settings.overdue_notify_time = toHHMM(data.overdue_notify_time, '08:00')
         settings.due_tomorrow_notify_time = toHHMM(data.due_tomorrow_notify_time, '17:00')
-        parseNotifyTime(settings.notify_time)
       }
     } catch {}
   }, 3000)
