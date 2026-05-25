@@ -446,12 +446,48 @@
               <label class="label-text mb-2 block">เพิ่มบันทึกใหม่</label>
               <textarea v-model="newNote" rows="3" class="input-field mb-3"
                         placeholder="บันทึกการติดต่อ, ข้อสังเกต, หมายเหตุ..."/>
+              <div v-if="newNoteFiles.length" class="mb-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div v-for="(item, idx) in newNoteFiles" :key="item.id"
+                     class="relative rounded-lg border border-slate-200 bg-slate-50 overflow-hidden">
+                  <img v-if="item.previewUrl" :src="item.previewUrl" :alt="item.file.name"
+                       class="h-24 w-full object-cover bg-slate-100" />
+                  <div v-else class="h-24 flex items-center justify-center px-3 text-center bg-slate-100">
+                    <span class="text-xs font-medium text-slate-600 break-all">{{ item.file.name }}</span>
+                  </div>
+                  <div class="px-2 py-1.5 flex items-center justify-between gap-2">
+                    <span class="text-xs text-slate-500 truncate">{{ item.file.name }}</span>
+                    <button type="button" @click="removeNewNoteFile(idx)"
+                            class="text-xs text-red-500 hover:text-red-700 flex-shrink-0">ลบ</button>
+                  </div>
+                </div>
+              </div>
+              <div
+                @dragover.prevent="noteFileDragging = true"
+                @dragleave="noteFileDragging = false"
+                @drop.prevent="onNewNoteFileDrop"
+                @click="noteFileInput?.click()"
+                :class="noteFileDragging ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'"
+                class="mb-3 border-2 border-dashed rounded-xl px-4 py-3 cursor-pointer transition-colors">
+                <div class="flex items-center justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="text-sm font-medium text-slate-700">แนบรูปหรือไฟล์</p>
+                    <p class="text-xs text-slate-400 mt-0.5">ลากไฟล์มาวาง หรือคลิกเพื่อเลือก สูงสุด 10 ไฟล์</p>
+                  </div>
+                  <svg class="w-5 h-5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.586-6.586a4 4 0 00-5.657-5.657L5.757 10.757a6 6 0 108.486 8.486L20 13.486"/>
+                  </svg>
+                </div>
+              </div>
+              <input ref="noteFileInput" type="file" multiple class="hidden"
+                     accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+                     @change="onNewNoteFileChange" />
               <div class="flex items-center justify-between">
                 <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
                   <input v-model="newNotePinned" type="checkbox" class="rounded"/>
                   ปักหมุด
                 </label>
-                <button @click="addNote" :disabled="!newNote.trim() || savingNote"
+                <button @click="addNote" :disabled="!canAddNote || savingNote"
                   class="btn-primary text-sm px-4 py-1.5 disabled:opacity-40">
                   {{ savingNote ? 'กำลังบันทึก...' : 'บันทึก' }}
                 </button>
@@ -475,6 +511,23 @@
                     {{ note.created_by_name || 'ไม่ระบุ' }} · {{ formatNoteDate(note.created_at) }}
                     <span v-if="note.is_pinned" class="ml-2 text-yellow-600 font-medium">📌 ปักหมุด</span>
                   </p>
+                  <div v-if="note.attachments?.length" class="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <a v-for="att in note.attachments" :key="att.id"
+                       :href="noteAttachmentUrl(att)"
+                       target="_blank"
+                       class="group rounded-lg border border-slate-200 bg-white overflow-hidden hover:border-blue-300 transition-colors"
+                       @click="isNoteImage(att) ? openNoteAttachmentPreview(att, $event) : null">
+                      <img v-if="isNoteImage(att)" :src="noteAttachmentThumbUrl(att)" :alt="att.original_name"
+                           class="h-24 w-full object-cover bg-slate-100" loading="lazy" />
+                      <div v-else class="h-24 flex items-center justify-center px-3 text-center bg-slate-50">
+                        <span class="text-xs font-medium text-slate-600 break-all">{{ att.original_name }}</span>
+                      </div>
+                      <div class="px-2 py-1.5">
+                        <p class="text-xs text-slate-700 truncate">{{ att.original_name }}</p>
+                        <p class="text-[11px] text-slate-400">{{ formatFileSize(att.file_size) }}</p>
+                      </div>
+                    </a>
+                  </div>
                 </div>
                 <div class="flex gap-1 flex-shrink-0">
                   <button @click="togglePin(note)" title="ปักหมุด"
@@ -510,22 +563,18 @@
           <template v-else>
 
             <section v-if="followupSummary" class="card p-4 border border-blue-100 bg-blue-50/40">
-              <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
-                <div>
+              <div class="mb-3">
+                <div class="flex items-center gap-3">
                   <h3 class="text-sm font-semibold text-slate-800">Follow-up ลูกค้า</h3>
-                  <p class="text-xs text-slate-500 mt-0.5">
-                    งานเปิด {{ followupSummary.open_followup_count || 0 }} รายการ
-                    <span class="mx-1">•</span>
-                    ไม่รับสายวันนี้ {{ followupSummary.no_answer_attempts_today || 0 }} ครั้ง
-                  </p>
+                  <button v-if="isManager" type="button" @click="toggleCustomerFollowup"
+                    :disabled="savingFollowup"
+                    :class="followupForm.followup_enabled ? 'bg-blue-600' : 'bg-slate-300'"
+                    class="relative w-12 h-7 rounded-full transition-colors flex-shrink-0 disabled:opacity-60">
+                    <span :class="followupForm.followup_enabled ? 'translate-x-5' : 'translate-x-0'"
+                      class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full shadow transition-transform" />
+                  </button>
                 </div>
-                <button v-if="isManager" type="button" @click="toggleCustomerFollowup"
-                  :disabled="savingFollowup"
-                  :class="followupForm.followup_enabled ? 'bg-blue-600' : 'bg-slate-300'"
-                  class="relative w-12 h-7 rounded-full transition-colors flex-shrink-0 disabled:opacity-60">
-                  <span :class="followupForm.followup_enabled ? 'translate-x-6' : 'translate-x-1'"
-                    class="absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform" />
-                </button>
+
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -557,6 +606,35 @@
                 </div>
               </div>
 
+              <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+                <div>
+                  <label class="label-text">รอบโทรเฉพาะลูกค้า</label>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <input
+                      v-model.number="followupForm.followup_interval_days"
+                      type="number"
+                      min="1"
+                      max="365"
+                      class="input-field text-sm max-w-[140px]"
+                      placeholder="ใช้ค่ากลาง"
+                      :disabled="!isManager"
+                    />
+                    <span class="text-xs text-slate-500">วัน</span>
+                    <button v-if="isManager" type="button" @click="saveCustomerFollowupInterval"
+                      :disabled="savingFollowup"
+                      class="px-3 rounded-lg bg-white border border-blue-200 text-blue-700 text-xs font-semibold hover:bg-blue-50 disabled:opacity-60">
+                      บันทึกรอบโทร
+                    </button>
+                    <button v-if="isManager" type="button" @click="useDefaultFollowupInterval"
+                      :disabled="savingFollowup || !followupForm.followup_interval_days"
+                      class="px-3 rounded-lg bg-white border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 disabled:opacity-60">
+                      ใช้ค่ากลาง
+                    </button>
+                  </div>
+                  <p class="mt-1 text-xs text-slate-500">{{ followupIntervalHelp }}</p>
+                </div>
+              </div>
+
               <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
                 <span v-if="!followupForm.followup_enabled" class="px-2 py-1 rounded bg-slate-100 text-slate-600">ปิด follow-up</span>
                 <span v-if="followupForm.followup_pause_until" class="px-2 py-1 rounded bg-amber-100 text-amber-700">
@@ -566,7 +644,7 @@
                   งานถัดไป: {{ followupSummary.next_open_followup.subject }} • {{ formatActDateTime(followupSummary.next_open_followup.start_datetime || followupSummary.next_open_followup.retry_due_at || followupSummary.next_open_followup.due_date) }}
                 </span>
                 <span v-if="followupSummary.policy" class="px-2 py-1 rounded bg-white border border-slate-200">
-                  โทรทุก {{ followupSummary.policy.default_call_interval_days }} วัน • โทรซ้ำ {{ followupSummary.policy.no_answer_retry_minutes }} นาที
+                  {{ followupIntervalBadge }} • โทรซ้ำ {{ followupSummary.policy.no_answer_retry_minutes }} นาที
                 </span>
                 <span v-if="!isManager" class="ml-auto text-slate-400">ดูได้อย่างเดียว</span>
                 <button v-if="isManager && (followupForm.followup_pause_until || !followupForm.followup_enabled)"
@@ -1195,6 +1273,24 @@
       </div>
     </template>
 
+    <Teleport to="body">
+      <div v-if="noteAttachmentPreview"
+           class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+           @click.self="noteAttachmentPreview = null">
+        <div class="relative max-w-5xl max-h-full">
+          <img :src="noteAttachmentUrl(noteAttachmentPreview)"
+               :alt="noteAttachmentPreview.original_name"
+               class="max-w-full max-h-[88vh] object-contain rounded-lg bg-white" />
+          <button type="button" @click="noteAttachmentPreview = null"
+                  class="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg text-slate-600 hover:text-slate-900">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Toast -->
     <Teleport to="body">
       <div v-if="toast.show"
@@ -1400,6 +1496,11 @@ const loadingNotes = ref(false)
 const savingNote  = ref(false)
 const newNote     = ref('')
 const newNotePinned = ref(false)
+const newNoteFiles = ref([])
+const noteFileInput = ref(null)
+const noteFileDragging = ref(false)
+const noteAttachmentPreview = ref(null)
+const canAddNote = computed(() => newNote.value.trim() || newNoteFiles.value.length > 0)
 
 // Activities state
 const custActivities    = ref([])
@@ -1415,6 +1516,24 @@ const followupForm = reactive({
   followup_pause_until: '',
   followup_pause_reason: '',
   next_followup: '',
+  followup_interval_days: '',
+})
+
+const followupIntervalDays = computed(() => {
+  const n = Number(followupForm.followup_interval_days || 0)
+  return Number.isInteger(n) && n > 0 ? n : null
+})
+
+const defaultFollowupIntervalDays = computed(() => Number(followupSummary.value?.policy?.default_call_interval_days || 30))
+const followupIntervalBadge = computed(() => {
+  return followupIntervalDays.value
+    ? `โทรทุก ${followupIntervalDays.value} วัน`
+    : `โทรทุก ${defaultFollowupIntervalDays.value} วัน`
+})
+const followupIntervalHelp = computed(() => {
+  return followupIntervalDays.value
+    ? `ลูกค้ารายนี้ใช้รอบเฉพาะ โทรทุก ${followupIntervalDays.value} วัน`
+    : `ยังไม่ได้ตั้งรอบเฉพาะ ใช้ค่ากลาง ${defaultFollowupIntervalDays.value} วัน`
 })
 
 // Purchase history state
@@ -1769,16 +1888,17 @@ async function loadCustomer() {
       form.crm.owners         = Array.isArray(data.crm.owners)
         ? data.crm.owners.map(o => ({ user_id: Number(o.user_id), is_primary: !!o.is_primary }))
         : (data.crm.owner_user_id ? [{ user_id: Number(data.crm.owner_user_id), is_primary: true }] : [])
-      form.crm.next_followup  = data.crm.next_followup ? data.crm.next_followup.split('T')[0] : ''
+      form.crm.next_followup  = dateOnly(data.crm.next_followup)
       form.crm.crm_remark     = data.crm.crm_remark    || ''
     }
 
     followupSummary.value = data.followup_summary || null
     fleetSummary.value = data.fleet_summary || null
     followupForm.followup_enabled = data.crm?.followup_enabled !== false
-    followupForm.followup_pause_until = data.crm?.followup_pause_until ? data.crm.followup_pause_until.split('T')[0] : ''
+    followupForm.followup_pause_until = dateOnly(data.crm?.followup_pause_until)
     followupForm.followup_pause_reason = data.crm?.followup_pause_reason || ''
-    followupForm.next_followup = data.crm?.next_followup ? data.crm.next_followup.split('T')[0] : form.crm.next_followup
+    followupForm.next_followup = dateOnly(data.crm?.next_followup) || form.crm.next_followup
+    followupForm.followup_interval_days = data.crm?.followup_interval_days || ''
   } catch (e) {
     showToast('error', e.message)
   } finally {
@@ -1847,6 +1967,43 @@ function setPrimaryCrmOwner(id) {
 }
 
 // ── Notes ─────────────────────────────────
+function addNewNoteFiles(files) {
+  const picked = Array.from(files || []).slice(0, Math.max(0, 10 - newNoteFiles.value.length))
+  picked.forEach(file => {
+    const isImage = file.type?.startsWith('image/')
+    newNoteFiles.value.push({
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      file,
+      previewUrl: isImage ? URL.createObjectURL(file) : ''
+    })
+  })
+}
+
+function clearNewNoteFiles() {
+  newNoteFiles.value.forEach(item => {
+    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl)
+  })
+  newNoteFiles.value = []
+  if (noteFileInput.value) noteFileInput.value.value = ''
+}
+
+function removeNewNoteFile(idx) {
+  const item = newNoteFiles.value[idx]
+  if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl)
+  newNoteFiles.value.splice(idx, 1)
+  if (noteFileInput.value) noteFileInput.value.value = ''
+}
+
+function onNewNoteFileChange(e) {
+  addNewNoteFiles(e.target.files)
+  if (noteFileInput.value) noteFileInput.value.value = ''
+}
+
+function onNewNoteFileDrop(e) {
+  noteFileDragging.value = false
+  addNewNoteFiles(e.dataTransfer.files)
+}
+
 async function loadNotes() {
   if (!props.code) return
   loadingNotes.value = true
@@ -1858,19 +2015,24 @@ async function loadNotes() {
 }
 
 async function addNote() {
-  if (!newNote.value.trim()) return
+  if (!canAddNote.value) return
   savingNote.value = true
   try {
-    const { data } = await api.post('/notes', {
-      ar_code: props.code,
-      note_text: newNote.value,
-      is_pinned: newNotePinned.value
+    const fd = new FormData()
+    fd.append('ar_code', props.code)
+    fd.append('note_text', newNote.value)
+    fd.append('is_pinned', newNotePinned.value ? 'true' : 'false')
+    newNoteFiles.value.forEach(item => fd.append('files', item.file))
+
+    const { data } = await api.post('/notes', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     })
     notes.value.unshift(data)
     newNote.value = ''
     newNotePinned.value = false
+    clearNewNoteFiles()
   } catch (e) {
-    showToast('error', e.message)
+    showToast('error', e.response?.data?.error || e.message)
   }
   savingNote.value = false
 }
@@ -1908,6 +2070,31 @@ function formatNoteDate(d) {
   })
 }
 
+function noteAttachmentUrl(att) {
+  return `/uploads/${att.file_path}`
+}
+
+function noteAttachmentThumbUrl(att) {
+  return att.thumb_path ? `/uploads/${att.thumb_path}` : noteAttachmentUrl(att)
+}
+
+function isNoteImage(att) {
+  return att.mime_type?.startsWith('image/')
+}
+
+function openNoteAttachmentPreview(att, event) {
+  event?.preventDefault()
+  noteAttachmentPreview.value = att
+}
+
+function formatFileSize(bytes) {
+  const size = Number(bytes || 0)
+  if (!size) return ''
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
 // ── Activities ────────────────────────────
 async function loadActivities(reset = false) {
   if (!props.code) return
@@ -1931,9 +2118,10 @@ async function loadActivities(reset = false) {
 
 function applyFollowupOverride(data = {}) {
   followupForm.followup_enabled = data.followup_enabled !== false
-  followupForm.followup_pause_until = data.followup_pause_until ? String(data.followup_pause_until).split('T')[0] : ''
+  followupForm.followup_pause_until = dateOnly(data.followup_pause_until)
   followupForm.followup_pause_reason = data.followup_pause_reason || ''
-  followupForm.next_followup = data.next_followup ? String(data.next_followup).split('T')[0] : ''
+  followupForm.next_followup = dateOnly(data.next_followup)
+  followupForm.followup_interval_days = data.followup_interval_days || ''
   form.crm.next_followup = followupForm.next_followup
   if (followupSummary.value) {
     followupSummary.value = { ...followupSummary.value }
@@ -1964,6 +2152,19 @@ function pauseCustomerFollowup() {
     followup_pause_until: followupForm.followup_pause_until,
     followup_pause_reason: followupForm.followup_pause_reason || null,
   })
+}
+
+function saveCustomerFollowupInterval() {
+  const n = Number(followupForm.followup_interval_days || 0)
+  if (!Number.isInteger(n) || n < 1 || n > 365) {
+    showToast('error', 'รอบโทรรายลูกค้าต้องอยู่ระหว่าง 1-365 วัน')
+    return
+  }
+  saveFollowupOverride({ followup_interval_days: n })
+}
+
+function useDefaultFollowupInterval() {
+  saveFollowupOverride({ followup_interval_days: null })
 }
 
 function resumeCustomerFollowup() {
@@ -2021,6 +2222,11 @@ function actOverdueDays(a) {
 
 function formatActDate(d) {
   if (!d) return ''
+  const only = dateOnly(d)
+  if (only) {
+    const [year, month, day] = only.split('-').map(Number)
+    return new Date(year, month - 1, day).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
+  }
   return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
 }
 
@@ -2030,6 +2236,20 @@ function formatActDateTime(d) {
     day: 'numeric', month: 'short', year: '2-digit',
     hour: '2-digit', minute: '2-digit'
   })
+}
+
+function dateOnly(value) {
+  if (!value) return ''
+  const raw = String(value).trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
+  const parsed = new Date(raw)
+  if (Number.isNaN(parsed.getTime())) return raw.split('T')[0] || ''
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(parsed)
 }
 
 // ── Submit ────────────────────────────────

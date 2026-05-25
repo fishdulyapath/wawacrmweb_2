@@ -17,17 +17,31 @@
         </p>
       </div>
 
-      <button
-        type="button"
-        @click="save"
-        :disabled="saving || loading || loadError || !isDirty"
-        class="btn-primary w-full justify-center disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-      >
-        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
-        {{ saving ? 'กำลังบันทึก...' : isDirty ? 'บันทึกการตั้งค่า' : 'บันทึกแล้ว' }}
-      </button>
+      <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+        <button
+          type="button"
+          @click="runNow"
+          :disabled="manualRunning || saving || loading || loadError || isDirty"
+          class="btn-secondary w-full justify-center disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+        >
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-4.586-2.623A1 1 0 009 9.414v5.172a1 1 0 001.166.986l4.586-2.623a1 1 0 000-1.736z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {{ manualRunning ? 'กำลังสร้าง...' : isDirty ? 'บันทึกก่อนสร้าง' : 'สร้าง Follow-up ตอนนี้' }}
+        </button>
+        <button
+          type="button"
+          @click="save"
+          :disabled="saving || loading || loadError || !isDirty"
+          class="btn-primary w-full justify-center disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+        >
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          {{ saving ? 'กำลังบันทึก...' : isDirty ? 'บันทึกการตั้งค่า' : 'บันทึกแล้ว' }}
+        </button>
+      </div>
     </header>
 
     <div
@@ -174,9 +188,13 @@
                     <label class="label-text">เวลาสร้างงาน</label>
                     <input
                       v-model="form.auto_create_time"
-                      type="time"
+                      type="text"
+                      inputmode="numeric"
+                      maxlength="5"
+                      placeholder="HH:mm"
                       class="input-field"
                       :disabled="!form.auto_create_enabled"
+                      @blur="normalizeFormTime('auto_create_time', '08:00')"
                     />
                   </div>
                 </div>
@@ -237,11 +255,27 @@
                 </div>
                 <div>
                   <label class="label-text">เวลาเริ่มทำงาน</label>
-                  <input v-model="form.business_start_time" type="time" class="input-field" />
+                  <input
+                    v-model="form.business_start_time"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="5"
+                    placeholder="HH:mm"
+                    class="input-field"
+                    @blur="normalizeFormTime('business_start_time', '08:30')"
+                  />
                 </div>
                 <div>
                   <label class="label-text">เวลาสิ้นสุดทำงาน</label>
-                  <input v-model="form.business_end_time" type="time" class="input-field" />
+                  <input
+                    v-model="form.business_end_time"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="5"
+                    placeholder="HH:mm"
+                    class="input-field"
+                    @blur="normalizeFormTime('business_end_time', '17:30')"
+                  />
                 </div>
               </div>
             </div>
@@ -293,6 +327,7 @@ import api from '../composables/useApi.js'
 
 const loading = ref(false)
 const saving = ref(false)
+const manualRunning = ref(false)
 const loadError = ref(false)
 const message = ref('')
 const messageType = ref('success')
@@ -328,13 +363,13 @@ function buildPayload() {
     enabled: !!form.enabled,
     auto_create_enabled: !!form.auto_create_enabled,
     default_call_interval_days: Number(form.default_call_interval_days || 30),
-    auto_create_time: form.auto_create_time,
+    auto_create_time: toHHMM(form.auto_create_time, '08:00'),
     assignment_mode: form.assignment_mode,
     no_owner_action: form.no_owner_action,
     no_answer_max_attempts_per_day: Number(form.no_answer_max_attempts_per_day || 3),
     no_answer_retry_minutes: Number(form.no_answer_retry_minutes || 30),
-    business_start_time: form.business_start_time,
-    business_end_time: form.business_end_time,
+    business_start_time: toHHMM(form.business_start_time, '08:30'),
+    business_end_time: toHHMM(form.business_end_time, '17:30'),
   }
 }
 
@@ -342,13 +377,13 @@ function applySettings(data) {
   form.enabled = !!data.enabled
   form.auto_create_enabled = !!data.auto_create_enabled
   form.default_call_interval_days = Number(data.default_call_interval_days || 30)
-  form.auto_create_time = String(data.auto_create_time || '08:00').slice(0, 5)
+  form.auto_create_time = toHHMM(data.auto_create_time, '08:00')
   form.assignment_mode = data.assignment_mode || 'primary'
   form.no_owner_action = data.no_owner_action || 'queue'
   form.no_answer_max_attempts_per_day = Number(data.no_answer_max_attempts_per_day || 3)
   form.no_answer_retry_minutes = Number(data.no_answer_retry_minutes || 30)
-  form.business_start_time = String(data.business_start_time || '08:30').slice(0, 5)
-  form.business_end_time = String(data.business_end_time || '17:30').slice(0, 5)
+  form.business_start_time = toHHMM(data.business_start_time, '08:30')
+  form.business_end_time = toHHMM(data.business_end_time, '17:30')
   meta.next_auto_create_at = data.next_auto_create_at || null
   meta.last_auto_create_at = data.last_auto_create_at || null
   meta.last_auto_create_checked_at = data.last_auto_create_checked_at || null
@@ -363,8 +398,33 @@ function formatDateTime(value) {
   if (!value) return '-'
   const d = new Date(value)
   const date = d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', timeZone: 'Asia/Bangkok' })
-  const time = d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' })
+  const time = d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Bangkok' })
   return `${date} ${time}`
+}
+
+function toHHMM(value, fallback = '08:00') {
+  const raw = String(value || '').trim()
+  const compact = raw.replace(/[^\d]/g, '')
+  if (/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) return raw
+  if (compact.length === 3) {
+    const h = compact.slice(0, 1).padStart(2, '0')
+    const m = compact.slice(1, 3)
+    const time = `${h}:${m}`
+    if (/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return time
+  }
+  if (compact.length >= 4) {
+    const time = `${compact.slice(0, 2)}:${compact.slice(2, 4)}`
+    if (/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return time
+  }
+  return fallback
+}
+
+function isHHMM(value) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || '').trim())
+}
+
+function normalizeFormTime(field, fallback) {
+  form[field] = toHHMM(form[field], fallback)
 }
 
 function validateForm() {
@@ -378,7 +438,10 @@ function validateForm() {
   if (!Number.isInteger(Number(form.no_answer_retry_minutes)) || form.no_answer_retry_minutes < 5 || form.no_answer_retry_minutes > 480) {
     errors.push('ระยะห่างโทรซ้ำต้องอยู่ระหว่าง 5-480 นาที')
   }
-  if (!form.auto_create_time) errors.push('กรุณาระบุเวลาที่ระบบสร้างงาน')
+  if (!isHHMM(form.auto_create_time)) errors.push('เวลาสร้างงานต้องเป็นรูปแบบ 24 ชั่วโมง HH:mm')
+  if (!isHHMM(form.business_start_time) || !isHHMM(form.business_end_time)) {
+    errors.push('เวลาทำงานต้องเป็นรูปแบบ 24 ชั่วโมง HH:mm')
+  }
   if (!form.business_start_time || !form.business_end_time || form.business_start_time >= form.business_end_time) {
     errors.push('เวลาเริ่มทำงานต้องน้อยกว่าเวลาสิ้นสุดทำงาน')
   }
@@ -421,6 +484,29 @@ async function save() {
     message.value = err.response?.data?.error || err.message
   } finally {
     saving.value = false
+  }
+}
+
+async function runNow() {
+  if (isDirty.value) {
+    messageType.value = 'error'
+    message.value = 'กรุณาบันทึกการตั้งค่าก่อนสร้าง Follow-up'
+    return
+  }
+  manualRunning.value = true
+  message.value = ''
+  try {
+    const { data } = await api.post('/followup-settings/run-now')
+    if (data.settings) applySettings(data.settings)
+    messageType.value = data.error ? 'error' : 'success'
+    message.value = data.error
+      ? `สร้าง ${data.created_count || 0} งาน แต่พบปัญหา: ${data.error}`
+      : `สร้าง Follow-up แล้ว ${data.created_count || 0} งาน จากรายการที่ครบกำหนด ${data.eligible_count || 0} รายการ`
+  } catch (err) {
+    messageType.value = 'error'
+    message.value = err.response?.data?.error || err.message
+  } finally {
+    manualRunning.value = false
   }
 }
 
