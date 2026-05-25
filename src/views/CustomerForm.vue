@@ -593,8 +593,11 @@
                 <option value="done">ปิดแล้ว</option>
                 <option value="deleted">ถูกลบ</option>
               </select>
-              <button @click="router.push({ path: '/activities/new', query: { ar_code: props.code } })"
-                      class="btn-primary text-sm px-3 py-2 whitespace-nowrap">
+              <button type="button"
+                      @click="router.push({ path: '/activities/new', query: { ar_code: props.code } })"
+                      :disabled="form.crm.status === 'inactive'"
+                      :title="form.crm.status === 'inactive' ? 'ลูกค้าสถานะไม่ใช้งาน ไม่สามารถสร้างกิจกรรมได้' : ''"
+                      class="btn-primary text-sm px-3 py-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
                 <svg class="w-4 h-4 inline -mt-0.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>

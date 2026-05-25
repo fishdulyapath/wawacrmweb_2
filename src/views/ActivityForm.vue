@@ -812,20 +812,24 @@ function onGroupCustInput() {
   if (!q) { groupCustResults.value = []; return }
   groupCustTimer = setTimeout(async () => {
     try {
-      const { data } = await api.get('/customers', { params: { search: q, limit: 10, crm_only: true } })
+      const { data } = await api.get('/customers', { params: { search: q, limit: 10, crm_only: true, status: 'active' } })
       const all = data.data || data.customers || []
       const existingCodes = new Set([
         ...groupMembers.value.map(m => m.ar_code),
         ...addedGroupCusts.value.map(c => c.code),
       ])
-      groupCustResults.value = all.filter(c => !existingCodes.has(c.code))
+      groupCustResults.value = all.filter(c => !existingCodes.has(c.code) && !isInactiveCustomer(c))
     } catch { groupCustResults.value = [] }
   }, 300)
 }
 
 function addToGroup(c) {
+  if (isInactiveCustomer(c)) {
+    errorMsg.value = 'ลูกค้าสถานะไม่ใช้งาน ไม่สามารถเลือกมาสร้างกิจกรรมได้'
+    return
+  }
   if (!addedGroupCusts.value.find(x => x.code === c.code)) {
-    addedGroupCusts.value.push({ code: c.code, name_1: c.name_1 })
+    addedGroupCusts.value.push({ code: c.code, name_1: c.name_1, crm_status: customerCrmStatus(c) })
   }
   groupCustSearch.value  = ''
   groupCustResults.value = []
@@ -864,6 +868,14 @@ const ownerAutoNote = computed(() => {
 
 function isSelected(code) { return selectedCustomers.value.some(c => c.code === code) }
 
+function customerCrmStatus(c) {
+  return String(c?.crm_status || c?.crm?.crm_status || c?.crm?.status || '').toLowerCase()
+}
+
+function isInactiveCustomer(c) {
+  return customerCrmStatus(c) === 'inactive'
+}
+
 function crmOwnersFromCustomerPayload(crm) {
   const owners = Array.isArray(crm?.owners) ? crm.owners : []
   return owners
@@ -898,25 +910,35 @@ function onCustInput() {
   if (!q) { custResults.value = []; return }
   custTimer = setTimeout(async () => {
     try {
-      const { data } = await api.get('/customers', { params: { search: q, limit: 10, crm_only: true } })
-      custResults.value = data.data || data.customers || []
+      const { data } = await api.get('/customers', { params: { search: q, limit: 10, crm_only: true, status: 'active' } })
+      custResults.value = (data.data || data.customers || []).filter(c => !isInactiveCustomer(c))
     } catch { custResults.value = [] }
   }, 300)
 }
 
 async function selectCust(c) {
   if (isSelected(c.code)) { removeCust(c.code); return }
+  if (isInactiveCustomer(c)) {
+    errorMsg.value = 'ลูกค้าสถานะไม่ใช้งาน ไม่สามารถเลือกมาสร้างกิจกรรมได้'
+    return
+  }
 
   // ใช้ owner จาก list result เป็น initial value (มีอยู่แล้วใน search response)
   const entry = {
     code: c.code,
     name_1: c.name_1,
+    crm_status: customerCrmStatus(c),
     owner_id:   c.crm?.owner_user_id || null,
     owner_name: c.crm?.owner_name    || null,
     owners:     crmOwnersFromCustomerPayload(c.crm),
   }
   try {
     const { data } = await api.get(`/customers/${c.code}`)
+    if (isInactiveCustomer({ crm: data.crm })) {
+      errorMsg.value = 'ลูกค้าสถานะไม่ใช้งาน ไม่สามารถเลือกมาสร้างกิจกรรมได้'
+      return
+    }
+    entry.crm_status = customerCrmStatus({ crm: data.crm })
     // override ด้วยข้อมูลล่าสุดจาก detail (อาจใหม่กว่า list cache)
     const owners = crmOwnersFromCustomerPayload(data.crm)
     if (owners.length) {
@@ -1086,6 +1108,10 @@ async function save() {
   }
   if ((form.activity_type === 'call' || form.activity_type === 'meeting') && !form.start_datetime) {
     errorMsg.value = form.activity_type === 'call' ? 'กรุณาระบุวันและเวลาโทร' : 'กรุณาระบุวันและเวลาเริ่ม'
+    return
+  }
+  if (selectedCustomers.value.some(isInactiveCustomer) || addedGroupCusts.value.some(isInactiveCustomer)) {
+    errorMsg.value = 'ลูกค้าสถานะไม่ใช้งาน ไม่สามารถเลือกมาสร้างกิจกรรมได้'
     return
   }
   errorMsg.value = ''
