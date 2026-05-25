@@ -1512,7 +1512,7 @@ const actLimit          = ref(10)
 const followupSummary   = ref(null)
 const savingFollowup    = ref(false)
 const followupForm = reactive({
-  followup_enabled: true,
+  followup_enabled: false,
   followup_pause_until: '',
   followup_pause_reason: '',
   next_followup: '',
@@ -1894,7 +1894,7 @@ async function loadCustomer() {
 
     followupSummary.value = data.followup_summary || null
     fleetSummary.value = data.fleet_summary || null
-    followupForm.followup_enabled = data.crm?.followup_enabled !== false
+    followupForm.followup_enabled = data.crm?.followup_enabled === true
     followupForm.followup_pause_until = dateOnly(data.crm?.followup_pause_until)
     followupForm.followup_pause_reason = data.crm?.followup_pause_reason || ''
     followupForm.next_followup = dateOnly(data.crm?.next_followup) || form.crm.next_followup
@@ -2117,7 +2117,7 @@ async function loadActivities(reset = false) {
 }
 
 function applyFollowupOverride(data = {}) {
-  followupForm.followup_enabled = data.followup_enabled !== false
+  followupForm.followup_enabled = data.followup_enabled === true
   followupForm.followup_pause_until = dateOnly(data.followup_pause_until)
   followupForm.followup_pause_reason = data.followup_pause_reason || ''
   followupForm.next_followup = dateOnly(data.next_followup)
