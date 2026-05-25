@@ -57,13 +57,36 @@
             <h2>{{ report.store?.store_name || selectedStore.store_name || selectedStore.store_id }}</h2>
             <p>{{ report.store?.store_id }} · {{ report.store?.zone || "ไม่ระบุโซน" }}</p>
             <p class="muted">{{ report.store?.address || "ไม่มีที่อยู่" }}</p>
-            <p class="muted">ข้อมูล: {{ filters.from || "-" }} ถึง {{ filters.to || "ปัจจุบัน" }}</p>
+            <p class="muted">ข้อมูล POS: {{ filters.from || "-" }} ถึง {{ filters.to || "ทั้งหมด" }}</p>
             <p class="muted all-data-label">ข้อมูลทั้งหมดของร้าน</p>
           </div>
           <div class="profile-side">
             <span>{{ report.store?.phone || "ไม่มีเบอร์โทร" }}</span>
             <span>{{ report.store?.location || "ไม่มีพิกัด" }}</span>
             <strong>{{ storeRiskLabel }}</strong>
+          </div>
+        </div>
+
+        <div class="pos-filter-panel">
+          <div>
+            <span>ช่วงข้อมูล POS</span>
+            <strong>{{ posFinancial.cust_code || report.store?.store_id }}</strong>
+            <small>{{ posFinancial.match_type === "linked" ? "ใช้รหัสลูกค้าที่ผูกกับร้าน" : "ใช้ store_id เป็น cust_code" }}</small>
+          </div>
+          <label>
+            <span>จาก</span>
+            <input v-model="filters.from" type="date" />
+          </label>
+          <label>
+            <span>ถึง</span>
+            <input v-model="filters.to" type="date" />
+          </label>
+          <button :disabled="reportLoading" @click="loadReport(selectedStore.store_id)">โหลด POS</button>
+          <button class="ghost-action" :disabled="!filters.from && !filters.to" @click="applyPreset('all')">ทั้งหมด</button>
+          <div class="preset-row">
+            <button v-for="preset in datePresets.filter(p => p.key !== 'all')" :key="preset.key" type="button" class="ghost-action" :class="{ active: activePreset === preset.key }" @click="applyPreset(preset.key)">
+              {{ preset.label }}
+            </button>
           </div>
         </div>
 
@@ -79,12 +102,12 @@
           <div>
             <span>ส่งสำเร็จ</span>
             <strong>{{ successRate }}%</strong>
-            <small>{{ fmt(summary.checkouts) }} checkout จาก {{ fmt(summary.total_visits) }} รายการ</small>
+            <small>{{ fmt(summary.checkouts) }} บิล จาก {{ fmt(deliveryRateBase) }} รายการ · ร้านปิด {{ fmt(summary.store_closed_count) }}</small>
           </div>
           <div>
             <span>คืนของ / ยอดขาย</span>
             <strong>{{ returnRate }}%</strong>
-            <small>{{ fmtMoney(summary.return_total) }} จาก {{ fmtMoney(summary.revenue) }}</small>
+            <small>{{ fmtMoney(posFinancial.return_total) }} จาก {{ fmtMoney(posFinancial.net_sales) }}</small>
           </div>
           <div>
             <span>ปัญหาหลัก</span>
@@ -258,7 +281,7 @@
         </section>
 
         <section v-else-if="activeTab === 'closed'" class="timeline-list">
-          <article v-for="item in issueEvents" :key="item.list_id" class="history-card">
+          <article v-for="item in storeClosedEvents" :key="item.list_id" class="history-card">
             <div class="history-main">
               <div>
                 <span class="date">{{ fmtDateTime(item.date_time_check_out || item.date_time_check_in || item.trip_date) }}</span>
@@ -267,17 +290,16 @@
               </div>
               <div class="amount-box">
                 <strong>{{ fmtMoney(item.amount) }}</strong>
-                <span>{{ item.check_out_id ? "มี checkout" : "ยังไม่ checkout" }}</span>
+                <span>บันทึกร้านปิด</span>
               </div>
             </div>
             <div class="tags">
               <span v-if="item.bypass" class="tag warn">ข้ามร้าน</span>
               <span v-if="item.off_site" class="tag warn">นอกสถานที่</span>
-              <span v-if="!item.check_out_id" class="tag danger">ไม่ได้ส่ง/ไม่มี checkout</span>
               <span v-if="item.problem_types" class="tag danger">{{ item.problem_types }}</span>
             </div>
           </article>
-          <p v-if="!issueEvents.length" class="state">ไม่พบรายการร้านปิดหรือไม่ได้ส่งในช่วงนี้</p>
+          <p v-if="!storeClosedEvents.length" class="state">ไม่พบรายการร้านปิดในช่วงนี้</p>
         </section>
 
         <section v-else-if="activeTab === 'issues'" class="issue-grid">
@@ -285,14 +307,14 @@
             <div>
               <span>{{ fmtDateTime(problem.created_at) }}</span>
               <h3>{{ problem.problem_type || "ไม่ระบุปัญหา" }}</h3>
-              <p>{{ problem.description || problem.normal_bill_note || problem.edit_bill_note || problem.product_swap_note || problem.out_of_stock_note || problem.overstock_note || "-" }}</p>
+              <p>{{ problemDescription(problem) }}</p>
             </div>
             <div class="tags">
-              <span v-if="problem.normal_bill" class="tag">บิลปกติ</span>
-              <span v-if="problem.edit_bill" class="tag warn">แก้บิล</span>
-              <span v-if="problem.product_swap" class="tag warn">สลับสินค้า</span>
-              <span v-if="problem.out_of_stock" class="tag danger">ของขาด</span>
-              <span v-if="problem.overstock" class="tag danger">ของเกิน</span>
+              <span v-if="problemFlag(problem.normal_bill)" class="tag">บิลปกติ</span>
+              <span v-if="problemFlag(problem.edit_bill)" class="tag warn">แก้บิล</span>
+              <span v-if="problemFlag(problem.product_swap)" class="tag warn">สลับสินค้า</span>
+              <span v-if="problemFlag(problem.out_of_stock)" class="tag danger">ของขาด</span>
+              <span v-if="problemFlag(problem.overstock)" class="tag danger">ของเกิน</span>
             </div>
             <div v-if="problemImages(problem).length" class="thumb-row">
               <button v-for="image in problemImages(problem)" :key="image.key" type="button" @click="openImage(image.path, image.label)">
@@ -332,12 +354,24 @@
                   <h2>{{ report.store?.store_name || selectedStore.store_name || selectedStore.store_id }}</h2>
                   <p>{{ report.store?.store_id }} · {{ report.store?.zone || 'ไม่ระบุโซน' }}</p>
                   <p class="muted">{{ report.store?.address || 'ไม่มีที่อยู่' }}</p>
-                  <p class="muted">ข้อมูล: {{ filters.from || '-' }} ถึง {{ filters.to || 'ปัจจุบัน' }}</p>
+                  <p class="muted">ข้อมูล POS: {{ filters.from || '-' }} ถึง {{ filters.to || 'ทั้งหมด' }}</p>
                 </div>
                 <div class="profile-side">
                   <span>{{ report.store?.phone || 'ไม่มีเบอร์โทร' }}</span>
                   <strong>{{ storeRiskLabel }}</strong>
                 </div>
+              </div>
+
+              <div class="pos-filter-panel">
+                <div>
+                  <span>ช่วงข้อมูล POS</span>
+                  <strong>{{ posFinancial.cust_code || report.store?.store_id }}</strong>
+                  <small>{{ posFinancial.match_type === "linked" ? "ใช้รหัสลูกค้าที่ผูกกับร้าน" : "ใช้ store_id เป็น cust_code" }}</small>
+                </div>
+                <label><span>จาก</span><input v-model="filters.from" type="date" /></label>
+                <label><span>ถึง</span><input v-model="filters.to" type="date" /></label>
+                <button :disabled="reportLoading" @click="loadReport(selectedStore.store_id)">โหลด POS</button>
+                <button class="ghost-action" :disabled="!filters.from && !filters.to" @click="applyPreset('all')">ทั้งหมด</button>
               </div>
 
               <div class="kpi-grid">
@@ -349,15 +383,12 @@
               </div>
 
               <div class="analysis-panel">
-                <div><span>ส่งสำเร็จ</span><strong>{{ successRate }}%</strong><small>{{ fmt(summary.checkouts) }} checkout จาก {{ fmt(summary.total_visits) }} รายการ</small></div>
-                <div><span>คืนของ / ยอดขาย</span><strong>{{ returnRate }}%</strong><small>{{ fmtMoney(summary.return_total) }} จาก {{ fmtMoney(summary.revenue) }}</small></div>
+                <div><span>ส่งสำเร็จ</span><strong>{{ successRate }}%</strong><small>{{ fmt(summary.checkouts) }} บิล จาก {{ fmt(deliveryRateBase) }} รายการ · ร้านปิด {{ fmt(summary.store_closed_count) }}</small></div>
+                <div><span>คืนของ / ยอดขาย</span><strong>{{ returnRate }}%</strong><small>{{ fmtMoney(posFinancial.return_total) }} จาก {{ fmtMoney(posFinancial.net_sales) }}</small></div>
                 <div><span>ปัญหาหลัก</span><strong>{{ topProblemType }}</strong><small>{{ fmt(summary.problem_count) }} รายการในช่วงที่เลือก</small></div>
               </div>
 
               <div class="report-actions dialog-actions">
-                <label><span>จาก</span><input v-model="filters.from" type="date" /></label>
-                <label><span>ถึง</span><input v-model="filters.to" type="date" /></label>
-                <button :disabled="reportLoading" @click="loadReport(selectedStore.store_id)">โหลดข้อมูล</button>
                 <button class="ghost-action" :disabled="!timeline.length" @click="exportCsv">CSV</button>
               </div>
 
@@ -434,34 +465,35 @@
               </section>
 
               <section v-else-if="activeTab === 'closed'" class="timeline-list">
-                <article v-for="item in issueEvents" :key="item.list_id" class="history-card">
+                <article v-for="item in storeClosedEvents" :key="item.list_id" class="history-card">
                   <div class="history-main">
                     <div><span class="date">{{ fmtDateTime(item.date_time_check_out || item.date_time_check_in || item.trip_date) }}</span>
                       <h3>{{ closedStatus(item) }}</h3>
                       <p>{{ item.data_store_no || item.list_id }} · {{ item.car_release_code || '-' }} · {{ item.driver_name || '-' }}</p>
                     </div>
-                    <div class="amount-box"><strong>{{ fmtMoney(item.amount) }}</strong><span>{{ item.check_out_id ? 'มี checkout' : 'ยังไม่ checkout' }}</span></div>
+                    <div class="amount-box"><strong>{{ fmtMoney(item.amount) }}</strong><span>บันทึกร้านปิด</span></div>
                   </div>
                   <div class="tags">
                     <span v-if="item.bypass" class="tag warn">ข้ามร้าน</span>
                     <span v-if="item.off_site" class="tag warn">นอกสถานที่</span>
-                    <span v-if="!item.check_out_id" class="tag danger">ไม่ได้ส่ง/ไม่มี checkout</span>
                     <span v-if="item.problem_types" class="tag danger">{{ item.problem_types }}</span>
                   </div>
                 </article>
-                <p v-if="!issueEvents.length" class="state">ไม่พบรายการร้านปิดหรือไม่ได้ส่งในช่วงนี้</p>
+                <p v-if="!storeClosedEvents.length" class="state">ไม่พบรายการร้านปิดในช่วงนี้</p>
               </section>
 
               <section v-else-if="activeTab === 'issues'" class="issue-grid">
                 <article v-for="problem in problems" :key="problem.problem_id" class="issue-card">
                   <div><span>{{ fmtDateTime(problem.created_at) }}</span>
                     <h3>{{ problem.problem_type || 'ไม่ระบุปัญหา' }}</h3>
-                    <p>{{ problem.description || problem.normal_bill_note || '-' }}</p>
+                    <p>{{ problemDescription(problem) }}</p>
                   </div>
                   <div class="tags">
-                    <span v-if="problem.normal_bill" class="tag">บิลปกติ</span>
-                    <span v-if="problem.edit_bill" class="tag warn">แก้บิล</span>
-                    <span v-if="problem.out_of_stock" class="tag danger">ของขาด</span>
+                    <span v-if="problemFlag(problem.normal_bill)" class="tag">บิลปกติ</span>
+                    <span v-if="problemFlag(problem.edit_bill)" class="tag warn">แก้บิล</span>
+                    <span v-if="problemFlag(problem.product_swap)" class="tag warn">สลับสินค้า</span>
+                    <span v-if="problemFlag(problem.out_of_stock)" class="tag danger">ของขาด</span>
+                    <span v-if="problemFlag(problem.overstock)" class="tag danger">ของเกิน</span>
                   </div>
                 </article>
                 <p v-if="!problems.length" class="state">ยังไม่มีปัญหาที่บันทึกไว้</p>
@@ -513,7 +545,7 @@ const activeTab = ref("history");
 const filters = reactive({ from: "", to: "" });
 const historyFilter = reactive({ bill: "", limit: 20, offset: 0 });
 const expandedHistoryId = ref(null);
-const report = reactive({ store: null, summary: {}, analysis: {}, timeline: [], timeline_meta: { total: 0, limit: 20, offset: 0 }, returns: [], problems: [], images: [] });
+const report = reactive({ store: null, summary: {}, pos_financial: {}, analysis: {}, timeline: [], timeline_meta: { total: 0, limit: 20, offset: 0 }, returns: [], problems: [], images: [] });
 const imageUrls = reactive({});
 const imageLoading = reactive({});
 const preview = reactive({ open: false, src: "", label: "" });
@@ -527,6 +559,8 @@ const datePresets = [
 ];
 
 const summary = computed(() => report.summary || {});
+const posFinancial = computed(() => report.pos_financial || {});
+const posPaymentNet = computed(() => posFinancial.value.payment_net || {});
 const timeline = computed(() => report.timeline || []);
 const timelineMeta = computed(() => report.timeline_meta || { total: 0, limit: historyFilter.limit, offset: 0 });
 const historyPage = computed(() => Math.floor(Number(timelineMeta.value.offset || 0) / Number(timelineMeta.value.limit || historyFilter.limit)) + 1);
@@ -536,6 +570,11 @@ const problems = computed(() => report.problems || []);
 const analysis = computed(() => report.analysis || {});
 const monthlyTrend = computed(() => analysis.value.monthly || []);
 const issueEvents = computed(() => analysis.value.issue_events || []);
+const storeClosedEvents = computed(() => {
+  const events = analysis.value.store_closed_events || [];
+  if (events.length) return events;
+  return issueEvents.value.filter((item) => item.problem_types?.includes("ร้านปิด"));
+});
 const problemBreakdown = computed(() => analysis.value.problem_breakdown || []);
 const topDrivers = computed(() => analysis.value.top_drivers || []);
 const topReturnProducts = computed(() => analysis.value.top_return_products || []);
@@ -544,13 +583,14 @@ const galleryImages = computed(() => dedupeImages(report.images || []));
 const tabs = computed(() => [
   { key: "history", label: "ประวัติส่งของ", count: timelineMeta.value.total || timeline.value.length },
   { key: "returns", label: "คืนของ", count: returns.value.length },
-  { key: "closed", label: "ร้านปิด/ไม่ได้ส่ง", count: issueEvents.value.length },
+  { key: "closed", label: "ร้านปิด", count: storeClosedEvents.value.length },
   { key: "issues", label: "ปัญหา", count: problems.value.length },
   { key: "images", label: "รูปภาพ", count: galleryImages.value.length },
 ]);
 
-const successRate = computed(() => pct(summary.value.checkouts, summary.value.total_visits));
-const returnRate = computed(() => pct(summary.value.return_total, summary.value.revenue));
+const deliveryRateBase = computed(() => Number(summary.value.checkouts || 0) + Number(summary.value.store_closed_count || 0));
+const successRate = computed(() => pct(summary.value.checkouts, deliveryRateBase.value));
+const returnRate = computed(() => Number(posFinancial.value.return_rate ?? pct(posFinancial.value.return_total, posFinancial.value.net_sales)));
 const activePreset = computed(() => detectPreset());
 const topProblemType = computed(() => {
   return problemBreakdown.value[0]?.problem_type || "ไม่มี";
@@ -582,11 +622,19 @@ const topReturnProductNote = computed(() => {
   const product = topReturnProducts.value[0];
   return product ? `${fmt(product.quantity)} ชิ้น · ${fmtMoney(product.total)}` : "ยังไม่มีข้อมูลคืนของ";
 });
-const topPaymentLabel = computed(() => paymentBreakdown.value[0]?.payment_name || "ไม่มี");
-const topPaymentNote = computed(() => {
-  const payment = paymentBreakdown.value[0];
-  return payment ? `${fmt(payment.checkouts)} checkout · ${fmtMoney(payment.amount)}` : "ยังไม่มีข้อมูลชำระเงิน";
+const topPaymentEntry = computed(() => {
+  const entries = [
+    ["เงินสด", posPaymentNet.value.cash_amount],
+    ["เช็ค", posPaymentNet.value.chq_amount],
+    ["เงินโอน", posPaymentNet.value.tranfer_amount],
+    ["บัตรเครดิต", posPaymentNet.value.card_amount],
+    ["Wallet", posPaymentNet.value.wallet_amount],
+  ].filter(([, amount]) => Math.abs(Number(amount || 0)) > 0);
+  entries.sort((a, b) => Math.abs(Number(b[1] || 0)) - Math.abs(Number(a[1] || 0)));
+  return entries[0] || null;
 });
+const topPaymentLabel = computed(() => topPaymentEntry.value?.[0] || "ไม่มี");
+const topPaymentNote = computed(() => topPaymentEntry.value ? fmtMoney(topPaymentEntry.value[1]) : "ยังไม่มีข้อมูลรับเงินจาก POS");
 const insightWarnings = computed(() => {
   const items = [];
   if (Number(summary.value.store_closed_count || 0) > 0) {
@@ -596,10 +644,10 @@ const insightWarnings = computed(() => {
     items.push({ title: "คืนของสูง", value: `${returnRate.value}%`, note: "ของยอดขายรวม", tone: "danger" });
   }
   if (Number(summary.value.problem_count || 0) > 0) {
-    items.push({ title: "ปัญหาที่พบ", value: fmt(summary.value.problem_count), note: topProblemType.value, tone: "danger" });
+    items.push({ title: "ปัญหาที่พบ", value: fmt(summary.value.problem_count), note: "รายการ", tone: "danger" });
   }
   if (successRate.value && successRate.value < 80) {
-    items.push({ title: "ส่งสำเร็จต่ำ", value: `${successRate.value}%`, note: "ควรตรวจรายการไม่ได้ส่ง", tone: "warn" });
+    items.push({ title: "ส่งสำเร็จต่ำ", value: `${successRate.value}%`, note: "คำนวณจากจำนวนบิลและร้านปิด", tone: "warn" });
   }
   return items;
 });
@@ -610,12 +658,21 @@ const storeRiskLabel = computed(() => {
   return "สถานะปกติ";
 });
 const kpiCards = computed(() => [
-  { label: "ยอดขายรวม", value: fmtMoney(summary.value.revenue), note: `${fmt(summary.value.checkouts)} checkout`, tone: "money" },
+  { label: "ยอดขายสุทธิ", value: fmtMoney(posFinancial.value.net_sales), note: `ขาย ${fmtMoney(posFinancial.value.gross_sales)} - คืน ${fmtMoney(posFinancial.value.return_total)}`, tone: "money" },
+  { label: "ขายเชื่อ", value: fmtMoney(posFinancial.value.credit_sales), note: "", tone: "" },
+  { label: "ขายสด", value: fmtMoney(posFinancial.value.cash_sales), note: "", tone: "money" },
   { label: "จำนวนครั้งส่ง", value: fmt(summary.value.total_visits), note: `${fmt(summary.value.trips)} เที่ยวรถ`, tone: "" },
-  { label: "คืนของ", value: fmtMoney(summary.value.return_total), note: `${fmt(summary.value.return_items)} รายการ`, tone: "danger" },
+  { label: "คืนของ", value: fmtMoney(posFinancial.value.return_total), note: `คืนของ / ยอดขาย ${returnRate.value}%`, tone: "danger" },
   { label: "ร้านปิด", value: fmt(summary.value.store_closed_count), note: `${fmt(summary.value.problem_count)} ปัญหารวม`, tone: "warn" },
-  { label: "เงินสด", value: fmtMoney(summary.value.cash), note: "รับเป็นเงินสด", tone: "" },
-  { label: "โอน", value: fmtMoney(summary.value.transfer), note: "รับเป็นโอน", tone: "" },
+  { label: "เงินสด", value: fmtMoney(posPaymentNet.value.cash_amount), note: "รับเงิน - คืนเงิน", tone: "" },
+  { label: "เช็ค", value: fmtMoney(posPaymentNet.value.chq_amount), note: "รับเงิน - คืนเงิน", tone: "" },
+  { label: "เงินโอน", value: fmtMoney(posPaymentNet.value.tranfer_amount), note: "รับเงิน - คืนเงิน", tone: "" },
+  { label: "บัตรเครดิต", value: fmtMoney(posPaymentNet.value.card_amount), note: "card_amount", tone: "" },
+  { label: "เงินมัดจำ", value: fmtMoney(posPaymentNet.value.deposit_amount), note: "deposit_amount", tone: "" },
+  { label: "เงินรับล่วงหน้า", value: fmtMoney(posPaymentNet.value.advance_amount), note: "advance_amount", tone: "" },
+  { label: "คูปอง", value: fmtMoney(posPaymentNet.value.coupon_amount), note: "coupon_amount", tone: "" },
+  { label: "ส่วนลด", value: fmtMoney(posPaymentNet.value.discount_amount), note: "discount_amount", tone: "warn" },
+  { label: "Wallet", value: fmtMoney(posPaymentNet.value.wallet_amount), note: "wallet_amount", tone: "" },
 ]);
 
 onMounted(() => {
@@ -673,11 +730,14 @@ async function loadReport(storeId) {
       limit: historyFilter.limit,
       offset: historyFilter.offset,
     };
+    if (filters.from) params.pos_from = filters.from;
+    if (filters.to) params.pos_to = filters.to;
     if (historyFilter.bill) params.bill = historyFilter.bill;
     const { data } = await apiBase.get(`/fleet/stores/${encodeURIComponent(storeId)}/report`, { params });
     Object.assign(report, {
       store: data.data.store,
       summary: data.data.summary || {},
+      pos_financial: data.data.pos_financial || {},
       analysis: data.data.analysis || {},
       timeline: data.data.timeline || [],
       timeline_meta: data.data.timeline_meta || { total: 0, limit: historyFilter.limit, offset: historyFilter.offset },
@@ -762,8 +822,8 @@ function detectPreset() {
 
 async function applyRouteState(routeQuery) {
   query.value = String(routeQuery.q || "");
-  filters.from = "";
-  filters.to = "";
+  filters.from = String(routeQuery.pos_from || "");
+  filters.to = String(routeQuery.pos_to || "");
   await searchStores();
   const storeId = String(routeQuery.store || "");
   if (!storeId) return;
@@ -775,6 +835,8 @@ function buildReportQuery() {
   const nextQuery = {};
   if (query.value) nextQuery.q = query.value;
   if (selectedStore.value?.store_id) nextQuery.store = selectedStore.value.store_id;
+  if (filters.from) nextQuery.pos_from = filters.from;
+  if (filters.to) nextQuery.pos_to = filters.to;
   return nextQuery;
 }
 
@@ -911,6 +973,30 @@ function problemImages(problem) {
   );
 }
 
+function problemFlag(value) {
+  if (value === true) return true;
+  if (value === false || value === null || value === undefined) return false;
+  if (typeof value === "number") return value !== 0;
+  const text = String(value).trim().toLowerCase();
+  if (!text) return false;
+  if (["false", "0", "no", "n", "ไม่", "ไม่ใช่"].includes(text)) return false;
+  return true;
+}
+
+function problemDescription(problem) {
+  return [
+    problem.description,
+    problem.normal_bill_note,
+    problem.edit_bill_note,
+    problem.product_swap_note,
+    problem.out_of_stock_note,
+    problem.overstock_note,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter((value) => value && !["true", "false", "0", "1"].includes(value.toLowerCase()))
+    .join(" · ") || "-";
+}
+
 function dedupeImages(images) {
   const seen = new Set();
   return images.filter((image) => {
@@ -981,7 +1067,7 @@ function pctOf(value, max) {
 }
 
 function closedStatus(item) {
-  return deliveryStatus(item);
+  return "ร้านปิด";
 }
 
 function deliveryStatus(item) {
@@ -1267,9 +1353,56 @@ button:disabled {
 .profile-side strong {
   color: #1f6feb;
 }
+.pos-filter-panel {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 150px 150px auto auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  margin-top: 14px;
+  border: 1px solid #e3e7ee;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+.pos-filter-panel > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+.pos-filter-panel span,
+.pos-filter-panel small {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+.pos-filter-panel strong {
+  color: #18212f;
+  font-size: 18px;
+}
+.pos-filter-panel label {
+  display: grid;
+  gap: 4px;
+}
+.pos-filter-panel input {
+  width: 100%;
+}
+.preset-row {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.preset-row .ghost-action {
+  height: 34px;
+  padding: 0 10px;
+}
+.preset-row .ghost-action.active {
+  background: #1f6feb;
+  color: white;
+  border-color: #1f6feb;
+}
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   margin: 16px 0;
 }
