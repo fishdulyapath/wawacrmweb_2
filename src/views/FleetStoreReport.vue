@@ -1271,9 +1271,14 @@ button:disabled {
 }
 .store-row > span:first-child {
   min-width: 0;
+  display: block;
 }
-.store-row strong,
-.store-row small {
+.store-row > span:first-child strong,
+.store-row > span:first-child small,
+.row-stats b,
+.row-stats small {
+  display: block;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1290,6 +1295,7 @@ button:disabled {
 }
 .row-stats {
   text-align: right;
+  min-width: 0;
 }
 .store-row .badge {
   grid-row: 2;
@@ -1958,6 +1964,15 @@ th {
   }
   .store-row {
     grid-template-columns: minmax(0, 1fr) 80px;
+  }
+  .store-row > span:first-child strong {
+    white-space: normal;
+    line-height: 1.25;
+    display: -webkit-box;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
   .store-row .badge,
   .store-row .badge.danger {
