@@ -1,7 +1,7 @@
 <template>
-  <div class="p-6 max-w-4xl">
+  <div class="p-4 sm:p-6 max-w-6xl mx-auto">
     <!-- Header -->
-    <div class="flex items-center gap-3 mb-6">
+    <div class="flex flex-col items-start gap-3 mb-6 sm:flex-row sm:items-center">
       <RouterLink to="/customers"
                   class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300
                          text-slate-500 hover:bg-slate-100 transition-colors">
@@ -28,8 +28,8 @@
 
     <template v-else>
       <!-- Tabs -->
-      <div class="border-b border-slate-200 mb-6">
-        <nav class="flex gap-6 -mb-px">
+      <div class="border-b border-slate-200 mb-6 overflow-x-auto">
+        <nav class="flex gap-4 sm:gap-6 -mb-px min-w-max">
           <button v-for="tab in tabs" :key="tab.key"
                   @click="activeTab = tab.key"
                   :class="['pb-3 text-sm transition-colors', activeTab === tab.key ? 'tab-active' : 'tab-inactive']">
@@ -63,9 +63,9 @@
         <!-- ══════════════════════════════
              TAB: ข้อมูลหลัก
         ══════════════════════════════ -->
-        <div v-show="activeTab === 'main'" class="card p-6">
+        <div v-show="activeTab === 'main'" class="card p-4 sm:p-6">
           <h2 class="font-semibold text-slate-700 mb-4">ข้อมูลลูกค้าหลัก</h2>
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             <div v-if="!isEdit">
               <label class="label-text">รหัสลูกค้า <span class="text-red-500">*</span></label>
@@ -77,7 +77,7 @@
               <input v-model="form.name_1" class="input-field" placeholder="ชื่อบริษัท หรือ ชื่อลูกค้า"/>
             </div>
 
-            <div class="col-span-2">
+            <div class="md:col-span-2">
               <label class="label-text">ที่อยู่</label>
               <textarea v-model="form.address" class="input-field" rows="2" placeholder="ที่อยู่..."/>
             </div>
@@ -112,7 +112,7 @@
               <input v-model="form.country" class="input-field" placeholder="ประเทศ"/>
             </div>
 
-            <div class="col-span-2">
+            <div class="md:col-span-2">
               <label class="label-text">พิกัด GPS</label>
               <MapPicker
                 map-id="map-main"
@@ -128,7 +128,7 @@
               <textarea v-model="form.remark" class="input-field" rows="2" placeholder="หมายเหตุ..."/>
             </div>
 
-            <div class="col-span-2 relative">
+            <div class="md:col-span-2 relative">
               <label class="label-text">พนักงานผู้ดูแล</label>
               <div class="relative">
                 <input
@@ -174,9 +174,9 @@
              TAB: ผู้ติดต่อ
         ══════════════════════════════ -->
         <div v-show="activeTab === 'contactors'" class="space-y-4">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="font-semibold text-slate-700">ผู้ติดต่อ</h2>
-            <button @click="addContactor" class="btn-secondary text-sm">
+            <button @click="addContactor" class="btn-secondary text-sm w-full justify-center sm:w-auto">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
               </svg>
@@ -193,8 +193,8 @@
             ยังไม่มีผู้ติดต่อ — คลิก "เพิ่มผู้ติดต่อ"
           </div>
 
-          <div v-for="(c, idx) in form.contactors" :key="idx" class="card p-5">
-            <div class="flex items-start justify-between mb-4">
+          <div v-for="(c, idx) in form.contactors" :key="idx" class="card p-4 sm:p-5">
+            <div class="flex items-start justify-between gap-3 mb-4">
               <span class="text-sm font-semibold text-slate-600">ผู้ติดต่อที่ {{ idx + 1 }}</span>
               <button @click="removeContactor(idx)"
                       class="p-1 text-slate-400 hover:text-red-500 transition-colors">
@@ -203,7 +203,7 @@
                 </svg>
               </button>
             </div>
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="label-text">ชื่อ-นามสกุล</label>
                 <input v-model="c.name" class="input-field" placeholder="ชื่อ-นามสกุล"/>
@@ -220,7 +220,7 @@
                 <label class="label-text">วันเกิด</label>
                 <DateInput v-model="c.birthday" class="input-field"/>
               </div>
-              <div class="col-span-2">
+              <div class="md:col-span-2">
                 <label class="label-text">Line ID</label>
                 <input v-model="c.work_title" class="input-field" placeholder="Line ID"/>
               </div>
@@ -232,9 +232,9 @@
              TAB: ที่อยู่จัดส่ง
         ══════════════════════════════ -->
         <div v-show="activeTab === 'transport'" class="space-y-4">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="font-semibold text-slate-700">ที่อยู่จัดส่ง</h2>
-            <button @click="addTransport" class="btn-secondary text-sm">
+            <button @click="addTransport" class="btn-secondary text-sm w-full justify-center sm:w-auto">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
               </svg>
@@ -251,8 +251,8 @@
             ยังไม่มีที่อยู่จัดส่ง — คลิก "เพิ่มที่อยู่จัดส่ง"
           </div>
 
-          <div v-for="(t, idx) in form.transport_labels" :key="idx" class="card p-5">
-            <div class="flex items-center justify-between mb-4">
+          <div v-for="(t, idx) in form.transport_labels" :key="idx" class="card p-4 sm:p-5">
+            <div class="flex items-center justify-between gap-3 mb-4">
               <span class="text-sm font-semibold text-slate-600">ที่อยู่จัดส่งที่ {{ idx + 1 }}</span>
               <button @click="removeTransport(idx)"
                       class="p-1 text-slate-400 hover:text-red-500 transition-colors">
@@ -261,8 +261,8 @@
                 </svg>
               </button>
             </div>
-            <div class="grid grid-cols-2 gap-4">
-              <div class="col-span-2">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="md:col-span-2">
                 <label class="label-text">ที่อยู่</label>
                 <textarea v-model="t.address" class="input-field" rows="2"/>
               </div>
@@ -312,9 +312,9 @@
         <!-- ══════════════════════════════
              TAB: CRM Info
         ══════════════════════════════ -->
-        <div v-show="activeTab === 'crm'" class="card p-6">
+        <div v-show="activeTab === 'crm'" class="card p-4 sm:p-6">
           <h2 class="font-semibold text-slate-700 mb-4">ข้อมูล CRM</h2>
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             <div>
               <label class="label-text">ประเภทลูกค้า</label>
@@ -354,7 +354,7 @@
               </select>
             </div>
 
-            <div class="col-span-2">
+            <div class="md:col-span-2">
               <label class="label-text">ทีมผู้ดูแลลูกค้า CRM</label>
               <div class="space-y-2">
                 <div class="relative">
@@ -422,7 +422,7 @@
               <DateInput v-model="form.crm.next_followup" class="input-field"/>
             </div>
 
-            <div class="col-span-2">
+            <div class="md:col-span-2">
               <label class="label-text">หมายเหตุ CRM</label>
               <textarea v-model="form.crm.crm_remark" class="input-field" rows="3"
                         placeholder="บันทึกข้อมูลเพิ่มเติมสำหรับทีม CRM..."/>
@@ -580,7 +580,7 @@
               <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <label class="label-text">วันติดตามถัดไป</label>
-                  <div class="flex gap-2">
+                  <div class="flex flex-col gap-2 sm:flex-row">
                     <DateInput v-model="followupForm.next_followup" class="input-field text-sm" :disabled="!isManager" />
                     <button v-if="isManager" type="button" @click="saveFollowupOverride({ next_followup: followupForm.next_followup || null })"
                       :disabled="savingFollowup"
@@ -595,7 +595,7 @@
                 </div>
                 <div>
                   <label class="label-text">เหตุผลพัก</label>
-                  <div class="flex gap-2">
+                  <div class="flex flex-col gap-2 sm:flex-row">
                     <input v-model="followupForm.followup_pause_reason" class="input-field text-sm" placeholder="เช่น รอลูกค้าติดต่อกลับ" :disabled="!isManager" />
                     <button v-if="isManager" type="button" @click="pauseCustomerFollowup"
                       :disabled="savingFollowup || !followupForm.followup_pause_until"
@@ -658,24 +658,24 @@
             </section>
 
             <!-- Toolbar: ค้นหา + ตัวกรองสถานะ + ปุ่มสร้าง -->
-            <div class="flex flex-wrap items-center gap-3">
+            <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <div class="relative flex-1 min-w-[180px]">
                 <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
                 <input v-model="actSearchQuery" @input="loadActivities(true)" class="input-field pl-9 text-sm" placeholder="ค้นหาหัวข้อ..."/>
               </div>
-              <select v-model="actStatusFilter" @change="loadActivities(true)" class="input-field w-auto text-sm">
+              <select v-model="actStatusFilter" @change="loadActivities(true)" class="input-field w-full text-sm sm:w-auto">
                 <option value="all">ทุกสถานะ</option>
                 <option value="open">ค้างอยู่</option>
                 <option value="done">ปิดแล้ว</option>
                 <option value="deleted">ถูกลบ</option>
               </select>
-              <button type="button"
+                    <button type="button"
                       @click="router.push({ path: '/activities/new', query: { ar_code: props.code } })"
                       :disabled="form.crm.status === 'inactive'"
                       :title="form.crm.status === 'inactive' ? 'ลูกค้าสถานะไม่ใช้งาน ไม่สามารถสร้างกิจกรรมได้' : ''"
-                      class="btn-primary text-sm px-3 py-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
+                      class="btn-primary text-sm px-3 py-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center sm:w-auto">
                 <svg class="w-4 h-4 inline -mt-0.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -870,7 +870,7 @@
                       สำเร็จ {{ fleetInsight.success_rate || 0 }}% · คืนของ {{ fleetInsight.return_rate || 0 }}% · ปัญหา {{ fleetInsight.problem_rate || 0 }}%
                     </p>
                   </div>
-                  <div class="grid grid-cols-2 gap-2 text-xs min-w-[220px]">
+                  <div class="grid grid-cols-2 gap-2 text-xs min-w-0 sm:min-w-[220px]">
                     <div class="rounded-lg bg-slate-50 px-3 py-2">
                       <p class="text-slate-400">ส่งล่าสุด</p>
                       <p class="font-semibold text-slate-700">{{ fleetLatestDays(fleetInsight.latest_visit_days) }}</p>
@@ -936,7 +936,7 @@
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                 <div class="card p-4">
                   <p class="text-slate-400 text-xs font-medium">ส่งทั้งหมด</p>
                   <p class="text-lg font-bold text-slate-800 mt-1">{{ fleetFmt(fleetSummary.summary?.total_visits) }}</p>
@@ -957,7 +957,7 @@
                 </div>
               </div>
 
-              <div class="grid md:grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="card p-4">
                   <h3 class="font-semibold text-slate-700 mb-3">ประวัติล่าสุด</h3>
                   <div v-if="!fleetSummary.timeline?.length" class="text-sm text-slate-400 py-6 text-center">ยังไม่มีรายการส่งของ</div>
@@ -1007,17 +1007,17 @@
 
           <template v-else>
             <!-- Filter row -->
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
               <input v-model="purchaseFilter.doc_no" @input="purchaseDebounce"
-                class="input-field w-36 text-sm" placeholder="เลขที่เอกสาร..." />
+                class="input-field w-full text-sm sm:w-36" placeholder="เลขที่เอกสาร..." />
               <input v-model="purchaseFilter.sale_code" @input="purchaseDebounce"
-                class="input-field w-32 text-sm" placeholder="รหัสพนักงาน..." />
-              <div class="flex items-center gap-1.5">
+                class="input-field w-full text-sm sm:w-32" placeholder="รหัสพนักงาน..." />
+              <div class="flex items-center gap-1.5 w-full sm:w-auto">
                 <span class="text-xs text-slate-500">จาก</span>
                 <DateInput v-model="purchaseFilter.date_from" @change="loadPurchaseHistory(1)"
                   class="input-field text-sm" />
               </div>
-              <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-1.5 w-full sm:w-auto">
                 <span class="text-xs text-slate-500">ถึง</span>
                 <DateInput v-model="purchaseFilter.date_to" @change="loadPurchaseHistory(1)"
                   class="input-field text-sm" />
@@ -1151,7 +1151,7 @@
 
             <template v-else>
               <!-- Credit Summary -->
-              <div v-if="creditDetail" class="grid grid-cols-2 gap-3">
+              <div v-if="creditDetail" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div class="card p-4">
                   <p class="text-slate-400 text-xs font-medium">วงเงินเครดิต</p>
                   <p class="text-lg font-bold text-slate-800 mt-1">{{ creditDetail.data_head.credit_money }}</p>
@@ -1172,14 +1172,14 @@
               <div v-else class="card p-4 text-center text-slate-400 text-sm">ไม่พบข้อมูลเครดิต</div>
 
               <!-- Sub-tabs -->
-              <div class="flex gap-1 bg-slate-50 rounded-xl p-1 border border-slate-200">
+              <div class="flex gap-1 bg-slate-50 rounded-xl p-1 border border-slate-200 overflow-x-auto">
                 <button v-for="t in [
                     { key: 'credit_docs',    label: 'รายการคงค้าง' },
                     { key: 'credit_cheques', label: 'เช็ค' },
                     { key: 'credit_srss',    label: 'SR/SS' }
                   ]" :key="t.key"
                   @click="creditActiveTab = t.key"
-                  class="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                  class="flex-1 min-w-max py-2 px-3 rounded-lg text-sm font-medium transition-colors"
                   :class="creditActiveTab === t.key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:bg-white/60'">
                   {{ t.label }}
                 </button>
@@ -1261,9 +1261,9 @@
       </div>
 
       <!-- Action Buttons -->
-      <div class="flex items-center justify-between mt-6 pt-6 border-t border-slate-200">
-        <RouterLink to="/customers" class="btn-secondary">ยกเลิก</RouterLink>
-        <button @click="submit" :disabled="saving" class="btn-primary px-8">
+      <div class="flex flex-col-reverse gap-3 mt-6 pt-6 border-t border-slate-200 sm:flex-row sm:items-center sm:justify-between">
+        <RouterLink to="/customers" class="btn-secondary justify-center">ยกเลิก</RouterLink>
+        <button @click="submit" :disabled="saving" class="btn-primary px-8 justify-center">
           <svg v-if="saving" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
