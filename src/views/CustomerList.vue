@@ -100,111 +100,197 @@
         <button @click="loadData" class="btn-secondary mt-3 mx-auto">ลองใหม่</button>
       </div>
 
-      <!-- Table -->
-      <table v-else class="w-full text-sm">
-        <thead class="bg-slate-50 border-b border-slate-200">
-          <tr>
-            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">รหัส</th>
-            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">ชื่อลูกค้า</th>
-            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">จังหวัด</th>
-            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">พนักงานผู้ดูแล</th>
-            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">ประเภท</th>
-            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">สถานะ</th>
-            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-36">ส่งของ</th>
-            <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">จัดการ</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          <tr v-if="customers.length === 0">
-            <td colspan="8" class="py-16 text-center text-slate-400">
-              <svg class="mx-auto w-10 h-10 text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
-              </svg>
-              ไม่พบข้อมูลลูกค้า
-            </td>
-          </tr>
-          <tr v-for="c in customers" :key="c.code"
-              class="hover:bg-slate-50 transition-colors duration-75">
-            <td class="px-4 py-3">
-              <span class="font-mono text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                {{ c.code }}
+      <template v-else>
+        <!-- Mobile + Tablet -->
+        <div class="lg:hidden p-4 space-y-3">
+          <div v-if="customers.length === 0" class="py-16 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            <svg class="mx-auto w-10 h-10 text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+            </svg>
+            ไม่พบข้อมูลลูกค้า
+          </div>
+
+          <div v-for="c in customers" :key="c.code" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 font-mono text-[11px] font-semibold text-slate-700">
+                  {{ c.code }}
+                </span>
+                <p class="mt-2 font-semibold text-slate-800 leading-tight">{{ c.name_1 }}</p>
+                <p v-if="c.address" class="mt-1 text-xs text-slate-400 leading-snug">{{ c.address }}</p>
+              </div>
+              <span :class="statusBadge(c.crm?.crm_status)">
+                {{ statusLabel(c.crm?.crm_status) }}
               </span>
-            </td>
-            <td class="px-4 py-3">
-              <p class="font-medium text-slate-800">{{ c.name_1 }}</p>
-              <p v-if="c.address" class="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{{ c.address }}</p>
-            </td>
-            <td class="px-4 py-3 text-slate-600">{{ c.province || '—' }}</td>
-            <td class="px-4 py-3">
-              <template v-if="crmOwnerNames(c) || c.sale_name">
-                <div class="flex items-center gap-2">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">จังหวัด</p>
+                <p class="mt-1 text-slate-700">{{ c.province || '—' }}</p>
+              </div>
+              <div>
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">ประเภท</p>
+                <p class="mt-1 text-slate-700">{{ c.crm?.customer_type || 'B2C' }}</p>
+              </div>
+              <div class="col-span-2">
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">พนักงานผู้ดูแล</p>
+                <div v-if="crmOwnerNames(c) || c.sale_name" class="mt-1 flex items-center gap-2">
                   <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
                        :class="crmOwnerNames(c) ? 'bg-blue-600' : 'bg-slate-500'">
                     {{ (crmOwnerNames(c) || c.sale_name).charAt(0) }}
                   </div>
                   <div>
                     <p class="text-slate-700 text-sm leading-tight">{{ crmOwnerNames(c) || c.sale_name }}</p>
-                    <p v-if="crmOwnerNames(c) && c.sale_name"
-                       class="text-xs text-slate-400 leading-tight">POS: {{ c.sale_name }}</p>
+                    <p v-if="crmOwnerNames(c) && c.sale_name" class="text-xs text-slate-400 leading-tight">POS: {{ c.sale_name }}</p>
                   </div>
                 </div>
-              </template>
-              <span v-else class="text-slate-400 text-xs">— ยังไม่ระบุ —</span>
-            </td>
-            <td class="px-4 py-3">
-              <span class="text-xs font-medium text-slate-600">
-                {{ c.crm?.customer_type || 'B2C' }}
-              </span>
-            </td>
-            <td class="px-4 py-3">
-              <span :class="statusBadge(c.crm?.crm_status)">
-                {{ statusLabel(c.crm?.crm_status) }}
-              </span>
-            </td>
-            <td class="px-4 py-3">
-              <div v-if="c.crm?.fleet" class="space-y-1">
-                <span :class="fleetBadge(c.crm.fleet)">
-                  {{ fleetLabel(c.crm.fleet) }}
-                </span>
-                <p class="text-[11px] text-slate-400">
-                  ล่าสุด {{ fleetDate(c.crm.fleet.latest_visit_at) }}
-                </p>
+                <p v-else class="mt-1 text-xs text-slate-400">— ยังไม่ระบุ —</p>
               </div>
-              <span v-else class="text-xs text-slate-400">ไม่มีข้อมูลส่งของ</span>
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex items-center justify-end gap-2">
-                <RouterLink :to="`/customers/${c.code}/edit`"
-                            class="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                            title="แก้ไข">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                  </svg>
-                </RouterLink>
-                <button @click="confirmDelete(c)"
-                        class="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        title="ลบ">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                  </svg>
-                </button>
+              <div class="col-span-2">
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">ส่งของ</p>
+                <div v-if="c.crm?.fleet" class="mt-1 space-y-1">
+                  <span :class="fleetBadge(c.crm.fleet)">
+                    {{ fleetLabel(c.crm.fleet) }}
+                  </span>
+                  <p class="text-[11px] text-slate-400">ล่าสุด {{ fleetDate(c.crm.fleet.latest_visit_at) }}</p>
+                </div>
+                <p v-else class="mt-1 text-xs text-slate-400">ไม่มีข้อมูลส่งของ</p>
               </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <RouterLink :to="`/customers/${c.code}/edit`"
+                          class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                          title="แก้ไข">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                แก้ไข
+              </RouterLink>
+              <button @click="confirmDelete(c)"
+                      class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors"
+                      title="ลบ">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                ลบ
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Desktop -->
+        <div class="hidden lg:block overflow-x-auto">
+          <table class="w-full min-w-[1180px] text-sm">
+            <thead class="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">รหัส</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">ชื่อลูกค้า</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">จังหวัด</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">พนักงานผู้ดูแล</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">ประเภท</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">สถานะ</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-36">ส่งของ</th>
+                <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr v-if="customers.length === 0">
+                <td colspan="8" class="py-16 text-center text-slate-400">
+                  <svg class="mx-auto w-10 h-10 text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                  </svg>
+                  ไม่พบข้อมูลลูกค้า
+                </td>
+              </tr>
+              <tr v-for="c in customers" :key="c.code"
+                  class="hover:bg-slate-50 transition-colors duration-75">
+                <td class="px-4 py-3">
+                  <span class="font-mono text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                    {{ c.code }}
+                  </span>
+                </td>
+                <td class="px-4 py-3">
+                  <p class="font-medium text-slate-800">{{ c.name_1 }}</p>
+                  <p v-if="c.address" class="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{{ c.address }}</p>
+                </td>
+                <td class="px-4 py-3 text-slate-600">{{ c.province || '—' }}</td>
+                <td class="px-4 py-3">
+                  <template v-if="crmOwnerNames(c) || c.sale_name">
+                    <div class="flex items-center gap-2">
+                      <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                           :class="crmOwnerNames(c) ? 'bg-blue-600' : 'bg-slate-500'">
+                        {{ (crmOwnerNames(c) || c.sale_name).charAt(0) }}
+                      </div>
+                      <div>
+                        <p class="text-slate-700 text-sm leading-tight">{{ crmOwnerNames(c) || c.sale_name }}</p>
+                        <p v-if="crmOwnerNames(c) && c.sale_name"
+                           class="text-xs text-slate-400 leading-tight">POS: {{ c.sale_name }}</p>
+                      </div>
+                    </div>
+                  </template>
+                  <span v-else class="text-slate-400 text-xs">— ยังไม่ระบุ —</span>
+                </td>
+                <td class="px-4 py-3">
+                  <span class="text-xs font-medium text-slate-600">
+                    {{ c.crm?.customer_type || 'B2C' }}
+                  </span>
+                </td>
+                <td class="px-4 py-3">
+                  <span :class="statusBadge(c.crm?.crm_status)">
+                    {{ statusLabel(c.crm?.crm_status) }}
+                  </span>
+                </td>
+                <td class="px-4 py-3">
+                  <div v-if="c.crm?.fleet" class="space-y-1">
+                    <span :class="fleetBadge(c.crm.fleet)">
+                      {{ fleetLabel(c.crm.fleet) }}
+                    </span>
+                    <p class="text-[11px] text-slate-400">
+                      ล่าสุด {{ fleetDate(c.crm.fleet.latest_visit_at) }}
+                    </p>
+                  </div>
+                  <span v-else class="text-xs text-slate-400">ไม่มีข้อมูลส่งของ</span>
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center justify-end gap-2">
+                    <RouterLink :to="`/customers/${c.code}/edit`"
+                                class="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                title="แก้ไข">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      </svg>
+                    </RouterLink>
+                    <button @click="confirmDelete(c)"
+                            class="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            title="ลบ">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
 
       <!-- Pagination -->
       <div v-if="!loading && !error && total > 0"
-           class="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
-        <p class="text-sm text-slate-500">
+           class="flex flex-col gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50 lg:flex-row lg:items-center lg:justify-between">
+        <p class="text-sm text-slate-500 text-center lg:text-left">
           แสดง {{ (page - 1) * limit + 1 }}–{{ Math.min(page * limit, total) }}
           จาก {{ total }} รายการ
         </p>
-        <div class="flex gap-1">
+        <div class="flex flex-wrap justify-center gap-1 lg:justify-end">
           <button @click="goPage(page - 1)" :disabled="page <= 1"
                   class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-600
                          hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
