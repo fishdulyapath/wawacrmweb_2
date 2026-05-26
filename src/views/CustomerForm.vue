@@ -1,7 +1,7 @@
 <template>
-  <div class="p-4 sm:p-6 max-w-6xl mx-auto">
+  <div class="p-6 max-w-4xl">
     <!-- Header -->
-    <div class="flex flex-col items-start gap-3 mb-6 sm:flex-row sm:items-center">
+    <div class="flex items-center gap-3 mb-6">
       <RouterLink to="/customers"
                   class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300
                          text-slate-500 hover:bg-slate-100 transition-colors">
@@ -28,8 +28,8 @@
 
     <template v-else>
       <!-- Tabs -->
-      <div class="border-b border-slate-200 mb-6 overflow-x-auto">
-        <nav class="flex gap-4 sm:gap-6 -mb-px min-w-max">
+      <div class="border-b border-slate-200 mb-6">
+        <nav class="flex gap-6 -mb-px">
           <button v-for="tab in tabs" :key="tab.key"
                   @click="activeTab = tab.key"
                   :class="['pb-3 text-sm transition-colors', activeTab === tab.key ? 'tab-active' : 'tab-inactive']">
@@ -50,10 +50,6 @@
                   class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700">
               {{ custActTotal }}
             </span>
-            <span v-if="tab.key === 'fleet_delivery' && fleetSummary?.matched"
-                  class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-emerald-100 text-emerald-700">
-              {{ fleetSummary.summary?.total_visits || 0 }}
-            </span>
           </button>
         </nav>
       </div>
@@ -63,9 +59,9 @@
         <!-- ══════════════════════════════
              TAB: ข้อมูลหลัก
         ══════════════════════════════ -->
-        <div v-show="activeTab === 'main'" class="card p-4 sm:p-6">
+        <div v-show="activeTab === 'main'" class="card p-6">
           <h2 class="font-semibold text-slate-700 mb-4">ข้อมูลลูกค้าหลัก</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-2 gap-4">
 
             <div v-if="!isEdit">
               <label class="label-text">รหัสลูกค้า <span class="text-red-500">*</span></label>
@@ -77,7 +73,7 @@
               <input v-model="form.name_1" class="input-field" placeholder="ชื่อบริษัท หรือ ชื่อลูกค้า"/>
             </div>
 
-            <div class="md:col-span-2">
+            <div class="col-span-2">
               <label class="label-text">ที่อยู่</label>
               <textarea v-model="form.address" class="input-field" rows="2" placeholder="ที่อยู่..."/>
             </div>
@@ -112,7 +108,7 @@
               <input v-model="form.country" class="input-field" placeholder="ประเทศ"/>
             </div>
 
-            <div class="md:col-span-2">
+            <div class="col-span-2">
               <label class="label-text">พิกัด GPS</label>
               <MapPicker
                 map-id="map-main"
@@ -128,7 +124,7 @@
               <textarea v-model="form.remark" class="input-field" rows="2" placeholder="หมายเหตุ..."/>
             </div>
 
-            <div class="md:col-span-2 relative">
+            <div class="col-span-2 relative">
               <label class="label-text">พนักงานผู้ดูแล</label>
               <div class="relative">
                 <input
@@ -174,9 +170,9 @@
              TAB: ผู้ติดต่อ
         ══════════════════════════════ -->
         <div v-show="activeTab === 'contactors'" class="space-y-4">
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center justify-between">
             <h2 class="font-semibold text-slate-700">ผู้ติดต่อ</h2>
-            <button @click="addContactor" class="btn-secondary text-sm w-full justify-center sm:w-auto">
+            <button @click="addContactor" class="btn-secondary text-sm">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
               </svg>
@@ -193,8 +189,8 @@
             ยังไม่มีผู้ติดต่อ — คลิก "เพิ่มผู้ติดต่อ"
           </div>
 
-          <div v-for="(c, idx) in form.contactors" :key="idx" class="card p-4 sm:p-5">
-            <div class="flex items-start justify-between gap-3 mb-4">
+          <div v-for="(c, idx) in form.contactors" :key="idx" class="card p-5">
+            <div class="flex items-start justify-between mb-4">
               <span class="text-sm font-semibold text-slate-600">ผู้ติดต่อที่ {{ idx + 1 }}</span>
               <button @click="removeContactor(idx)"
                       class="p-1 text-slate-400 hover:text-red-500 transition-colors">
@@ -203,7 +199,7 @@
                 </svg>
               </button>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="label-text">ชื่อ-นามสกุล</label>
                 <input v-model="c.name" class="input-field" placeholder="ชื่อ-นามสกุล"/>
@@ -220,7 +216,7 @@
                 <label class="label-text">วันเกิด</label>
                 <DateInput v-model="c.birthday" class="input-field"/>
               </div>
-              <div class="md:col-span-2">
+              <div class="col-span-2">
                 <label class="label-text">Line ID</label>
                 <input v-model="c.work_title" class="input-field" placeholder="Line ID"/>
               </div>
@@ -232,9 +228,9 @@
              TAB: ที่อยู่จัดส่ง
         ══════════════════════════════ -->
         <div v-show="activeTab === 'transport'" class="space-y-4">
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center justify-between">
             <h2 class="font-semibold text-slate-700">ที่อยู่จัดส่ง</h2>
-            <button @click="addTransport" class="btn-secondary text-sm w-full justify-center sm:w-auto">
+            <button @click="addTransport" class="btn-secondary text-sm">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
               </svg>
@@ -251,8 +247,8 @@
             ยังไม่มีที่อยู่จัดส่ง — คลิก "เพิ่มที่อยู่จัดส่ง"
           </div>
 
-          <div v-for="(t, idx) in form.transport_labels" :key="idx" class="card p-4 sm:p-5">
-            <div class="flex items-center justify-between gap-3 mb-4">
+          <div v-for="(t, idx) in form.transport_labels" :key="idx" class="card p-5">
+            <div class="flex items-center justify-between mb-4">
               <span class="text-sm font-semibold text-slate-600">ที่อยู่จัดส่งที่ {{ idx + 1 }}</span>
               <button @click="removeTransport(idx)"
                       class="p-1 text-slate-400 hover:text-red-500 transition-colors">
@@ -261,8 +257,8 @@
                 </svg>
               </button>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="md:col-span-2">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="col-span-2">
                 <label class="label-text">ที่อยู่</label>
                 <textarea v-model="t.address" class="input-field" rows="2"/>
               </div>
@@ -312,9 +308,9 @@
         <!-- ══════════════════════════════
              TAB: CRM Info
         ══════════════════════════════ -->
-        <div v-show="activeTab === 'crm'" class="card p-4 sm:p-6">
+        <div v-show="activeTab === 'crm'" class="card p-6">
           <h2 class="font-semibold text-slate-700 mb-4">ข้อมูล CRM</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-2 gap-4">
 
             <div>
               <label class="label-text">ประเภทลูกค้า</label>
@@ -354,7 +350,7 @@
               </select>
             </div>
 
-            <div class="md:col-span-2">
+            <div class="col-span-2">
               <label class="label-text">ทีมผู้ดูแลลูกค้า CRM</label>
               <div class="space-y-2">
                 <div class="relative">
@@ -422,7 +418,7 @@
               <DateInput v-model="form.crm.next_followup" class="input-field"/>
             </div>
 
-            <div class="md:col-span-2">
+            <div class="col-span-2">
               <label class="label-text">หมายเหตุ CRM</label>
               <textarea v-model="form.crm.crm_remark" class="input-field" rows="3"
                         placeholder="บันทึกข้อมูลเพิ่มเติมสำหรับทีม CRM..."/>
@@ -446,48 +442,12 @@
               <label class="label-text mb-2 block">เพิ่มบันทึกใหม่</label>
               <textarea v-model="newNote" rows="3" class="input-field mb-3"
                         placeholder="บันทึกการติดต่อ, ข้อสังเกต, หมายเหตุ..."/>
-              <div v-if="newNoteFiles.length" class="mb-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <div v-for="(item, idx) in newNoteFiles" :key="item.id"
-                     class="relative rounded-lg border border-slate-200 bg-slate-50 overflow-hidden">
-                  <img v-if="item.previewUrl" :src="item.previewUrl" :alt="item.file.name"
-                       class="h-24 w-full object-cover bg-slate-100" />
-                  <div v-else class="h-24 flex items-center justify-center px-3 text-center bg-slate-100">
-                    <span class="text-xs font-medium text-slate-600 break-all">{{ item.file.name }}</span>
-                  </div>
-                  <div class="px-2 py-1.5 flex items-center justify-between gap-2">
-                    <span class="text-xs text-slate-500 truncate">{{ item.file.name }}</span>
-                    <button type="button" @click="removeNewNoteFile(idx)"
-                            class="text-xs text-red-500 hover:text-red-700 flex-shrink-0">ลบ</button>
-                  </div>
-                </div>
-              </div>
-              <div
-                @dragover.prevent="noteFileDragging = true"
-                @dragleave="noteFileDragging = false"
-                @drop.prevent="onNewNoteFileDrop"
-                @click="noteFileInput?.click()"
-                :class="noteFileDragging ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'"
-                class="mb-3 border-2 border-dashed rounded-xl px-4 py-3 cursor-pointer transition-colors">
-                <div class="flex items-center justify-between gap-3">
-                  <div class="min-w-0">
-                    <p class="text-sm font-medium text-slate-700">แนบรูปหรือไฟล์</p>
-                    <p class="text-xs text-slate-400 mt-0.5">ลากไฟล์มาวาง หรือคลิกเพื่อเลือก สูงสุด 10 ไฟล์</p>
-                  </div>
-                  <svg class="w-5 h-5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.586-6.586a4 4 0 00-5.657-5.657L5.757 10.757a6 6 0 108.486 8.486L20 13.486"/>
-                  </svg>
-                </div>
-              </div>
-              <input ref="noteFileInput" type="file" multiple class="hidden"
-                     accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
-                     @change="onNewNoteFileChange" />
               <div class="flex items-center justify-between">
                 <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
                   <input v-model="newNotePinned" type="checkbox" class="rounded"/>
                   ปักหมุด
                 </label>
-                <button @click="addNote" :disabled="!canAddNote || savingNote"
+                <button @click="addNote" :disabled="!newNote.trim() || savingNote"
                   class="btn-primary text-sm px-4 py-1.5 disabled:opacity-40">
                   {{ savingNote ? 'กำลังบันทึก...' : 'บันทึก' }}
                 </button>
@@ -511,23 +471,6 @@
                     {{ note.created_by_name || 'ไม่ระบุ' }} · {{ formatNoteDate(note.created_at) }}
                     <span v-if="note.is_pinned" class="ml-2 text-yellow-600 font-medium">📌 ปักหมุด</span>
                   </p>
-                  <div v-if="note.attachments?.length" class="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    <a v-for="att in note.attachments" :key="att.id"
-                       :href="noteAttachmentUrl(att)"
-                       target="_blank"
-                       class="group rounded-lg border border-slate-200 bg-white overflow-hidden hover:border-blue-300 transition-colors"
-                       @click="isNoteImage(att) ? openNoteAttachmentPreview(att, $event) : null">
-                      <img v-if="isNoteImage(att)" :src="noteAttachmentThumbUrl(att)" :alt="att.original_name"
-                           class="h-24 w-full object-cover bg-slate-100" loading="lazy" />
-                      <div v-else class="h-24 flex items-center justify-center px-3 text-center bg-slate-50">
-                        <span class="text-xs font-medium text-slate-600 break-all">{{ att.original_name }}</span>
-                      </div>
-                      <div class="px-2 py-1.5">
-                        <p class="text-xs text-slate-700 truncate">{{ att.original_name }}</p>
-                        <p class="text-[11px] text-slate-400">{{ formatFileSize(att.file_size) }}</p>
-                      </div>
-                    </a>
-                  </div>
                 </div>
                 <div class="flex gap-1 flex-shrink-0">
                   <button @click="togglePin(note)" title="ปักหมุด"
@@ -563,24 +506,28 @@
           <template v-else>
 
             <section v-if="followupSummary" class="card p-4 border border-blue-100 bg-blue-50/40">
-              <div class="mb-3">
-                <div class="flex items-center gap-3">
+              <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+                <div>
                   <h3 class="text-sm font-semibold text-slate-800">Follow-up ลูกค้า</h3>
-                  <button v-if="isManager" type="button" @click="toggleCustomerFollowup"
-                    :disabled="savingFollowup"
-                    :class="followupForm.followup_enabled ? 'bg-blue-600' : 'bg-slate-300'"
-                    class="relative w-12 h-7 rounded-full transition-colors flex-shrink-0 disabled:opacity-60">
-                    <span :class="followupForm.followup_enabled ? 'translate-x-5' : 'translate-x-0'"
-                      class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full shadow transition-transform" />
-                  </button>
+                  <p class="text-xs text-slate-500 mt-0.5">
+                    งานเปิด {{ followupSummary.open_followup_count || 0 }} รายการ
+                    <span class="mx-1">•</span>
+                    ไม่รับสายวันนี้ {{ followupSummary.no_answer_attempts_today || 0 }} ครั้ง
+                  </p>
                 </div>
-
+                <button v-if="isManager" type="button" @click="toggleCustomerFollowup"
+                  :disabled="savingFollowup"
+                  :class="followupForm.followup_enabled ? 'bg-blue-600' : 'bg-slate-300'"
+                  class="relative w-12 h-7 rounded-full transition-colors flex-shrink-0 disabled:opacity-60">
+                  <span :class="followupForm.followup_enabled ? 'translate-x-6' : 'translate-x-1'"
+                    class="absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform" />
+                </button>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <label class="label-text">วันติดตามถัดไป</label>
-                  <div class="flex flex-col gap-2 sm:flex-row">
+                  <div class="flex gap-2">
                     <DateInput v-model="followupForm.next_followup" class="input-field text-sm" :disabled="!isManager" />
                     <button v-if="isManager" type="button" @click="saveFollowupOverride({ next_followup: followupForm.next_followup || null })"
                       :disabled="savingFollowup"
@@ -595,7 +542,7 @@
                 </div>
                 <div>
                   <label class="label-text">เหตุผลพัก</label>
-                  <div class="flex flex-col gap-2 sm:flex-row">
+                  <div class="flex gap-2">
                     <input v-model="followupForm.followup_pause_reason" class="input-field text-sm" placeholder="เช่น รอลูกค้าติดต่อกลับ" :disabled="!isManager" />
                     <button v-if="isManager" type="button" @click="pauseCustomerFollowup"
                       :disabled="savingFollowup || !followupForm.followup_pause_until"
@@ -603,35 +550,6 @@
                       พัก
                     </button>
                   </div>
-                </div>
-              </div>
-
-              <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                <div>
-                  <label class="label-text">รอบโทรเฉพาะลูกค้า</label>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <input
-                      v-model.number="followupForm.followup_interval_days"
-                      type="number"
-                      min="1"
-                      max="365"
-                      class="input-field text-sm max-w-[140px]"
-                      placeholder="ใช้ค่ากลาง"
-                      :disabled="!isManager"
-                    />
-                    <span class="text-xs text-slate-500">วัน</span>
-                    <button v-if="isManager" type="button" @click="saveCustomerFollowupInterval"
-                      :disabled="savingFollowup"
-                      class="px-3 rounded-lg bg-white border border-blue-200 text-blue-700 text-xs font-semibold hover:bg-blue-50 disabled:opacity-60">
-                      บันทึกรอบโทร
-                    </button>
-                    <button v-if="isManager" type="button" @click="useDefaultFollowupInterval"
-                      :disabled="savingFollowup || !followupForm.followup_interval_days"
-                      class="px-3 rounded-lg bg-white border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 disabled:opacity-60">
-                      ใช้ค่ากลาง
-                    </button>
-                  </div>
-                  <p class="mt-1 text-xs text-slate-500">{{ followupIntervalHelp }}</p>
                 </div>
               </div>
 
@@ -644,7 +562,7 @@
                   งานถัดไป: {{ followupSummary.next_open_followup.subject }} • {{ formatActDateTime(followupSummary.next_open_followup.start_datetime || followupSummary.next_open_followup.retry_due_at || followupSummary.next_open_followup.due_date) }}
                 </span>
                 <span v-if="followupSummary.policy" class="px-2 py-1 rounded bg-white border border-slate-200">
-                  {{ followupIntervalBadge }} • โทรซ้ำ {{ followupSummary.policy.no_answer_retry_minutes }} นาที
+                  โทรทุก {{ followupSummary.policy.default_call_interval_days }} วัน • โทรซ้ำ {{ followupSummary.policy.no_answer_retry_minutes }} นาที
                 </span>
                 <span v-if="!isManager" class="ml-auto text-slate-400">ดูได้อย่างเดียว</span>
                 <button v-if="isManager && (followupForm.followup_pause_until || !followupForm.followup_enabled)"
@@ -658,24 +576,21 @@
             </section>
 
             <!-- Toolbar: ค้นหา + ตัวกรองสถานะ + ปุ่มสร้าง -->
-            <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div class="flex flex-wrap items-center gap-3">
               <div class="relative flex-1 min-w-[180px]">
                 <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
                 <input v-model="actSearchQuery" @input="loadActivities(true)" class="input-field pl-9 text-sm" placeholder="ค้นหาหัวข้อ..."/>
               </div>
-              <select v-model="actStatusFilter" @change="loadActivities(true)" class="input-field w-full text-sm sm:w-auto">
+              <select v-model="actStatusFilter" @change="loadActivities(true)" class="input-field w-auto text-sm">
                 <option value="all">ทุกสถานะ</option>
                 <option value="open">ค้างอยู่</option>
                 <option value="done">ปิดแล้ว</option>
                 <option value="deleted">ถูกลบ</option>
               </select>
-                    <button type="button"
-                      @click="router.push({ path: '/activities/new', query: { ar_code: props.code } })"
-                      :disabled="form.crm.status === 'inactive'"
-                      :title="form.crm.status === 'inactive' ? 'ลูกค้าสถานะไม่ใช้งาน ไม่สามารถสร้างกิจกรรมได้' : ''"
-                      class="btn-primary text-sm px-3 py-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center sm:w-auto">
+              <button @click="router.push({ path: '/activities/new', query: { ar_code: props.code } })"
+                      class="btn-primary text-sm px-3 py-2 whitespace-nowrap">
                 <svg class="w-4 h-4 inline -mt-0.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -792,213 +707,6 @@
         <!-- ══════════════════════════════
              TAB: ประวัติการซื้อ
         ══════════════════════════════ -->
-        <div v-show="activeTab === 'fleet_delivery'" class="space-y-4">
-          <div v-if="!isEdit" class="card p-8 text-center text-slate-400 text-sm">
-            กรุณาบันทึกข้อมูลลูกค้าก่อน จึงจะดูประวัติส่งของได้
-          </div>
-
-          <template v-else>
-            <div v-if="loadingFleet" class="text-center text-slate-400 py-8 text-sm">
-              <svg class="animate-spin w-5 h-5 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-              </svg>
-              กำลังโหลดประวัติส่งของ...
-            </div>
-
-            <div v-else-if="!fleetSummary?.matched" class="card p-8 text-center text-slate-400 text-sm">
-              <svg class="mx-auto w-10 h-10 text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
-              </svg>
-              <p class="font-medium text-slate-600">ยังไม่มีประวัติส่งของจาก AppSheet/Fleet</p>
-              <p class="mt-1">ลูกค้ารหัส {{ props.code }} ยังใช้งาน CRM และ POS ได้ตามปกติ</p>
-              <RouterLink to="/fleet-store-report" class="btn-secondary mt-4 inline-flex">
-                ค้นหาร้านในรายงานร้านค้า
-              </RouterLink>
-              <div class="mt-5 max-w-xl mx-auto text-left">
-                <label class="label-text">ผูกกับ store จาก AppSheet</label>
-                <div class="flex gap-2">
-                  <input v-model="fleetStoreSearch" @input="searchFleetStores" class="input-field" placeholder="ค้นหา store_id หรือชื่อร้าน..." />
-                </div>
-                <div v-if="fleetStoreResults.length" class="mt-2 border border-slate-200 rounded-xl bg-white overflow-hidden">
-                  <button v-for="store in fleetStoreResults" :key="store.store_id"
-                    type="button"
-                    :disabled="savingFleetLink"
-                    class="w-full px-3 py-2 text-left hover:bg-slate-50 border-b border-slate-100 last:border-0"
-                    @click="linkFleetStore(store.store_id)">
-                    <p class="text-sm font-medium text-slate-700">{{ store.store_name || store.store_id }}</p>
-                    <p class="text-xs text-slate-400">{{ store.store_id }} · ส่ง {{ store.visits || 0 }} ครั้ง</p>
-                  </button>
-                </div>
-                <p v-else-if="searchingFleetStores" class="text-xs text-slate-400 mt-2">กำลังค้นหา...</p>
-                <p v-else-if="fleetStoreSearch.trim()" class="text-xs text-slate-400 mt-2">ไม่พบ store ที่ค้นหา</p>
-              </div>
-            </div>
-
-            <template v-else>
-              <div class="card p-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p class="text-xs text-slate-400 font-medium">เชื่อมกับร้านส่งของ</p>
-                  <p class="font-semibold text-slate-800">
-                    {{ fleetStoreCount > 1 ? `รวม ${fleetStoreCount} store` : (fleetSummary.store?.store_name || fleetSummary.store_id) }}
-                  </p>
-                  <p class="text-xs text-slate-400 mt-0.5">store_id: {{ fleetSummary.store_id }} · {{ fleetMatchLabel(fleetSummary.match_type) }}</p>
-                </div>
-                <div v-if="fleetStoreCount > 1" class="w-full">
-                  <p class="text-xs text-amber-600 mt-1">
-                    ข้อมูลด้านล่างเป็นผลรวมทุก store; ปุ่มรายงานเต็มเปิดรายร้านตาม store แรก
-                  </p>
-                </div>
-                <RouterLink
-                  :to="{ path: '/fleet-store-report', query: { store: fleetSummary.store_id, q: fleetSummary.store_id } }"
-                  class="btn-secondary text-sm">
-                  เปิดรายงานร้านค้าเต็ม
-                </RouterLink>
-              </div>
-
-              <div v-if="fleetInsight" class="card p-4">
-                <div class="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p class="text-xs text-slate-400 font-medium">Customer Delivery Insight</p>
-                    <div class="flex items-center gap-3 mt-1">
-                      <p class="text-3xl font-bold text-slate-800">{{ fleetInsight.score }}</p>
-                      <span :class="fleetHealthBadge(fleetInsight.health)">
-                        {{ fleetHealthLabel(fleetInsight.health) }}
-                      </span>
-                    </div>
-                    <p class="text-xs text-slate-400 mt-1">
-                      สำเร็จ {{ fleetInsight.success_rate || 0 }}% · คืนของ {{ fleetInsight.return_rate || 0 }}% · ปัญหา {{ fleetInsight.problem_rate || 0 }}%
-                    </p>
-                  </div>
-                  <div class="grid grid-cols-2 gap-2 text-xs min-w-0 sm:min-w-[220px]">
-                    <div class="rounded-lg bg-slate-50 px-3 py-2">
-                      <p class="text-slate-400">ส่งล่าสุด</p>
-                      <p class="font-semibold text-slate-700">{{ fleetLatestDays(fleetInsight.latest_visit_days) }}</p>
-                    </div>
-                    <div class="rounded-lg bg-slate-50 px-3 py-2">
-                      <p class="text-slate-400">ยอดเทียบเดือนก่อน</p>
-                      <p :class="['font-semibold', Number(fleetInsight.revenue_delta_last_month || 0) < 0 ? 'text-red-600' : 'text-emerald-600']">
-                        {{ fleetDeltaMoney(fleetInsight.revenue_delta_last_month) }}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div v-if="fleetInsight.recommendations?.length" class="mt-4 space-y-2">
-                  <div v-for="item in fleetInsight.recommendations" :key="item.type"
-                    class="rounded-lg border border-slate-200 px-3 py-2 flex items-start gap-3">
-                    <span :class="fleetPriorityDot(item.priority)"></span>
-                    <div class="min-w-0">
-                      <p class="text-sm font-semibold text-slate-700">{{ item.title }}</p>
-                      <p class="text-xs text-slate-500 mt-0.5">{{ item.detail }}</p>
-                    </div>
-                  </div>
-                </div>
-                <div v-if="fleetTrend.length" class="mt-4">
-                  <div class="flex items-end gap-1 h-16">
-                    <div v-for="m in fleetTrend" :key="m.month" class="flex-1 flex flex-col justify-end gap-1">
-                      <div class="rounded-t bg-blue-500 min-h-[4px]" :style="{ height: fleetTrendHeight(m.revenue) }"></div>
-                      <span class="text-[10px] text-slate-400 text-center">{{ fleetMonthLabel(m.month) }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="card p-4">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 class="font-semibold text-slate-700">การผูก store เพิ่มเติม</h3>
-                    <p class="text-xs text-slate-400 mt-1">ใช้สำหรับกรณีรหัสลูกค้า POS ไม่ตรงกับ store_id หรือมีหลาย store</p>
-                  </div>
-                  <div class="w-full md:w-80">
-                    <input v-model="fleetStoreSearch" @input="searchFleetStores" class="input-field text-sm" placeholder="ค้นหา store เพื่อผูก..." />
-                  </div>
-                </div>
-                <div v-if="fleetStoreResults.length" class="mt-3 border border-slate-200 rounded-xl overflow-hidden">
-                  <button v-for="store in fleetStoreResults" :key="store.store_id"
-                    type="button"
-                    :disabled="savingFleetLink"
-                    class="w-full px-3 py-2 text-left hover:bg-slate-50 border-b border-slate-100 last:border-0 flex justify-between gap-3"
-                    @click="linkFleetStore(store.store_id)">
-                    <span>
-                      <span class="block text-sm font-medium text-slate-700">{{ store.store_name || store.store_id }}</span>
-                      <span class="block text-xs text-slate-400">{{ store.store_id }} · ส่ง {{ store.visits || 0 }} ครั้ง</span>
-                    </span>
-                    <span class="text-xs text-blue-600 font-medium">ผูก</span>
-                  </button>
-                </div>
-                <p v-else-if="searchingFleetStores" class="text-xs text-slate-400 mt-2">กำลังค้นหา...</p>
-                <p v-else-if="fleetStoreSearch.trim()" class="text-xs text-slate-400 mt-2">ไม่พบ store ที่ค้นหา</p>
-                <div v-if="fleetSummary.links?.length" class="mt-3 flex flex-wrap gap-2">
-                  <span v-for="link in fleetSummary.links" :key="link.store_id" class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs">
-                    {{ link.store_name || link.store_id }}
-                    <button type="button" class="text-emerald-700 hover:text-red-600" @click="unlinkFleetStore(link.store_id)">×</button>
-                  </span>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-                <div class="card p-4">
-                  <p class="text-slate-400 text-xs font-medium">ส่งทั้งหมด</p>
-                  <p class="text-lg font-bold text-slate-800 mt-1">{{ fleetFmt(fleetSummary.summary?.total_visits) }}</p>
-                </div>
-                <div class="card p-4">
-                  <p class="text-slate-400 text-xs font-medium">ยอดส่งของ</p>
-                  <p class="text-lg font-bold text-emerald-600 mt-1">{{ fleetMoney(fleetSummary.summary?.revenue) }}</p>
-                </div>
-                <div class="card p-4">
-                  <p class="text-slate-400 text-xs font-medium">คืนของ</p>
-                  <p class="text-lg font-bold text-amber-600 mt-1">{{ fleetMoney(fleetSummary.summary?.return_total) }}</p>
-                </div>
-                <div class="card p-4">
-                  <p class="text-slate-400 text-xs font-medium">ปัญหา/ร้านปิด</p>
-                  <p class="text-lg font-bold text-red-600 mt-1">
-                    {{ fleetFmt(fleetSummary.summary?.problem_count) }} / {{ fleetFmt(fleetSummary.summary?.store_closed_count) }}
-                  </p>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="card p-4">
-                  <h3 class="font-semibold text-slate-700 mb-3">ประวัติล่าสุด</h3>
-                  <div v-if="!fleetSummary.timeline?.length" class="text-sm text-slate-400 py-6 text-center">ยังไม่มีรายการส่งของ</div>
-                  <div v-for="item in fleetSummary.timeline" :key="item.list_id" class="py-3 border-b border-slate-100 last:border-0">
-                    <div class="flex justify-between gap-3">
-                      <div class="min-w-0">
-                        <p class="text-sm font-medium text-slate-700">{{ item.data_store_no || item.check_out_id || item.list_id }}</p>
-                        <p class="text-xs text-slate-400 mt-0.5">{{ fleetDate(item.date_time_check_out || item.date_time_check_in || item.trip_date) }} · {{ item.driver_name || 'ไม่ระบุคนขับ' }}</p>
-                        <p v-if="fleetStatus(item) !== 'ส่งสำเร็จ'" class="text-xs text-amber-600 mt-1">{{ fleetStatus(item) }}</p>
-                      </div>
-                      <div class="text-right">
-                        <p class="text-sm font-semibold text-slate-800">{{ fleetMoney(item.amount) }}</p>
-                        <p v-if="Number(item.return_total || 0) > 0" class="text-xs text-amber-600">คืน {{ fleetMoney(item.return_total) }}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="space-y-4">
-                  <div class="card p-4">
-                    <h3 class="font-semibold text-slate-700 mb-3">สินค้าคืนบ่อย</h3>
-                    <div v-if="!fleetSummary.top_return_products?.length" class="text-sm text-slate-400 py-4 text-center">ยังไม่มีข้อมูลคืนของ</div>
-                    <div v-for="item in fleetSummary.top_return_products" :key="item.product_name" class="flex justify-between gap-3 py-2 border-b border-slate-100 last:border-0">
-                      <span class="text-sm text-slate-700 truncate">{{ item.product_name }}</span>
-                      <span class="text-sm font-medium text-slate-800">{{ fleetMoney(item.total) }}</span>
-                    </div>
-                  </div>
-                  <div class="card p-4">
-                    <h3 class="font-semibold text-slate-700 mb-3">ปัญหาที่พบ</h3>
-                    <div v-if="!fleetSummary.top_problem_types?.length" class="text-sm text-slate-400 py-4 text-center">ยังไม่มีปัญหาที่บันทึก</div>
-                    <div v-for="item in fleetSummary.top_problem_types" :key="item.problem_type" class="flex justify-between gap-3 py-2 border-b border-slate-100 last:border-0">
-                      <span class="text-sm text-slate-700 truncate">{{ item.problem_type }}</span>
-                      <span class="text-sm font-medium text-slate-800">{{ item.count }} ครั้ง</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </template>
-          </template>
-        </div>
-
         <div v-show="activeTab === 'purchase_history'" class="space-y-4">
 
           <div v-if="!isEdit" class="card p-8 text-center text-slate-400 text-sm">
@@ -1007,17 +715,17 @@
 
           <template v-else>
             <!-- Filter row -->
-            <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <div class="flex flex-wrap items-center gap-2">
               <input v-model="purchaseFilter.doc_no" @input="purchaseDebounce"
-                class="input-field w-full text-sm sm:w-36" placeholder="เลขที่เอกสาร..." />
+                class="input-field w-36 text-sm" placeholder="เลขที่เอกสาร..." />
               <input v-model="purchaseFilter.sale_code" @input="purchaseDebounce"
-                class="input-field w-full text-sm sm:w-32" placeholder="รหัสพนักงาน..." />
-              <div class="flex items-center gap-1.5 w-full sm:w-auto">
+                class="input-field w-32 text-sm" placeholder="รหัสพนักงาน..." />
+              <div class="flex items-center gap-1.5">
                 <span class="text-xs text-slate-500">จาก</span>
                 <DateInput v-model="purchaseFilter.date_from" @change="loadPurchaseHistory(1)"
                   class="input-field text-sm" />
               </div>
-              <div class="flex items-center gap-1.5 w-full sm:w-auto">
+              <div class="flex items-center gap-1.5">
                 <span class="text-xs text-slate-500">ถึง</span>
                 <DateInput v-model="purchaseFilter.date_to" @change="loadPurchaseHistory(1)"
                   class="input-field text-sm" />
@@ -1151,7 +859,7 @@
 
             <template v-else>
               <!-- Credit Summary -->
-              <div v-if="creditDetail" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div v-if="creditDetail" class="grid grid-cols-2 gap-3">
                 <div class="card p-4">
                   <p class="text-slate-400 text-xs font-medium">วงเงินเครดิต</p>
                   <p class="text-lg font-bold text-slate-800 mt-1">{{ creditDetail.data_head.credit_money }}</p>
@@ -1172,14 +880,14 @@
               <div v-else class="card p-4 text-center text-slate-400 text-sm">ไม่พบข้อมูลเครดิต</div>
 
               <!-- Sub-tabs -->
-              <div class="flex gap-1 bg-slate-50 rounded-xl p-1 border border-slate-200 overflow-x-auto">
+              <div class="flex gap-1 bg-slate-50 rounded-xl p-1 border border-slate-200">
                 <button v-for="t in [
                     { key: 'credit_docs',    label: 'รายการคงค้าง' },
                     { key: 'credit_cheques', label: 'เช็ค' },
                     { key: 'credit_srss',    label: 'SR/SS' }
                   ]" :key="t.key"
                   @click="creditActiveTab = t.key"
-                  class="flex-1 min-w-max py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                  class="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors"
                   :class="creditActiveTab === t.key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:bg-white/60'">
                   {{ t.label }}
                 </button>
@@ -1261,9 +969,9 @@
       </div>
 
       <!-- Action Buttons -->
-      <div class="flex flex-col-reverse gap-3 mt-6 pt-6 border-t border-slate-200 sm:flex-row sm:items-center sm:justify-between">
-        <RouterLink to="/customers" class="btn-secondary justify-center">ยกเลิก</RouterLink>
-        <button @click="submit" :disabled="saving" class="btn-primary px-8 justify-center">
+      <div class="flex items-center justify-between mt-6 pt-6 border-t border-slate-200">
+        <RouterLink to="/customers" class="btn-secondary">ยกเลิก</RouterLink>
+        <button @click="submit" :disabled="saving" class="btn-primary px-8">
           <svg v-if="saving" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
@@ -1272,24 +980,6 @@
         </button>
       </div>
     </template>
-
-    <Teleport to="body">
-      <div v-if="noteAttachmentPreview"
-           class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-           @click.self="noteAttachmentPreview = null">
-        <div class="relative max-w-5xl max-h-full">
-          <img :src="noteAttachmentUrl(noteAttachmentPreview)"
-               :alt="noteAttachmentPreview.original_name"
-               class="max-w-full max-h-[88vh] object-contain rounded-lg bg-white" />
-          <button type="button" @click="noteAttachmentPreview = null"
-                  class="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg text-slate-600 hover:text-slate-900">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-    </Teleport>
 
     <!-- Toast -->
     <Teleport to="body">
@@ -1367,7 +1057,7 @@ const router = useRouter()
 const route  = useRoute()
 
 // ── State ─────────────────────────────────
-const validTabs = ['main', 'contactors', 'transport', 'crm', 'notes', 'activities', 'fleet_delivery', 'purchase_history', 'credit_detail']
+const validTabs = ['main', 'contactors', 'transport', 'crm', 'notes', 'activities', 'purchase_history', 'credit_detail']
 const activeTab  = ref(validTabs.includes(route.query.tab) ? route.query.tab : 'main')
 const loadingInit = ref(false)
 const saving      = ref(false)
@@ -1496,11 +1186,6 @@ const loadingNotes = ref(false)
 const savingNote  = ref(false)
 const newNote     = ref('')
 const newNotePinned = ref(false)
-const newNoteFiles = ref([])
-const noteFileInput = ref(null)
-const noteFileDragging = ref(false)
-const noteAttachmentPreview = ref(null)
-const canAddNote = computed(() => newNote.value.trim() || newNoteFiles.value.length > 0)
 
 // Activities state
 const custActivities    = ref([])
@@ -1512,28 +1197,10 @@ const actLimit          = ref(10)
 const followupSummary   = ref(null)
 const savingFollowup    = ref(false)
 const followupForm = reactive({
-  followup_enabled: false,
+  followup_enabled: true,
   followup_pause_until: '',
   followup_pause_reason: '',
   next_followup: '',
-  followup_interval_days: '',
-})
-
-const followupIntervalDays = computed(() => {
-  const n = Number(followupForm.followup_interval_days || 0)
-  return Number.isInteger(n) && n > 0 ? n : null
-})
-
-const defaultFollowupIntervalDays = computed(() => Number(followupSummary.value?.policy?.default_call_interval_days || 30))
-const followupIntervalBadge = computed(() => {
-  return followupIntervalDays.value
-    ? `โทรทุก ${followupIntervalDays.value} วัน`
-    : `โทรทุก ${defaultFollowupIntervalDays.value} วัน`
-})
-const followupIntervalHelp = computed(() => {
-  return followupIntervalDays.value
-    ? `ลูกค้ารายนี้ใช้รอบเฉพาะ โทรทุก ${followupIntervalDays.value} วัน`
-    : `ยังไม่ได้ตั้งรอบเฉพาะ ใช้ค่ากลาง ${defaultFollowupIntervalDays.value} วัน`
 })
 
 // Purchase history state
@@ -1544,19 +1211,6 @@ const purchaseFilter  = reactive({ doc_no: '', sale_code: '', date_from: '', dat
 const expandedDoc     = ref(null)
 const expandedLines   = ref([])
 const loadingLines    = ref(false)
-
-// Fleet/AppSheet delivery state
-const fleetSummary = ref(null)
-const loadingFleet = ref(false)
-const fleetStoreSearch = ref('')
-const fleetStoreResults = ref([])
-const searchingFleetStores = ref(false)
-const savingFleetLink = ref(false)
-let fleetStoreTimer = null
-let fleetStoreSearchSeq = 0
-const fleetInsight = computed(() => fleetSummary.value?.insight || null)
-const fleetTrend = computed(() => fleetSummary.value?.monthly_trend || [])
-const fleetStoreCount = computed(() => fleetSummary.value?.store_ids?.length || (fleetSummary.value?.matched ? 1 : 0))
 
 // Credit detail state
 const creditDetail        = ref(null)
@@ -1570,7 +1224,6 @@ const tabs = [
   { key: 'crm',        label: 'CRM Info' },
   { key: 'notes',      label: 'บันทึก' },
   { key: 'activities',       label: 'กิจกรรม' },
-  { key: 'fleet_delivery',   label: 'ประวัติส่งของ' },
   { key: 'purchase_history', label: 'ประวัติการซื้อ' },
   { key: 'credit_detail',    label: 'หนี้คงค้าง' }
 ]
@@ -1649,156 +1302,6 @@ function phVatLabel(v) {
   return { 0: 'แยก VAT', 1: 'รวม VAT', 2: 'อัตราศูนย์', 4: 'ไม่กระทบ' }[parseInt(v)] || String(v)
 }
 
-async function loadFleetSummary() {
-  if (!isEdit.value) return
-  loadingFleet.value = true
-  try {
-    const { data } = await api.get(`/customers/${props.code}/fleet-summary`)
-    fleetSummary.value = data.data || { matched: false }
-  } catch {
-    fleetSummary.value = { matched: false, match_type: 'unavailable', store_id: props.code }
-  } finally {
-    loadingFleet.value = false
-  }
-}
-
-function searchFleetStores() {
-  clearTimeout(fleetStoreTimer)
-  const q = fleetStoreSearch.value.trim()
-  const seq = ++fleetStoreSearchSeq
-  if (!q) {
-    fleetStoreResults.value = []
-    searchingFleetStores.value = false
-    return
-  }
-  searchingFleetStores.value = true
-  fleetStoreTimer = setTimeout(async () => {
-    try {
-      const { data } = await api.get('/customers/fleet-stores/search', { params: { q, limit: 8 } })
-      if (seq !== fleetStoreSearchSeq || q !== fleetStoreSearch.value.trim()) return
-      const linked = new Set([...(fleetSummary.value?.store_ids || []), ...(fleetSummary.value?.links || []).map(link => link.store_id)])
-      fleetStoreResults.value = (data.data || []).filter(store => !linked.has(store.store_id))
-    } catch {
-      if (seq !== fleetStoreSearchSeq) return
-      fleetStoreResults.value = []
-    } finally {
-      if (seq === fleetStoreSearchSeq) searchingFleetStores.value = false
-    }
-  }, 300)
-}
-
-async function linkFleetStore(storeId) {
-  if (!props.code || !storeId || savingFleetLink.value) return
-  savingFleetLink.value = true
-  try {
-    const { data } = await api.post(`/customers/${props.code}/store-links`, { store_id: storeId })
-    fleetSummary.value = data.data
-    fleetStoreSearch.value = ''
-    fleetStoreResults.value = []
-    showToast('success', 'ผูก store กับลูกค้าแล้ว')
-  } catch (e) {
-    showToast('error', e.response?.data?.error || e.message)
-  } finally {
-    savingFleetLink.value = false
-  }
-}
-
-async function unlinkFleetStore(storeId) {
-  if (!props.code || !storeId || savingFleetLink.value) return
-  savingFleetLink.value = true
-  try {
-    const { data } = await api.delete(`/customers/${props.code}/store-links/${encodeURIComponent(storeId)}`)
-    fleetSummary.value = data.data
-    showToast('success', 'ยกเลิกการผูก store แล้ว')
-  } catch (e) {
-    showToast('error', e.response?.data?.error || e.message)
-  } finally {
-    savingFleetLink.value = false
-  }
-}
-
-function fleetFmt(v) {
-  return Number(v || 0).toLocaleString('th-TH')
-}
-
-function fleetMoney(v) {
-  const n = Number(v || 0)
-  return n ? n.toLocaleString('th-TH', { style: 'currency', currency: 'THB', maximumFractionDigits: 0 }) : '-'
-}
-
-function fleetDate(v) {
-  if (!v) return '-'
-  return new Date(v).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function fleetMatchLabel(type) {
-  if (type === 'auto_code_match') return 'รหัสตรงกับ POS'
-  if (type === 'auto_and_manual') return 'รหัสตรงและผูกเพิ่ม'
-  if (type === 'manual') return 'ผูกเอง'
-  if (type === 'list_store_only') return 'พบในประวัติส่งของ'
-  if (type === 'unavailable') return 'ระบบส่งของยังไม่พร้อม'
-  return 'ยังไม่เชื่อม'
-}
-
-function fleetHealthLabel(health) {
-  if (health === 'excellent') return 'ดีมาก'
-  if (health === 'good') return 'ปกติ'
-  if (health === 'watch') return 'ควรติดตาม'
-  if (health === 'risk') return 'เสี่ยง'
-  return 'ยังไม่มีข้อมูล'
-}
-
-function fleetHealthBadge(health) {
-  const base = 'px-2.5 py-1 rounded-full text-xs font-semibold'
-  if (health === 'excellent') return `${base} bg-emerald-100 text-emerald-700`
-  if (health === 'good') return `${base} bg-blue-100 text-blue-700`
-  if (health === 'watch') return `${base} bg-amber-100 text-amber-700`
-  if (health === 'risk') return `${base} bg-red-100 text-red-700`
-  return `${base} bg-slate-100 text-slate-600`
-}
-
-function fleetPriorityDot(priority) {
-  if (priority === 'high') return 'mt-1.5 w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0'
-  if (priority === 'medium') return 'mt-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 flex-shrink-0'
-  return 'mt-1.5 w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0'
-}
-
-function fleetLatestDays(days) {
-  if (days === null || days === undefined) return '-'
-  const n = Number(days || 0)
-  if (n <= 0) return 'วันนี้'
-  return `${n.toLocaleString('th-TH')} วันก่อน`
-}
-
-function fleetDeltaMoney(value) {
-  if (value === null || value === undefined) return '-'
-  const n = Number(value || 0)
-  const sign = n > 0 ? '+' : ''
-  return `${sign}${n.toLocaleString('th-TH', { maximumFractionDigits: 0 })}`
-}
-
-function fleetTrendHeight(value) {
-  const maxRevenue = Math.max(...fleetTrend.value.map(m => Number(m.revenue || 0)), 1)
-  const percent = Math.max(8, Math.round((Number(value || 0) / maxRevenue) * 100))
-  return `${percent}%`
-}
-
-function fleetMonthLabel(month) {
-  if (!month) return '-'
-  const [year, mon] = String(month).split('-').map(Number)
-  if (!year || !mon) return month
-  return new Date(year, mon - 1, 1).toLocaleDateString('th-TH', { month: 'short' })
-}
-
-function fleetStatus(item) {
-  if (item.problem_types?.includes('ร้านปิด')) return 'ร้านปิด'
-  if (item.bypass) return 'ข้ามร้าน'
-  if (item.off_site) return 'นอกสถานที่'
-  if (!item.check_out_id) return 'ไม่ได้ส่ง/ไม่มี checkout'
-  if (item.problem_types) return item.problem_types
-  return 'ส่งสำเร็จ'
-}
-
 async function loadCreditDetail() {
   if (!isEdit.value) return
   loadingCreditDetail.value = true
@@ -1823,9 +1326,6 @@ watch(activeTab, t => {
   }
   if (t === 'credit_detail' && isEdit.value && !creditDetail.value) {
     loadCreditDetail()
-  }
-  if (t === 'fleet_delivery' && isEdit.value && !fleetSummary.value) {
-    loadFleetSummary()
   }
 })
 
@@ -1888,17 +1388,15 @@ async function loadCustomer() {
       form.crm.owners         = Array.isArray(data.crm.owners)
         ? data.crm.owners.map(o => ({ user_id: Number(o.user_id), is_primary: !!o.is_primary }))
         : (data.crm.owner_user_id ? [{ user_id: Number(data.crm.owner_user_id), is_primary: true }] : [])
-      form.crm.next_followup  = dateOnly(data.crm.next_followup)
+      form.crm.next_followup  = data.crm.next_followup ? data.crm.next_followup.split('T')[0] : ''
       form.crm.crm_remark     = data.crm.crm_remark    || ''
     }
 
     followupSummary.value = data.followup_summary || null
-    fleetSummary.value = data.fleet_summary || null
-    followupForm.followup_enabled = data.crm?.followup_enabled === true
-    followupForm.followup_pause_until = dateOnly(data.crm?.followup_pause_until)
+    followupForm.followup_enabled = data.crm?.followup_enabled !== false
+    followupForm.followup_pause_until = data.crm?.followup_pause_until ? data.crm.followup_pause_until.split('T')[0] : ''
     followupForm.followup_pause_reason = data.crm?.followup_pause_reason || ''
-    followupForm.next_followup = dateOnly(data.crm?.next_followup) || form.crm.next_followup
-    followupForm.followup_interval_days = data.crm?.followup_interval_days || ''
+    followupForm.next_followup = data.crm?.next_followup ? data.crm.next_followup.split('T')[0] : form.crm.next_followup
   } catch (e) {
     showToast('error', e.message)
   } finally {
@@ -1967,43 +1465,6 @@ function setPrimaryCrmOwner(id) {
 }
 
 // ── Notes ─────────────────────────────────
-function addNewNoteFiles(files) {
-  const picked = Array.from(files || []).slice(0, Math.max(0, 10 - newNoteFiles.value.length))
-  picked.forEach(file => {
-    const isImage = file.type?.startsWith('image/')
-    newNoteFiles.value.push({
-      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      file,
-      previewUrl: isImage ? URL.createObjectURL(file) : ''
-    })
-  })
-}
-
-function clearNewNoteFiles() {
-  newNoteFiles.value.forEach(item => {
-    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl)
-  })
-  newNoteFiles.value = []
-  if (noteFileInput.value) noteFileInput.value.value = ''
-}
-
-function removeNewNoteFile(idx) {
-  const item = newNoteFiles.value[idx]
-  if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl)
-  newNoteFiles.value.splice(idx, 1)
-  if (noteFileInput.value) noteFileInput.value.value = ''
-}
-
-function onNewNoteFileChange(e) {
-  addNewNoteFiles(e.target.files)
-  if (noteFileInput.value) noteFileInput.value.value = ''
-}
-
-function onNewNoteFileDrop(e) {
-  noteFileDragging.value = false
-  addNewNoteFiles(e.dataTransfer.files)
-}
-
 async function loadNotes() {
   if (!props.code) return
   loadingNotes.value = true
@@ -2015,24 +1476,19 @@ async function loadNotes() {
 }
 
 async function addNote() {
-  if (!canAddNote.value) return
+  if (!newNote.value.trim()) return
   savingNote.value = true
   try {
-    const fd = new FormData()
-    fd.append('ar_code', props.code)
-    fd.append('note_text', newNote.value)
-    fd.append('is_pinned', newNotePinned.value ? 'true' : 'false')
-    newNoteFiles.value.forEach(item => fd.append('files', item.file))
-
-    const { data } = await api.post('/notes', fd, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+    const { data } = await api.post('/notes', {
+      ar_code: props.code,
+      note_text: newNote.value,
+      is_pinned: newNotePinned.value
     })
     notes.value.unshift(data)
     newNote.value = ''
     newNotePinned.value = false
-    clearNewNoteFiles()
   } catch (e) {
-    showToast('error', e.response?.data?.error || e.message)
+    showToast('error', e.message)
   }
   savingNote.value = false
 }
@@ -2070,31 +1526,6 @@ function formatNoteDate(d) {
   })
 }
 
-function noteAttachmentUrl(att) {
-  return `/uploads/${att.file_path}`
-}
-
-function noteAttachmentThumbUrl(att) {
-  return att.thumb_path ? `/uploads/${att.thumb_path}` : noteAttachmentUrl(att)
-}
-
-function isNoteImage(att) {
-  return att.mime_type?.startsWith('image/')
-}
-
-function openNoteAttachmentPreview(att, event) {
-  event?.preventDefault()
-  noteAttachmentPreview.value = att
-}
-
-function formatFileSize(bytes) {
-  const size = Number(bytes || 0)
-  if (!size) return ''
-  if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`
-  return `${(size / 1024 / 1024).toFixed(1)} MB`
-}
-
 // ── Activities ────────────────────────────
 async function loadActivities(reset = false) {
   if (!props.code) return
@@ -2117,11 +1548,10 @@ async function loadActivities(reset = false) {
 }
 
 function applyFollowupOverride(data = {}) {
-  followupForm.followup_enabled = data.followup_enabled === true
-  followupForm.followup_pause_until = dateOnly(data.followup_pause_until)
+  followupForm.followup_enabled = data.followup_enabled !== false
+  followupForm.followup_pause_until = data.followup_pause_until ? String(data.followup_pause_until).split('T')[0] : ''
   followupForm.followup_pause_reason = data.followup_pause_reason || ''
-  followupForm.next_followup = dateOnly(data.next_followup)
-  followupForm.followup_interval_days = data.followup_interval_days || ''
+  followupForm.next_followup = data.next_followup ? String(data.next_followup).split('T')[0] : ''
   form.crm.next_followup = followupForm.next_followup
   if (followupSummary.value) {
     followupSummary.value = { ...followupSummary.value }
@@ -2152,19 +1582,6 @@ function pauseCustomerFollowup() {
     followup_pause_until: followupForm.followup_pause_until,
     followup_pause_reason: followupForm.followup_pause_reason || null,
   })
-}
-
-function saveCustomerFollowupInterval() {
-  const n = Number(followupForm.followup_interval_days || 0)
-  if (!Number.isInteger(n) || n < 1 || n > 365) {
-    showToast('error', 'รอบโทรรายลูกค้าต้องอยู่ระหว่าง 1-365 วัน')
-    return
-  }
-  saveFollowupOverride({ followup_interval_days: n })
-}
-
-function useDefaultFollowupInterval() {
-  saveFollowupOverride({ followup_interval_days: null })
 }
 
 function resumeCustomerFollowup() {
@@ -2222,11 +1639,6 @@ function actOverdueDays(a) {
 
 function formatActDate(d) {
   if (!d) return ''
-  const only = dateOnly(d)
-  if (only) {
-    const [year, month, day] = only.split('-').map(Number)
-    return new Date(year, month - 1, day).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
-  }
   return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
 }
 
@@ -2236,20 +1648,6 @@ function formatActDateTime(d) {
     day: 'numeric', month: 'short', year: '2-digit',
     hour: '2-digit', minute: '2-digit'
   })
-}
-
-function dateOnly(value) {
-  if (!value) return ''
-  const raw = String(value).trim()
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
-  const parsed = new Date(raw)
-  if (Number.isNaN(parsed.getTime())) return raw.split('T')[0] || ''
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(parsed)
 }
 
 // ── Submit ────────────────────────────────
