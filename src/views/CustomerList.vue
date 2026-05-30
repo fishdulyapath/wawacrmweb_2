@@ -67,6 +67,15 @@
           </select>
         </div>
 
+        <!-- Follow-up filter -->
+        <div class="w-44">
+          <label class="label-text">Follow Up</label>
+          <select v-model="filter.followup_enabled" @change="applyFilter" class="input-field">
+            <option value="">ทั้งหมด</option>
+            <option value="true">เปิดใช้งาน</option>
+          </select>
+        </div>
+
         <!-- Reset -->
         <button @click="resetFilter" class="btn-secondary self-end">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -127,12 +136,26 @@
 
             <div class="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">จังหวัด</p>
-                <p class="mt-1 text-slate-700">{{ c.province || '—' }}</p>
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">ที่อยู่</p>
+                <p class="mt-1 text-slate-700">
+                  {{ c.amper_name && c.province_name
+                      ? `${c.amper_name} (${c.province_name})`
+                      : c.province_name || c.province || '—' }}
+                </p>
               </div>
               <div>
                 <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">ประเภท</p>
                 <p class="mt-1 text-slate-700">{{ c.crm?.customer_type || 'B2C' }}</p>
+              </div>
+              <div>
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Follow Up</p>
+                <p class="mt-1" :class="followupDateClass(c.crm?.next_followup)">
+                  {{ formatDate(c.crm?.next_followup) }}
+                </p>
+              </div>
+              <div>
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">ซื้อล่าสุด</p>
+                <p class="mt-1 text-slate-700 text-sm">{{ formatDate(c.last_purchase_date) }}</p>
               </div>
               <div class="col-span-2">
                 <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">พนักงานผู้ดูแล</p>
@@ -185,22 +208,34 @@
 
         <!-- Desktop -->
         <div class="hidden lg:block overflow-x-auto">
-          <table class="w-full min-w-[1180px] text-sm">
+          <table class="w-full min-w-[1440px] text-sm">
             <thead class="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">รหัส</th>
-                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">ชื่อลูกค้า</th>
-                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">จังหวัด</th>
+                <th @click="toggleSort('code')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28 cursor-pointer select-none hover:bg-slate-100">
+                  รหัส <span class="ml-1 text-slate-400">{{ sortIndicator('code') }}</span>
+                </th>
+                <th @click="toggleSort('name_1')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide cursor-pointer select-none hover:bg-slate-100">
+                  ชื่อลูกค้า <span class="ml-1 text-slate-400">{{ sortIndicator('name_1') }}</span>
+                </th>
+                <th @click="toggleSort('province')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-44 cursor-pointer select-none hover:bg-slate-100">
+                  ที่อยู่ <span class="ml-1 text-slate-400">{{ sortIndicator('province') }}</span>
+                </th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">พนักงานผู้ดูแล</th>
-                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">ประเภท</th>
+                <th @click="toggleSort('next_followup')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32 cursor-pointer select-none hover:bg-slate-100">
+                  Follow Up <span class="ml-1 text-slate-400">{{ sortIndicator('next_followup') }}</span>
+                </th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">ประเภท</th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">สถานะ</th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-36">ส่งของ</th>
-                <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">จัดการ</th>
+                <th @click="toggleSort('last_purchase_date')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32 cursor-pointer select-none hover:bg-slate-100">
+                  ซื้อล่าสุด <span class="ml-1 text-slate-400">{{ sortIndicator('last_purchase_date') }}</span>
+                </th>
+                <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">จัดการ</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-if="customers.length === 0">
-                <td colspan="8" class="py-16 text-center text-slate-400">
+                <td colspan="10" class="py-16 text-center text-slate-400">
                   <svg class="mx-auto w-10 h-10 text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
@@ -219,7 +254,11 @@
                   <p class="font-medium text-slate-800">{{ c.name_1 }}</p>
                   <p v-if="c.address" class="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{{ c.address }}</p>
                 </td>
-                <td class="px-4 py-3 text-slate-600">{{ c.province || '—' }}</td>
+                <td class="px-4 py-3 text-slate-600 text-sm">
+                  {{ c.amper_name && c.province_name
+                      ? `${c.amper_name} (${c.province_name})`
+                      : c.province_name || c.province || '—' }}
+                </td>
                 <td class="px-4 py-3">
                   <template v-if="crmOwnerNames(c) || c.sale_name">
                     <div class="flex items-center gap-2">
@@ -235,6 +274,11 @@
                     </div>
                   </template>
                   <span v-else class="text-slate-400 text-xs">— ยังไม่ระบุ —</span>
+                </td>
+                <td class="px-4 py-3">
+                  <span :class="followupDateClass(c.crm?.next_followup)">
+                    {{ formatDate(c.crm?.next_followup) }}
+                  </span>
                 </td>
                 <td class="px-4 py-3">
                   <span class="text-xs font-medium text-slate-600">
@@ -256,6 +300,9 @@
                     </p>
                   </div>
                   <span v-else class="text-xs text-slate-400">ไม่มีข้อมูลส่งของ</span>
+                </td>
+                <td class="px-4 py-3 text-slate-600 text-sm">
+                  {{ formatDate(c.last_purchase_date) }}
                 </td>
                 <td class="px-4 py-3">
                   <div class="flex items-center justify-end gap-2">
@@ -385,7 +432,9 @@ const deleteTarget = ref(null)
 const deleting     = ref(false)
 const toast = reactive({ show: false, type: 'success', message: '' })
 
-const filter = reactive({ search: '', status: '', owner: '', fleet_status: '' })
+const filter = reactive({ search: '', status: '', owner: '', fleet_status: '', followup_enabled: '' })
+const sortBy  = ref('code')
+const sortDir = ref('asc')
 
 let searchTimer = null
 
@@ -412,6 +461,9 @@ async function loadData() {
         fleet_status: filter.fleet_status,
         page: page.value,
         limit: limit.value,
+        followup_enabled: filter.followup_enabled,
+        sort_by: sortBy.value,
+        sort_dir: sortDir.value,
       }
     })
     customers.value = data.data
@@ -445,6 +497,7 @@ function resetFilter() {
   filter.status = ''
   filter.owner  = ''
   filter.fleet_status = ''
+  filter.followup_enabled = ''
   page.value    = 1
   loadData()
 }
@@ -514,6 +567,36 @@ function fleetLabel(fleet) {
 function fleetDate(v) {
   if (!v) return '-'
   return new Date(v).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '—'
+  return new Date(dateStr).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })
+}
+
+function followupDateClass(dateStr) {
+  if (!dateStr) return 'text-slate-300 text-xs'
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const daysDiff = Math.floor((new Date(dateStr) - today) / 86400000)
+  if (daysDiff < 0)  return 'text-red-600 font-medium text-sm'
+  if (daysDiff <= 7) return 'text-amber-600 font-medium text-sm'
+  return 'text-slate-600 text-sm'
+}
+
+function toggleSort(field) {
+  if (sortBy.value === field) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortBy.value  = field
+    sortDir.value = 'asc'
+  }
+  page.value = 1
+  loadData()
+}
+
+function sortIndicator(field) {
+  if (sortBy.value !== field) return '↕'
+  return sortDir.value === 'asc' ? '↑' : '↓'
 }
 
 // ── Init ──────────────────────────────────

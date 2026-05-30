@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 lg:p-6 max-w-7xl mx-auto">
+  <div class="p-4 lg:p-6 mx-auto">
 
     <!-- Toast -->
     <Teleport to="body">
@@ -181,6 +181,7 @@
 
           <!-- Row 2: subject -->
           <p class="font-medium text-slate-800 mb-1">{{ a.subject }}</p>
+          <p v-if="a.act_no" class="text-[10px] font-mono text-slate-400 -mt-0.5 mb-1">{{ a.act_no }}</p>
 
           <!-- Row 3: customer + owner -->
           <div class="flex items-center gap-2 text-xs text-slate-400 flex-wrap">
@@ -248,17 +249,18 @@
           <thead class="bg-slate-50 border-b border-slate-200">
             <tr>
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">ประเภท</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-36">รหัส</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">หัวข้อ</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-40">ลูกค้า</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">ผู้รับผิดชอบ</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">กำหนด</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">สถานะ</th>
-              <th class="px-4 py-3 w-28"></th>
+              <th class="px-4 py-3 " style="width: 365px;"></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr v-if="!activities.length">
-              <td colspan="7" class="py-12 text-center text-slate-400">ไม่พบกิจกรรม</td>
+              <td colspan="8" class="py-12 text-center text-slate-400">ไม่พบกิจกรรม</td>
             </tr>
             <tr v-for="a in activities" :key="a.id"
                 :class="rowClass(a)"
@@ -268,6 +270,11 @@
                 <span :class="typeClass(a.activity_type)" class="badge">
                   {{ typeIcon(a.activity_type) }} {{ typeLabel(a.activity_type) }}
                 </span>
+              </td>
+
+              <td class="px-4 py-3">
+                <span v-if="a.act_no" class="font-mono text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded whitespace-nowrap">{{ a.act_no }}</span>
+                <span v-else class="text-slate-300">—</span>
               </td>
 
               <td class="px-4 py-3 max-w-xs">

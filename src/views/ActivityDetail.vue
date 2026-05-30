@@ -1,5 +1,5 @@
 <template>
-  <div class="p-6 max-w-2xl mx-auto">
+  <div class="p-6 max-w-7xl mx-auto">
 
     <!-- ── Close-Task Modal (shared component) ─── -->
     <CloseActivityModal
@@ -103,6 +103,7 @@
         <!-- Subject + Description -->
         <div class="px-5 py-4">
           <p class="text-lg font-bold text-slate-800">{{ activity.subject }}</p>
+          <p v-if="activity.act_no" class="text-xs font-mono text-slate-400 mt-0.5">{{ activity.act_no }}</p>
           <p v-if="activity.description" class="mt-2 text-sm text-slate-600 whitespace-pre-wrap">{{ activity.description }}</p>
         </div>
 
@@ -291,6 +292,14 @@
         <h3 class="text-sm font-semibold text-slate-700 mb-3">ไฟล์แนบ</h3>
         <ActivityAttachments :activity-id="activityId" :readonly="true" />
       </div>
+
+      <!-- Comments -->
+      <div class="mt-4">
+        <ActivityComments
+          :activity-id="activityId"
+          :can-comment="!['done','cancelled'].includes(activity?.derived_status)"
+        />
+      </div>
     </template>
 
   <!-- Toast -->
@@ -316,6 +325,7 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../composables/useApi.js'
 import ActivityAttachments from '../components/ActivityAttachments.vue'
+import ActivityComments from '../components/ActivityComments.vue'
 import CloseActivityModal from '../components/CloseActivityModal.vue'
 import SnoozeActivityModal from '../components/SnoozeActivityModal.vue'
 import { usePermissions } from '../composables/usePermissions.js'

@@ -4,7 +4,8 @@
       <div v-if="show" class="fixed inset-0 z-50 flex items-end lg:items-center justify-center px-0 lg:px-4">
         <div class="absolute inset-0 bg-black/50" @click="$emit('close')"></div>
         <div
-          class="relative bg-white w-full lg:max-w-md rounded-t-2xl lg:rounded-2xl shadow-2xl flex flex-col max-h-[92dvh] lg:max-h-[90dvh]"
+          class="relative bg-white w-full rounded-t-2xl lg:rounded-2xl shadow-2xl flex flex-col max-h-[92dvh] lg:max-h-[90dvh]"
+          style="max-width:50vh"
           role="dialog"
           aria-modal="true"
           aria-labelledby="close-activity-title"
