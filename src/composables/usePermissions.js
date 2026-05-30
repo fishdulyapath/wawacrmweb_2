@@ -20,9 +20,16 @@ export function usePermissions() {
     ['admin', 'manager', 'supervisor'].includes(auth.user?.role)
   )
 
+  // รายงาน KPI / audit — admin, manager เท่านั้น
   const canViewDashboards = computed(() =>
     isSuperAdmin.value ||
     ['admin', 'manager'].includes(auth.user?.role)
+  )
+
+  // รายงานยอดขาย + fleet — supervisor ขึ้นไป (ฝ่ายขาย + ผู้จัดการ + ผู้ดูแล)
+  const canViewSalesFleet = computed(() =>
+    isSuperAdmin.value ||
+    ['admin', 'manager', 'supervisor'].includes(auth.user?.role)
   )
 
   const canManageFollowupPolicy = computed(() =>
@@ -39,5 +46,5 @@ export function usePermissions() {
   // ปิดงาน / เลื่อนได้ (ทุกคน)
   const canClose = computed(() => true)
 
-  return { isSuperAdmin, isManager, canViewDashboards, canManageFollowupPolicy, canCreate, canEdit, canClose }
+  return { isSuperAdmin, isManager, canViewDashboards, canViewSalesFleet, canManageFollowupPolicy, canCreate, canEdit, canClose }
 }

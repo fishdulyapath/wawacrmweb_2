@@ -29,11 +29,11 @@ const router = createRouter({
     { path: '/webboard/:id',         component: () => import('../views/WebboardDetail.vue'), props: true },
 
     // ── Reports ──
-    { path: '/reports',              component: () => import('../views/ReportsDashboard.vue'), meta: { requireDashboard: true } },
-    { path: '/sales-reports',        component: () => import('../views/SalesReportDashboard.vue'), meta: { requireDashboard: true } },
-    { path: '/fleet-delivery',       component: () => import('../views/FleetDeliveryDashboard.vue'), meta: { requireDashboard: true } },
-    { path: '/fleet-delivery-summary', component: () => import('../views/FleetDeliverySummary.vue'), meta: { requireDashboard: true } },
-    { path: '/fleet-store-report',   component: () => import('../views/FleetStoreReport.vue'), meta: { requireDashboard: true } },
+    { path: '/reports',              component: () => import('../views/ReportsDashboard.vue'),        meta: { requireDashboard: true } },
+    { path: '/sales-reports',        component: () => import('../views/SalesReportDashboard.vue'),    meta: { requireSupervisor: true } },
+    { path: '/fleet-delivery',       component: () => import('../views/FleetDeliveryDashboard.vue'),  meta: { requireSupervisor: true } },
+    { path: '/fleet-delivery-summary', component: () => import('../views/FleetDeliverySummary.vue'), meta: { requireSupervisor: true } },
+    { path: '/fleet-store-report',   component: () => import('../views/FleetStoreReport.vue'),        meta: { requireSupervisor: true } },
 
     // ── Settings ──
     { path: '/settings/followup-policy', component: () => import('../views/FollowupPolicySettings.vue'), meta: { requireAdminManager: true } },
@@ -51,21 +51,23 @@ const router = createRouter({
   ]
 })
 
-function isSuperAdmin(user) { return user?.code?.toUpperCase() === 'SUPERADMIN' }
-function isManager(user)    { return isSuperAdmin(user) || ['admin', 'manager', 'supervisor'].includes(user?.role) }
-function canViewDashboard(user) { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
-function canManagePolicy(user) { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
-function isAdmin(user)      { return isSuperAdmin(user) || user?.role === 'admin' }
+function isSuperAdmin(user)      { return user?.code?.toUpperCase() === 'SUPERADMIN' }
+function isManager(user)         { return isSuperAdmin(user) || ['admin', 'manager', 'supervisor'].includes(user?.role) }
+function isSupervisorUp(user)    { return isSuperAdmin(user) || ['admin', 'manager', 'supervisor'].includes(user?.role) }
+function canViewDashboard(user)  { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
+function canManagePolicy(user)   { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
+function isAdmin(user)           { return isSuperAdmin(user) || user?.role === 'admin' }
 
 router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.meta.liff) return   // LIFF pages จัดการ auth เอง
   if (!to.meta.public && !auth.isLoggedIn) return { path: '/login' }
   if (to.path === '/login' && auth.isLoggedIn) return { path: '/notifications' }
-  if (to.meta.requireManager && !isManager(auth.user)) return { path: '/activities' }
-  if (to.meta.requireDashboard && !canViewDashboard(auth.user)) return { path: '/activities' }
+  if (to.meta.requireManager    && !isManager(auth.user))        return { path: '/activities' }
+  if (to.meta.requireSupervisor && !isSupervisorUp(auth.user))   return { path: '/activities' }
+  if (to.meta.requireDashboard  && !canViewDashboard(auth.user)) return { path: '/activities' }
   if (to.meta.requireAdminManager && !canManagePolicy(auth.user)) return { path: '/activities' }
-  if (to.meta.requireAdmin   && !isAdmin(auth.user))   return { path: '/activities' }
+  if (to.meta.requireAdmin      && !isAdmin(auth.user))          return { path: '/activities' }
 })
 
 export default router

@@ -1,5 +1,5 @@
 <template>
-  <div class="p-6 max-w-3xl mx-auto">
+  <div class="p-6 max-w-5xl mx-auto">
 
     <!-- Header -->
     <div class="flex items-center gap-3 mb-6">
@@ -156,10 +156,10 @@ function showToast(msg, error = false) {
 }
 
 const roleOptions = [
-  { value: 'sales_rep',  label: 'พนักงาน',    desc: 'ดูและปิดงาน',           dot: 'bg-slate-400' },
-  { value: 'supervisor', label: 'หัวหน้าทีม', desc: 'สร้าง+แก้ไข+ดูทุกงาน', dot: 'bg-blue-400'  },
-  { value: 'manager',    label: 'ผู้จัดการ',   desc: 'สร้าง+แก้ไข+ดูทุกงาน', dot: 'bg-indigo-500' },
-  { value: 'admin',      label: 'ผู้ดูแลระบบ', desc: 'ทุกสิทธิ์+กำหนดสิทธิ์', dot: 'bg-red-500'   },
+  { value: 'sales_rep',  label: 'พนักงาน',  desc: 'การแจ้งเตือน, กิจกรรม, เว็บบอร์ด',                                dot: 'bg-slate-400'  },
+  { value: 'supervisor', label: 'ฝ่ายขาย',  desc: 'พนักงาน + สร้าง/ดู/ปิดงาน, รายงานยอดขาย, dashboard ขนส่ง', dot: 'bg-blue-400'   },
+  { value: 'manager',    label: 'ผู้จัดการ', desc: 'ฝ่ายขาย + จัดการทีม, รายงานทั้งหมด',                           dot: 'bg-indigo-500' },
+  { value: 'admin',      label: 'ผู้ดูแลระบบ', desc: 'ทุกสิทธิ์ + กำหนดสิทธิ์ผู้ใช้',                              dot: 'bg-red-500'    },
 ]
 
 // SUPERADMIN = user ที่มี code === 'SUPERADMIN' (case-insensitive)

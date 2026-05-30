@@ -117,7 +117,7 @@
               </svg>
               รายงานและประวัติ
             </RouterLink>
-            <RouterLink v-if="canViewDashboards" to="/sales-reports" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+            <RouterLink v-if="canViewSalesFleet" to="/sales-reports" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path
                   stroke-linecap="round"
@@ -127,19 +127,19 @@
               </svg>
               รายงานยอดขาย
             </RouterLink>
-            <RouterLink v-if="canViewDashboards" to="/fleet-delivery" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+            <RouterLink v-if="canViewSalesFleet" to="/fleet-delivery" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 17h8m-4-4v4M3 10l1.5-6h15L21 10M3 10h18M3 10l1 7h16l1-7" />
               </svg>
               Dashboard ขนส่ง
             </RouterLink>
-            <RouterLink v-if="canViewDashboards" to="/fleet-delivery-summary" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+            <RouterLink v-if="canViewSalesFleet" to="/fleet-delivery-summary" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V8m5 8V5m5 11v-6M5 19h14a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1v12a1 1 0 001 1z" />
               </svg>
               Summary ขนส่ง
             </RouterLink>
-            <RouterLink v-if="canViewDashboards" to="/fleet-store-report" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+            <RouterLink v-if="canViewSalesFleet" to="/fleet-store-report" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M5 7l1 12h12l1-12M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2M9 11h6M9 15h6" />
               </svg>
@@ -304,7 +304,7 @@
           <span>บอร์ด</span>
         </RouterLink>
 
-        <RouterLink v-if="canViewDashboards" to="/fleet-delivery-summary" class="bottom-nav-item" active-class="bottom-nav-active">
+        <RouterLink v-if="canViewSalesFleet" to="/fleet-delivery-summary" class="bottom-nav-item" active-class="bottom-nav-active">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V8m5 8V5m5 11v-6M5 19h14a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1v12a1 1 0 001 1z" />
           </svg>
@@ -332,7 +332,7 @@ import { usePermissions } from "./composables/usePermissions.js";
 const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
-const { canCreate, isManager, isSuperAdmin, canViewDashboards, canManageFollowupPolicy } = usePermissions();
+const { canCreate, isManager, isSuperAdmin, canViewDashboards, canViewSalesFleet, canManageFollowupPolicy } = usePermissions();
 const isAdmin = computed(() => isSuperAdmin.value || auth.user?.role === "admin");
 
 const unreadNotif = ref(0);
