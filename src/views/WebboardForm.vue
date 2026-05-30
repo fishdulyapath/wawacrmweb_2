@@ -68,6 +68,21 @@
         <input ref="fileInput" type="file" multiple class="hidden"
           accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
           @change="onFileChange"/>
+        <!-- ไฟล์แนบเดิม (กรณีแก้ไข) -->
+        <div v-if="existingAtts.length" class="mt-2 flex flex-wrap gap-2">
+          <div v-for="att in existingAtts" :key="att.id"
+            class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-2 py-1.5">
+            <img v-if="att.mime_type?.startsWith('image/')" :src="`/uploads/${att.thumb_path || att.file_path}`" class="w-10 h-10 object-cover rounded"/>
+            <div v-else class="w-10 h-10 rounded bg-blue-50 flex items-center justify-center text-lg">📎</div>
+            <div class="min-w-0">
+              <p class="text-xs text-slate-700 truncate max-w-[120px]">{{ att.original_name }}</p>
+              <p class="text-[10px] text-slate-400">{{ formatSize(att.file_size) }}</p>
+            </div>
+            <button @click.stop="removeExisting(att.id)" class="p-0.5 text-slate-400 hover:text-red-500" title="ลบไฟล์นี้">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
         <!-- Pending previews -->
         <div v-if="pendingFiles.length" class="mt-2 flex flex-wrap gap-2">
           <div v-for="(pf, i) in pendingFiles" :key="i"
@@ -125,6 +140,7 @@ const saving       = ref(false)
 const errorMsg     = ref('')
 const dragging     = ref(false)
 const pendingFiles = ref([])
+const existingAtts = ref([])   // attachments เดิมของ thread (กรณี edit)
 const fileInput    = ref(null)
 const form         = reactive({
   category_id:     '',
@@ -170,8 +186,18 @@ async function loadThread() {
     form.title           = data.thread.title
     form.content         = data.thread.content
     form.is_announcement = data.thread.is_announcement
+    existingAtts.value   = data.thread.attachments || []
   } catch {
     errorMsg.value = 'ไม่สามารถโหลดข้อมูลกระทู้ได้'
+  }
+}
+
+async function removeExisting(attId) {
+  try {
+    await api.delete(`/webboard/threads/${props.id}/attachments/${attId}`)
+    existingAtts.value = existingAtts.value.filter(a => a.id !== attId)
+  } catch (e) {
+    alert(e.response?.data?.error || 'ลบไม่สำเร็จ')
   }
 }
 
@@ -183,19 +209,19 @@ async function submit() {
 
   saving.value = true
   try {
+    const fd = new FormData()
+    fd.append('category_id', form.category_id)
+    fd.append('title', form.title)
+    fd.append('content', form.content)
+    fd.append('is_announcement', form.is_announcement)
+    pendingFiles.value.forEach(pf => fd.append('files', pf.file))
+    const headers = { 'Content-Type': 'multipart/form-data' }
+
     if (isEdit.value) {
-      await api.patch(`/webboard/threads/${props.id}`, form)
+      await api.patch(`/webboard/threads/${props.id}`, fd, { headers })
       router.push(`/webboard/${props.id}`)
     } else {
-      const fd = new FormData()
-      fd.append('category_id', form.category_id)
-      fd.append('title', form.title)
-      fd.append('content', form.content)
-      fd.append('is_announcement', form.is_announcement)
-      pendingFiles.value.forEach(pf => fd.append('files', pf.file))
-      const { data } = await api.post('/webboard/threads', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      const { data } = await api.post('/webboard/threads', fd, { headers })
       router.push(`/webboard/${data.id}`)
     }
   } catch (e) {

@@ -59,19 +59,56 @@
         <div class="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed mb-4">{{ thread.content }}</div>
 
         <!-- Thread attachments -->
-        <div v-if="thread.attachments?.length" class="mb-4 flex flex-wrap gap-2">
-          <div v-for="att in thread.attachments" :key="att.id"
-            class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5">
-            <img v-if="isImage(att.mime_type)" :src="thumbUrl(att)" @click="previewImg = att"
-              class="w-10 h-10 object-cover rounded cursor-pointer"/>
-            <div v-else class="w-10 h-10 rounded bg-blue-50 flex items-center justify-center text-lg">{{ fileIcon(att.mime_type) }}</div>
-            <div class="min-w-0">
-              <p class="text-xs text-slate-700 truncate max-w-[120px]">{{ att.original_name }}</p>
-              <p class="text-[10px] text-slate-400">{{ formatSize(att.file_size) }}</p>
+        <div v-if="thread.attachments?.length" class="mb-4 space-y-3">
+          <!-- รูปภาพ: แสดง grid ใหญ่ -->
+          <!-- รูป 1 รูป: inline ชิดซ้าย ขนาดตามจริง ไม่เกิน 384px -->
+          <template v-if="thread.attachments.filter(a => isImage(a.mime_type)).length === 1">
+            <div v-for="att in thread.attachments.filter(a => isImage(a.mime_type))" :key="att.id"
+              class="relative group inline-block rounded-xl overflow-hidden cursor-pointer"
+              @click="previewImg = att">
+              <img :src="thumbUrl(att)" class="block max-h-96 max-w-full w-auto"/>
+              <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                <svg class="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
+                </svg>
+              </div>
+              <a :href="fileUrl(att)" target="_blank" download @click.stop
+                class="absolute bottom-1.5 right-1.5 p-1.5 bg-black/40 hover:bg-black/60 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              </a>
             </div>
-            <a :href="fileUrl(att)" target="_blank" download class="p-1 text-slate-400 hover:text-blue-500 rounded">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-            </a>
+          </template>
+          <!-- รูป 2+ รูป: grid -->
+          <div v-else-if="thread.attachments.some(a => isImage(a.mime_type))"
+            class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div v-for="att in thread.attachments.filter(a => isImage(a.mime_type))" :key="att.id"
+              class="relative group rounded-xl overflow-hidden cursor-pointer bg-slate-100"
+              @click="previewImg = att">
+              <img :src="thumbUrl(att)" class="w-full  object-cover"/>
+              <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                <svg class="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
+                </svg>
+              </div>
+              <a :href="fileUrl(att)" target="_blank" download @click.stop
+                class="absolute bottom-1.5 right-1.5 p-1.5 bg-black/40 hover:bg-black/60 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              </a>
+            </div>
+          </div>
+          <!-- ไฟล์อื่น: pill แบบเดิม -->
+          <div v-if="thread.attachments.some(a => !isImage(a.mime_type))" class="flex flex-wrap gap-2">
+            <div v-for="att in thread.attachments.filter(a => !isImage(a.mime_type))" :key="att.id"
+              class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5">
+              <div class="w-8 h-8 rounded bg-blue-50 flex items-center justify-center text-lg flex-shrink-0">{{ fileIcon(att.mime_type) }}</div>
+              <div class="min-w-0">
+                <p class="text-xs text-slate-700 truncate max-w-[140px]">{{ att.original_name }}</p>
+                <p class="text-[10px] text-slate-400">{{ formatSize(att.file_size) }}</p>
+              </div>
+              <a :href="fileUrl(att)" target="_blank" download class="p-1 text-slate-400 hover:text-blue-500 rounded">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              </a>
+            </div>
           </div>
         </div>
 
@@ -224,6 +261,40 @@
     <!-- Not found -->
     <div v-else class="text-center py-16 text-slate-400 text-sm">ไม่พบกระทู้</div>
 
+    <!-- Delete confirm dialog -->
+    <Teleport to="body">
+      <div v-if="deleteDialog.show"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
+          <div class="flex items-center gap-4 mb-4">
+            <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+              <svg class="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-800">{{ deleteDialog.title }}</h3>
+              <p class="text-slate-500 text-sm mt-0.5">{{ deleteDialog.message }}</p>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <button @click="deleteDialog.show = false"
+              class="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
+              ยกเลิก
+            </button>
+            <button @click="deleteDialog.onConfirm()" :disabled="deleteDialog.loading"
+              class="flex-1 py-2 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+              <svg v-if="deleteDialog.loading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              ลบ
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Image preview modal -->
     <Teleport to="body">
       <div v-if="previewImg" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
@@ -263,6 +334,7 @@ const editingComment   = ref(null)
 const previewImg       = ref(null)
 const commentFiles     = ref([])
 const commentFileInput = ref(null)
+const deleteDialog     = ref({ show: false, title: '', message: '', loading: false, onConfirm: () => {} })
 
 const IMAGE_TYPES = ['image/jpeg','image/png','image/gif','image/webp','image/heic','image/heif']
 
@@ -329,10 +401,24 @@ async function togglePin() {
   thread.value.is_pinned = data.is_pinned
 }
 
-async function deleteThread() {
-  if (!confirm('ต้องการลบกระทู้นี้?')) return
-  await api.delete(`/webboard/threads/${props.id}`)
-  router.push('/webboard')
+function deleteThread() {
+  deleteDialog.value = {
+    show: true,
+    title: 'ลบกระทู้',
+    message: `ต้องการลบกระทู้ "${thread.value?.title}" ใช่ไหม?`,
+    loading: false,
+    onConfirm: async () => {
+      deleteDialog.value.loading = true
+      try {
+        await api.delete(`/webboard/threads/${props.id}`)
+        deleteDialog.value.show = false
+        router.push('/webboard')
+      } catch (e) {
+        deleteDialog.value.loading = false
+        alert(e.response?.data?.error || 'ลบไม่สำเร็จ')
+      }
+    }
+  }
 }
 
 async function submitComment() {
@@ -369,10 +455,24 @@ async function saveEdit() {
   editingComment.value = null
 }
 
-async function deleteComment(id) {
-  if (!confirm('ต้องการลบความคิดเห็นนี้?')) return
-  await api.delete(`/webboard/comments/${id}`)
-  comments.value = comments.value.filter(c => c.id !== id)
+function deleteComment(id) {
+  deleteDialog.value = {
+    show: true,
+    title: 'ลบความคิดเห็น',
+    message: 'ต้องการลบความคิดเห็นนี้ใช่ไหม?',
+    loading: false,
+    onConfirm: async () => {
+      deleteDialog.value.loading = true
+      try {
+        await api.delete(`/webboard/comments/${id}`)
+        comments.value = comments.value.filter(c => c.id !== id)
+        deleteDialog.value.show = false
+      } catch (e) {
+        deleteDialog.value.loading = false
+        alert(e.response?.data?.error || 'ลบไม่สำเร็จ')
+      }
+    }
+  }
 }
 
 function timeAgo(dateStr) {
