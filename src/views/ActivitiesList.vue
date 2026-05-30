@@ -31,7 +31,7 @@
         <h1 class="text-lg lg:text-xl font-bold text-slate-800">กิจกรรม</h1>
         <p class="text-xs lg:text-sm text-slate-500 mt-0.5">จัดการงาน, การโทร และการประชุม</p>
         <!-- Owner search -->
-        <div class="relative w-48">
+        <div class="relative mt-2" style="min-width: 350px;">
           <input
             v-model="ownerSearch"
             type="text"

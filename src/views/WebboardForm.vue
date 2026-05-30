@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 max-w-2xl mx-auto pb-24">
+  <div class="p-4  mx-auto pb-24">
 
     <!-- Header -->
     <div class="flex items-center gap-3 mb-6">
@@ -51,6 +51,40 @@
         </label>
       </div>
 
+      <!-- File attachments -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">ไฟล์แนบ <span class="text-xs text-slate-400">(ไม่บังคับ)</span></label>
+        <div
+          @dragover.prevent="dragging = true"
+          @dragleave="dragging = false"
+          @drop.prevent="onDrop"
+          :class="dragging ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'"
+          class="border-2 border-dashed rounded-xl p-4 text-center transition-colors cursor-pointer"
+          @click="$refs.fileInput.click()">
+          <div class="text-2xl mb-1">📎</div>
+          <p class="text-sm text-slate-500">คลิกหรือลากไฟล์มาวาง</p>
+          <p class="text-xs text-slate-400 mt-0.5">รูปภาพ, PDF, Word, Excel (สูงสุด 20MB/ไฟล์)</p>
+        </div>
+        <input ref="fileInput" type="file" multiple class="hidden"
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+          @change="onFileChange"/>
+        <!-- Pending previews -->
+        <div v-if="pendingFiles.length" class="mt-2 flex flex-wrap gap-2">
+          <div v-for="(pf, i) in pendingFiles" :key="i"
+            class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-2 py-1.5">
+            <img v-if="pf.preview" :src="pf.preview" class="w-10 h-10 object-cover rounded"/>
+            <div v-else class="w-10 h-10 rounded bg-blue-50 flex items-center justify-center text-lg">📎</div>
+            <div class="min-w-0">
+              <p class="text-xs text-slate-700 truncate max-w-[120px]">{{ pf.name }}</p>
+              <p class="text-[10px] text-slate-400">{{ formatSize(pf.size) }}</p>
+            </div>
+            <button @click.stop="pendingFiles.splice(i,1)" class="p-0.5 text-slate-400 hover:text-red-500">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Error -->
       <div v-if="errorMsg" class="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{{ errorMsg }}</div>
 
@@ -86,15 +120,41 @@ const router    = useRouter()
 const { isManager } = usePermissions()
 const isEdit    = computed(() => !!props.id)
 
-const categories = ref([])
-const saving     = ref(false)
-const errorMsg   = ref('')
-const form       = reactive({
+const categories   = ref([])
+const saving       = ref(false)
+const errorMsg     = ref('')
+const dragging     = ref(false)
+const pendingFiles = ref([])
+const fileInput    = ref(null)
+const form         = reactive({
   category_id:     '',
   title:           '',
   content:         '',
   is_announcement: false
 })
+
+const IMAGE_TYPES = ['image/jpeg','image/png','image/gif','image/webp','image/heic','image/heif']
+
+function formatSize(bytes) {
+  if (!bytes) return ''
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+function addFiles(fileList) {
+  Array.from(fileList).forEach(file => {
+    const isImg = IMAGE_TYPES.includes(file.type)
+    const entry = { file, name: file.name, size: file.size, preview: null }
+    if (isImg) {
+      const reader = new FileReader()
+      reader.onload = e => { entry.preview = e.target.result }
+      reader.readAsDataURL(file)
+    }
+    pendingFiles.value.push(entry)
+  })
+}
+function onFileChange(e) { addFiles(e.target.files); if (fileInput.value) fileInput.value.value = '' }
+function onDrop(e) { dragging.value = false; addFiles(e.dataTransfer.files) }
 
 async function loadCategories() {
   try {
@@ -127,11 +187,19 @@ async function submit() {
       await api.patch(`/webboard/threads/${props.id}`, form)
       router.push(`/webboard/${props.id}`)
     } else {
-      const { data } = await api.post('/webboard/threads', form)
+      const fd = new FormData()
+      fd.append('category_id', form.category_id)
+      fd.append('title', form.title)
+      fd.append('content', form.content)
+      fd.append('is_announcement', form.is_announcement)
+      pendingFiles.value.forEach(pf => fd.append('files', pf.file))
+      const { data } = await api.post('/webboard/threads', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
       router.push(`/webboard/${data.id}`)
     }
   } catch (e) {
-    errorMsg.value = e.message || 'เกิดข้อผิดพลาด'
+    errorMsg.value = e.response?.data?.error || e.message || 'เกิดข้อผิดพลาด'
   } finally {
     saving.value = false
   }

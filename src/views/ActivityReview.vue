@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 lg:p-6 max-w-7xl mx-auto">
+  <div class="p-4 lg:p-6  mx-auto">
 
     <!-- Toast -->
     <Teleport to="body">
@@ -14,7 +14,7 @@
         <h1 class="text-lg lg:text-xl font-bold text-slate-800">📋 ตรวจสอบกิจกรรม</h1>
         <p class="text-xs lg:text-sm text-slate-500 mt-0.5">ภาพรวมกิจกรรมทั้งหมด แบบจัดกลุ่ม</p>
         <!-- Owner search -->
-        <div class="relative w-48">
+        <div class="relative mt-2" style="min-width: 350px;">
           <input
             v-model="ownerSearch"
             type="text"

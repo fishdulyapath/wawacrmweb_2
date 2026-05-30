@@ -24,6 +24,7 @@ const router = createRouter({
     // ── Webboard ──
     { path: '/webboard',             component: () => import('../views/WebboardList.vue') },
     { path: '/webboard/new',         component: () => import('../views/WebboardForm.vue') },
+    { path: '/webboard/categories',  component: () => import('../views/WebboardCategorySettings.vue') },
     { path: '/webboard/:id/edit',    component: () => import('../views/WebboardForm.vue'), props: true },
     { path: '/webboard/:id',         component: () => import('../views/WebboardDetail.vue'), props: true },
 

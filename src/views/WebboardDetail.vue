@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 max-w-2xl mx-auto pb-24">
+  <div class="p-4  mx-auto pb-24">
 
     <!-- Back -->
     <button @click="router.push('/webboard')"
@@ -57,6 +57,23 @@
 
         <!-- Content -->
         <div class="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed mb-4">{{ thread.content }}</div>
+
+        <!-- Thread attachments -->
+        <div v-if="thread.attachments?.length" class="mb-4 flex flex-wrap gap-2">
+          <div v-for="att in thread.attachments" :key="att.id"
+            class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5">
+            <img v-if="isImage(att.mime_type)" :src="thumbUrl(att)" @click="previewImg = att"
+              class="w-10 h-10 object-cover rounded cursor-pointer"/>
+            <div v-else class="w-10 h-10 rounded bg-blue-50 flex items-center justify-center text-lg">{{ fileIcon(att.mime_type) }}</div>
+            <div class="min-w-0">
+              <p class="text-xs text-slate-700 truncate max-w-[120px]">{{ att.original_name }}</p>
+              <p class="text-[10px] text-slate-400">{{ formatSize(att.file_size) }}</p>
+            </div>
+            <a :href="fileUrl(att)" target="_blank" download class="p-1 text-slate-400 hover:text-blue-500 rounded">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            </a>
+          </div>
+        </div>
 
         <!-- Action bar -->
         <div class="flex items-center gap-2 flex-wrap pt-3 border-t border-slate-100">
@@ -119,6 +136,19 @@
               <!-- Normal view -->
               <template v-if="editingComment?.id !== c.id">
                 <p class="text-sm text-slate-700 whitespace-pre-wrap">{{ c.content }}</p>
+                <!-- Comment attachments -->
+                <div v-if="c.attachments?.length" class="mt-2 flex flex-wrap gap-2">
+                  <div v-for="att in c.attachments" :key="att.id"
+                    class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5">
+                    <img v-if="isImage(att.mime_type)" :src="thumbUrl(att)" @click="previewImg = att"
+                      class="w-8 h-8 object-cover rounded cursor-pointer"/>
+                    <div v-else class="w-8 h-8 rounded bg-blue-50 flex items-center justify-center">{{ fileIcon(att.mime_type) }}</div>
+                    <p class="text-xs text-slate-600 truncate max-w-[100px]">{{ att.original_name }}</p>
+                    <a :href="fileUrl(att)" target="_blank" download class="p-0.5 text-slate-400 hover:text-blue-500">
+                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    </a>
+                  </div>
+                </div>
                 <div v-if="canModComment(c)" class="flex gap-2 mt-1">
                   <button @click="startEdit(c)"
                     class="text-xs text-slate-400 hover:text-slate-600 transition-colors">แก้ไข</button>
@@ -153,9 +183,27 @@
         <!-- New comment -->
         <div class="border-t border-slate-100 pt-4">
           <textarea v-model="commentText" rows="3" placeholder="แสดงความคิดเห็น..."
-            class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none mb-2"></textarea>
-          <div class="flex justify-end">
-            <button @click="submitComment" :disabled="!commentText.trim() || submitting"
+            class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none mb-2"
+            @keydown.ctrl.enter.prevent="submitComment"/>
+          <!-- Pending file previews -->
+          <div v-if="commentFiles.length" class="mb-2 flex flex-wrap gap-2">
+            <div v-for="(pf, i) in commentFiles" :key="i"
+              class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5">
+              <img v-if="pf.preview" :src="pf.preview" class="w-8 h-8 object-cover rounded"/>
+              <div v-else class="w-8 h-8 rounded bg-blue-50 flex items-center justify-center">📎</div>
+              <p class="text-xs text-slate-700 truncate max-w-[100px]">{{ pf.name }}</p>
+              <button @click="commentFiles.splice(i,1)" class="p-0.5 text-slate-400 hover:text-red-500">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <button @click="$refs.commentFileInput.click()"
+              class="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+              แนบไฟล์
+            </button>
+            <button @click="submitComment" :disabled="(!commentText.trim() && !commentFiles.length) || submitting"
               class="px-5 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-40 flex items-center gap-2">
               <svg v-if="submitting" class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -164,6 +212,9 @@
               ส่ง
             </button>
           </div>
+          <input ref="commentFileInput" type="file" multiple class="hidden"
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+            @change="onCommentFileChange"/>
         </div>
 
       </div>
@@ -173,6 +224,19 @@
     <!-- Not found -->
     <div v-else class="text-center py-16 text-slate-400 text-sm">ไม่พบกระทู้</div>
 
+    <!-- Image preview modal -->
+    <Teleport to="body">
+      <div v-if="previewImg" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+        @click.self="previewImg = null">
+        <div class="relative max-w-4xl max-h-full">
+          <img :src="fileUrl(previewImg)" class="max-w-full max-h-[90vh] object-contain rounded-lg"/>
+          <button @click="previewImg = null"
+            class="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg text-slate-600">✕</button>
+          <a :href="fileUrl(previewImg)" target="_blank" download
+            class="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-white text-slate-700 text-xs px-3 py-1.5 rounded-full shadow-lg hover:bg-slate-100">⬇ ดาวน์โหลด</a>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -189,13 +253,47 @@ const router     = useRouter()
 const auth       = useAuthStore()
 const { isManager } = usePermissions()
 
-const thread         = ref(null)
-const comments       = ref([])
-const isFollowing    = ref(false)
-const loading        = ref(false)
-const commentText    = ref('')
-const submitting     = ref(false)
-const editingComment = ref(null)  // { id, content }
+const thread           = ref(null)
+const comments         = ref([])
+const isFollowing      = ref(false)
+const loading          = ref(false)
+const commentText      = ref('')
+const submitting       = ref(false)
+const editingComment   = ref(null)
+const previewImg       = ref(null)
+const commentFiles     = ref([])
+const commentFileInput = ref(null)
+
+const IMAGE_TYPES = ['image/jpeg','image/png','image/gif','image/webp','image/heic','image/heif']
+
+function isImage(mime) { return mime?.startsWith('image/') }
+function thumbUrl(att) { return att.thumb_path ? `/uploads/${att.thumb_path}` : `/uploads/${att.file_path}` }
+function fileUrl(att)  { return `/uploads/${att.file_path}` }
+function fileIcon(mime) {
+  if (mime?.includes('pdf'))  return '📄'
+  if (mime?.includes('word') || mime?.includes('doc')) return '📝'
+  if (mime?.includes('sheet') || mime?.includes('xls')) return '📊'
+  if (mime?.includes('zip') || mime?.includes('rar')) return '🗜️'
+  return '📎'
+}
+function formatSize(bytes) {
+  if (!bytes) return ''
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+function onCommentFileChange(e) {
+  Array.from(e.target.files).forEach(file => {
+    const isImg = IMAGE_TYPES.includes(file.type)
+    const entry = { file, name: file.name, preview: null }
+    if (isImg) {
+      const reader = new FileReader()
+      reader.onload = ev => { entry.preview = ev.target.result }
+      reader.readAsDataURL(file)
+    }
+    commentFiles.value.push(entry)
+  })
+  if (commentFileInput.value) commentFileInput.value.value = ''
+}
 
 const canModThread = computed(() =>
   thread.value && (
@@ -238,14 +336,18 @@ async function deleteThread() {
 }
 
 async function submitComment() {
-  if (!commentText.value.trim() || submitting.value) return
+  if ((!commentText.value.trim() && !commentFiles.value.length) || submitting.value) return
   submitting.value = true
   try {
-    const { data } = await api.post(`/webboard/threads/${props.id}/comments`, {
-      content: commentText.value
+    const fd = new FormData()
+    fd.append('content', commentText.value)
+    commentFiles.value.forEach(pf => fd.append('files', pf.file))
+    const { data } = await api.post(`/webboard/threads/${props.id}/comments`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     })
     comments.value.push(data)
     commentText.value = ''
+    commentFiles.value = []
   } finally {
     submitting.value = false
   }
