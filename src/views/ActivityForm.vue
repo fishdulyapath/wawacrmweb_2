@@ -135,7 +135,7 @@
     <form @submit.prevent="save" @keydown.enter.prevent class="bg-white rounded-xl border border-slate-200 p-6 space-y-5">
 
       <!-- ประเภท -->
-      <div class="grid grid-cols-3 gap-2">
+      <div class="grid grid-cols-4 gap-2">
         <button v-for="t in typeOptions" :key="t.value" type="button"
           @click="form.activity_type = t.value"
           :class="form.activity_type === t.value
@@ -318,7 +318,7 @@
       </div>
 
       <!-- ── TASK: Due Date ─────────────────────── -->
-      <div v-if="form.activity_type === 'task'">
+      <div v-if="form.activity_type === 'task' || form.activity_type === 'transfer'">
         <label class="label">วันที่ครบกำหนด <span class="text-red-500">*</span></label>
         <DateInput v-model="form.due_date" class="input" required />
         <div class="flex gap-2 mt-2">
@@ -992,9 +992,10 @@ function custBlur() {
 
 // ── Form ──────────────────────────────────────────────────────
 const typeOptions = [
-  { value: 'task',    label: 'งาน',      icon: '✅' },
-  { value: 'call',    label: 'โทรศัพท์',  icon: '📞' },
-  { value: 'meeting', label: 'ประชุม',    icon: '👥' },
+  { value: 'task',     label: 'งาน',      icon: '✅' },
+  { value: 'call',     label: 'โทรศัพท์',  icon: '📞' },
+  { value: 'meeting',  label: 'ประชุม',    icon: '👥' },
+  { value: 'transfer', label: 'โอนเงิน',   icon: '💸' },
 ]
 
 const form = reactive({

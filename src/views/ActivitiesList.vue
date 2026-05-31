@@ -248,7 +248,7 @@
         <table class="w-full text-sm">
           <thead class="bg-slate-50 border-b border-slate-200">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">ประเภท</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">ประเภท</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-36">รหัส</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">หัวข้อ</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-40">ลูกค้า</th>
@@ -510,9 +510,10 @@ const quickFilters = [
 ]
 
 const typeOptions = [
-  { value: 'task',    label: 'งาน',    icon: '✅', activeClass: 'bg-blue-50 text-blue-700 border-blue-300' },
-  { value: 'call',    label: 'โทร',    icon: '📞', activeClass: 'bg-purple-50 text-purple-700 border-purple-300' },
-  { value: 'meeting', label: 'ประชุม', icon: '👥', activeClass: 'bg-orange-50 text-orange-700 border-orange-300' },
+  { value: 'task',     label: 'งาน',      icon: '✅', activeClass: 'bg-blue-50 text-blue-700 border-blue-300'   },
+  { value: 'call',     label: 'โทร',      icon: '📞', activeClass: 'bg-purple-50 text-purple-700 border-purple-300' },
+  { value: 'meeting',  label: 'ประชุม',   icon: '👥', activeClass: 'bg-orange-50 text-orange-700 border-orange-300' },
+  { value: 'transfer', label: 'โอนเงิน',  icon: '💸', activeClass: 'bg-green-50 text-green-700 border-green-300'  },
 ]
 
 const hasFilter = computed(() =>
@@ -640,9 +641,9 @@ function dueDateClass(d, status) {
 }
 function priorityLabel(p) { return p === 'high' ? 'สูง' : p === 'low' ? 'ต่ำ' : 'ปกติ' }
 function priorityBadgeClass(p) { return p === 'high' ? 'bg-red-50 text-red-600 border-red-200' : p === 'low' ? 'bg-slate-50 text-slate-400 border-slate-200' : 'bg-amber-50 text-amber-600 border-amber-200' }
-function typeIcon(t)  { return t === 'task' ? '✅' : t === 'call' ? '📞' : '👥' }
-function typeLabel(t) { return t === 'task' ? 'งาน' : t === 'call' ? 'โทร' : t === 'meeting' ? 'นัด' : t }
-function typeClass(t) { return t === 'task' ? 'badge-blue' : t === 'call' ? 'badge-purple' : 'badge-orange' }
+function typeIcon(t)  { return t === 'task' ? '✅' : t === 'call' ? '📞' : t === 'transfer' ? '💸' : '👥' }
+function typeLabel(t) { return t === 'task' ? 'งาน' : t === 'call' ? 'โทร' : t === 'meeting' ? 'นัด' : t === 'transfer' ? 'โอนเงิน' : t }
+function typeClass(t) { return t === 'task' ? 'badge-blue' : t === 'call' ? 'badge-purple' : t === 'transfer' ? 'badge-green' : 'badge-orange' }
 function statusLabel(s) { return s === 'open' ? 'เปิด' : s === 'done' ? 'เสร็จ' : 'ยกเลิก' }
 function statusClass(s) { return s === 'open' ? 'badge-yellow' : s === 'done' ? 'badge-green' : 'badge-red' }
 function callResultLabel(r) {

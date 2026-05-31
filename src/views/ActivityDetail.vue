@@ -160,7 +160,7 @@
             <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
           </svg>
           <div class="flex-1">
-            <template v-if="activity.activity_type === 'task'">
+            <template v-if="activity.activity_type === 'task' || activity.activity_type === 'transfer'">
               <p class="text-xs text-slate-400 font-medium">วันที่ครบกำหนด</p>
               <p class="text-sm font-semibold text-slate-800">{{ fmtDate(activity.due_date) }}</p>
             </template>
@@ -448,13 +448,14 @@ function retrySkippedMessage(retry) {
   return 'บันทึกแล้ว: ไม่ได้สร้างงานโทรซ้ำ'
 }
 
-function typeLabel(t) { return { task: 'งาน', call: 'โทรศัพท์', meeting: 'ประชุม' }[t] || t }
-function typeIcon(t)  { return { task: '✅', call: '📞', meeting: '👥' }[t] || '' }
+function typeLabel(t) { return { task: 'งาน', call: 'โทรศัพท์', meeting: 'ประชุม', transfer: 'โอนเงิน' }[t] || t }
+function typeIcon(t)  { return { task: '✅', call: '📞', meeting: '👥', transfer: '💸' }[t] || '' }
 function typeClass(t) {
   return {
-    task:    'bg-blue-50 border-blue-200 text-blue-700',
-    call:    'bg-orange-50 border-orange-200 text-orange-700',
-    meeting: 'bg-purple-50 border-purple-200 text-purple-700',
+    task:     'bg-blue-50 border-blue-200 text-blue-700',
+    call:     'bg-orange-50 border-orange-200 text-orange-700',
+    meeting:  'bg-purple-50 border-purple-200 text-purple-700',
+    transfer: 'bg-green-50 border-green-200 text-green-700',
   }[t] || 'bg-slate-50 border-slate-200 text-slate-600'
 }
 
