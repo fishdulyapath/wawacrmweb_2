@@ -437,13 +437,12 @@ onMounted(async () => {
 const TZ = 'Asia/Bangkok'
 function fmtDate(v) {
   if (!v) return '-'
+  // รองรับทั้ง DATE string "2026-05-02" และ ISO timestamp "2026-05-01T17:00:00.000Z"
+  // toLocaleDateString + timeZone Bangkok แปลงกลับเป็นวันที่ไทยได้ถูกต้องทั้งสองรูปแบบ
   const d = new Date(typeof v === 'string' && v.length === 10 ? v + 'T00:00:00+07:00' : v)
-  const [day, month, year] = [
-    d.toLocaleDateString('en-GB', { day: '2-digit', timeZone: TZ }),
-    d.toLocaleDateString('en-GB', { month: '2-digit', timeZone: TZ }),
-    d.toLocaleDateString('en-GB', { year: 'numeric', timeZone: TZ }),
-  ]
-  return `${day}/${month}/${year}`
+  return d.toLocaleDateString('en-GB', {
+    day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TZ
+  })
 }
 function fmtDateTime(v) {
   if (!v) return '-'

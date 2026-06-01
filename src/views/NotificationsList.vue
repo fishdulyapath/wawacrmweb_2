@@ -60,7 +60,9 @@
           <p v-if="n.message" class="text-sm text-slate-500 mt-0.5 leading-snug">{{ n.message }}</p>
           <div class="flex items-center gap-2 mt-1">
             <span class="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{{ notiTypeLabel(n.noti_type) }}</span>
-            <span v-if="n.ar_code" class="text-xs text-slate-400">{{ n.ar_code }}</span>
+            <span v-if="n.ar_code" class="text-xs text-slate-400">
+              {{ n.customer_name ? `${n.customer_name} (${n.ar_code})` : n.ar_code }}
+            </span>
             <span v-if="isClickable(n)" class="text-xs text-blue-500">ดูรายละเอียด →</span>
           </div>
         </div>

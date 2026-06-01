@@ -1228,16 +1228,19 @@ async function save() {
       const groupId = crypto.randomUUID()
       const fallbackOwnerId = base.owner_id || null
       const createOwners = ownerList.length > 0 ? ownerList : (fallbackOwnerId ? [fallbackOwnerId] : [])
-      const results = await Promise.all(selectedCustomers.value.map(cust => {
+      // ส่ง sequential (ไม่ใช้ Promise.all) เพื่อป้องกัน duplicate act_no
+      const results = []
+      for (const cust of selectedCustomers.value) {
         const custFallback = customerPrimaryOwnerId(cust)
         const custOwnerIds = customerOwnerIds(cust)
         const finalOwners = createOwners.length > 0 ? createOwners : custOwnerIds
-        return api.post('/activities', {
+        const r = await api.post('/activities', {
           ...rest, ar_code: cust.code, group_id: groupId,
           owners: finalOwners,
           primary_owner_id: base.owner_id || custFallback || null,
         })
-      }))
+        results.push(r)
+      }
       await uploadPendingFiles(results.map(r => r.data.id))
     }
     goBack()
