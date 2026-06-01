@@ -123,7 +123,7 @@
             <circle cx="11" cy="11" r="8" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke-width="2"/>
           </svg>
           <input v-model="searchInput" @input="onSearch"
-            placeholder="ค้นหากิจกรรม/AR/ผู้รับผิดชอบ..."
+            placeholder="ค้นหากิจกรรม/AR/รหัสเอกสาร/ผู้สร้าง/ผู้รับผิดชอบ..."
             class="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
 
@@ -181,7 +181,11 @@
 
           <!-- Row 2: subject -->
           <p class="font-medium text-slate-800 mb-1">{{ a.subject }}</p>
-          <p v-if="a.act_no" class="text-[10px] font-mono text-slate-400 -mt-0.5 mb-1">{{ a.act_no }}</p>
+          <p v-if="a.act_no" class="text-[10px] font-mono text-slate-400 -mt-0.5 mb-0.5">{{ a.act_no }}</p>
+          <p class="text-[10px] text-slate-400 mb-1">
+            สร้างโดย: <span class="font-medium">{{ a.system_created ? 'ระบบ' : (a.created_by_name || '—') }}</span>
+            · {{ relativeDate(a.created_at) }}
+          </p>
 
           <!-- Row 3: customer + owner -->
           <div class="flex items-center gap-2 text-xs text-slate-400 flex-wrap">
@@ -253,14 +257,20 @@
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">หัวข้อ</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-40">ลูกค้า</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">ผู้รับผิดชอบ</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">กำหนด</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">ผู้สร้าง</th>
+              <th @click="toggleSort('due_date')" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-32 cursor-pointer select-none hover:bg-slate-100">
+                กำหนด <span class="ml-0.5 text-slate-400">{{ sortIndicator('due_date') }}</span>
+              </th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">สถานะ</th>
-              <th class="px-4 py-3 " style="width: 365px;"></th>
+              <th @click="toggleSort('created_at')" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-32 cursor-pointer select-none hover:bg-slate-100" style="min-width:120px">
+                ล่าสุด <span class="ml-0.5 text-slate-400">{{ sortIndicator('created_at') }}</span>
+              </th>
+              <th class="px-4 py-3" style="width: 200px;"></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr v-if="!activities.length">
-              <td colspan="8" class="py-12 text-center text-slate-400">ไม่พบกิจกรรม</td>
+              <td colspan="10" class="py-12 text-center text-slate-400">ไม่พบกิจกรรม</td>
             </tr>
             <tr v-for="a in activities" :key="a.id"
                 :class="rowClass(a)"
@@ -327,8 +337,15 @@
                 </div>
               </td>
 
+              <!-- ผู้สร้าง -->
+              <td class="px-4 py-3 text-xs text-slate-500">
+                <span v-if="a.system_created" class="italic text-slate-400">ระบบ</span>
+                <span v-else>{{ a.created_by_name || '—' }}</span>
+              </td>
+
+              <!-- กำหนด (sortable) -->
               <td class="px-4 py-3">
-                <template v-if="a.activity_type !== 'task' && a.start_datetime">
+                <template v-if="a.activity_type !== 'task' && a.activity_type !== 'transfer' && a.start_datetime">
                   <p :class="dueDateClass(a.start_datetime, a.status)" class="text-sm">{{ relativeDate(a.start_datetime) }}</p>
                   <p class="text-xs text-slate-400">{{ formatTime(a.start_datetime) }}</p>
                 </template>
@@ -340,6 +357,11 @@
 
               <td class="px-4 py-3">
                 <span :class="statusClass(a.status)" class="badge">{{ statusLabel(a.status) }}</span>
+              </td>
+
+              <!-- ล่าสุด (sortable) -->
+              <td class="px-4 py-3 text-xs text-slate-500">
+                {{ fmtDateDDMMYYYY(a.created_at) }}
               </td>
 
               <td class="px-4 py-3">
@@ -416,6 +438,8 @@ const pagination = reactive({ total: 0, page: 1, limit: 20, pages: 1 })
 const quickFilter = ref('')
 const typeFilter  = ref([])
 const searchInput = ref('')
+const sortBy  = ref('created_at')
+const sortDir = ref('desc')
 const reportFilter = reactive({ owner_id: '', date_from: '', date_to: '', call_result: '', status: '' })
 const users         = ref([])
 const ownerSearch   = ref('')
@@ -558,6 +582,8 @@ async function loadActivities(page = 1) {
     if (reportFilter.date_to) params.date_to = reportFilter.date_to
     if (reportFilter.call_result) params.call_result = reportFilter.call_result
     if (searchInput.value.trim()) params.search = searchInput.value.trim()
+    params.sort_by  = sortBy.value
+    params.sort_dir = sortDir.value
 
     const { data } = await api.get('/activities', { params })
     activities.value = data.data
@@ -565,6 +591,20 @@ async function loadActivities(page = 1) {
     Object.assign(pagination, pg)
   } catch (err) { console.error(err) }
   finally { loading.value = false }
+}
+
+function toggleSort(field) {
+  if (sortBy.value === field) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortBy.value  = field
+    sortDir.value = field === 'created_at' ? 'desc' : 'asc'
+  }
+  loadActivities(1)
+}
+function sortIndicator(field) {
+  if (sortBy.value !== field) return '↕'
+  return sortDir.value === 'asc' ? '↑' : '↓'
 }
 
 // ── Helpers ──────────────────────────────────────────────────
