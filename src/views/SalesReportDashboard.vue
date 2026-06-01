@@ -179,7 +179,7 @@
 
         <!-- Doughnut top customers -->
         <div class="bg-white rounded-xl border border-slate-200 p-4">
-          <h3 class="text-sm font-semibold text-slate-700 mb-3">Top 5 ลูกค้า</h3>
+          <h3 class="text-sm font-semibold text-slate-700 mb-3">Top 10 ลูกค้า</h3>
           <div class="h-40 flex items-center justify-center">
             <Doughnut v-if="topCustChartData.labels.length" :data="topCustChartData" :options="doughnutOpts" />
             <span v-else class="text-slate-400 text-sm">ไม่มีข้อมูล</span>
@@ -195,12 +195,12 @@
         </div>
       </div>
 
-      <!-- TOP 5 Charts row -->
+      <!-- TOP 10 Charts row -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
 
-        <!-- TOP 5 สินค้าขายดี -->
+        <!-- TOP 10 สินค้าขายดี -->
         <div class="bg-white rounded-xl border border-slate-200 p-4">
-          <h3 class="text-sm font-semibold text-slate-700 mb-3">TOP 5 สินค้าขายดี</h3>
+          <h3 class="text-sm font-semibold text-slate-700 mb-3">TOP 10 สินค้าขายดี</h3>
           <div v-if="loadingRanking" class="h-40 flex items-center justify-center">
             <svg class="w-5 h-5 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -224,9 +224,9 @@
           </template>
         </div>
 
-        <!-- TOP 5 ทีมงานขาย -->
+        <!-- TOP 10 ทีมงานขาย -->
         <div class="bg-white rounded-xl border border-slate-200 p-4">
-          <h3 class="text-sm font-semibold text-slate-700 mb-3">TOP 5 ทีมงานขาย</h3>
+          <h3 class="text-sm font-semibold text-slate-700 mb-3">TOP 10 ทีมงานขาย</h3>
           <div v-if="loadingRanking" class="h-40 flex items-center justify-center">
             <svg class="w-5 h-5 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -324,6 +324,14 @@
           <h3 class="text-sm font-semibold text-slate-700">ยอดขายแยกตามลูกค้า</h3>
           <span class="text-xs text-slate-400">{{ customerData.length }} ลูกค้า</span>
         </div>
+        <div class="px-4 py-3 border-b border-slate-100">
+          <input
+            v-model="customerFilter.q"
+            @input="customerDebounce"
+            class="filter-input w-full sm:w-80"
+            placeholder="ค้นหาตามรหัสลูกค้า / ชื่อลูกค้า..."
+          />
+        </div>
         <div v-if="loadingTable" class="py-12 flex justify-center">
           <svg class="w-6 h-6 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -337,16 +345,28 @@
                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">#</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">รหัสลูกค้า</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">ชื่อลูกค้า</th>
-                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">จำนวนใบ</th>
-                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">ยอดรวม (บาท)</th>
-                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">เฉลี่ย/ใบ</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">
+                  <button type="button" @click="toggleSalesSort(customerSort, 'total_orders')" class="inline-flex items-center gap-1 hover:text-blue-600">
+                    จำนวนใบ <span class="text-[10px]">{{ sortMark(customerSort, 'total_orders') }}</span>
+                  </button>
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">
+                  <button type="button" @click="toggleSalesSort(customerSort, 'total_amount')" class="inline-flex items-center gap-1 hover:text-blue-600">
+                    ยอดรวม (บาท) <span class="text-[10px]">{{ sortMark(customerSort, 'total_amount') }}</span>
+                  </button>
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">
+                  <button type="button" @click="toggleSalesSort(customerSort, 'avg_amount')" class="inline-flex items-center gap-1 hover:text-blue-600">
+                    เฉลี่ย/ใบ <span class="text-[10px]">{{ sortMark(customerSort, 'avg_amount') }}</span>
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-if="!customerData.length">
                 <td colspan="6" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูล</td>
               </tr>
-              <tr v-for="(r, i) in customerData" :key="r.cust_code" class="hover:bg-slate-50">
+              <tr v-for="(r, i) in sortedCustomerData" :key="r.cust_code" class="hover:bg-slate-50">
                 <td class="px-4 py-3 text-xs text-slate-400">{{ i + 1 }}</td>
                 <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ r.cust_code }}</td>
                 <td class="px-4 py-3 text-sm text-slate-700 font-medium">{{ r.cust_name || '—' }}</td>
@@ -367,6 +387,14 @@
           <h3 class="text-sm font-semibold text-slate-700">ยอดขายแยกตามพนักงาน</h3>
           <span class="text-xs text-slate-400">{{ salespersonData.length }} พนักงาน</span>
         </div>
+        <div class="px-4 py-3 border-b border-slate-100">
+          <input
+            v-model="salespersonFilter.q"
+            @input="salespersonDebounce"
+            class="filter-input w-full sm:w-80"
+            placeholder="ค้นหาตามรหัสพนักงาน / ชื่อพนักงาน..."
+          />
+        </div>
         <div v-if="loadingTable" class="py-12 flex justify-center">
           <svg class="w-6 h-6 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -380,22 +408,198 @@
                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">#</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">รหัสพนักงาน</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">ชื่อพนักงาน</th>
-                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">จำนวนใบ</th>
-                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">ยอดรวม (บาท)</th>
-                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">เฉลี่ย/ใบ</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">
+                  <button type="button" @click="toggleSalesSort(salespersonSort, 'total_orders')" class="inline-flex items-center gap-1 hover:text-blue-600">
+                    จำนวนใบ <span class="text-[10px]">{{ sortMark(salespersonSort, 'total_orders') }}</span>
+                  </button>
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">
+                  <button type="button" @click="toggleSalesSort(salespersonSort, 'total_amount')" class="inline-flex items-center gap-1 hover:text-blue-600">
+                    ยอดรวม (บาท) <span class="text-[10px]">{{ sortMark(salespersonSort, 'total_amount') }}</span>
+                  </button>
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">
+                  <button type="button" @click="toggleSalesSort(salespersonSort, 'avg_amount')" class="inline-flex items-center gap-1 hover:text-blue-600">
+                    เฉลี่ย/ใบ <span class="text-[10px]">{{ sortMark(salespersonSort, 'avg_amount') }}</span>
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-if="!salespersonData.length">
                 <td colspan="6" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูล</td>
               </tr>
-              <tr v-for="(r, i) in salespersonData" :key="r.sale_code" class="hover:bg-slate-50">
+              <tr v-for="(r, i) in sortedSalespersonData" :key="r.sale_code" class="hover:bg-slate-50">
                 <td class="px-4 py-3 text-xs text-slate-400">{{ i + 1 }}</td>
                 <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ r.sale_code }}</td>
                 <td class="px-4 py-3 text-sm text-slate-700 font-medium">{{ r.sale_name || '—' }}</td>
                 <td class="px-4 py-3 text-right text-sm text-slate-600">{{ r.total_orders.toLocaleString() }}</td>
                 <td class="px-4 py-3 text-right text-sm font-semibold text-slate-800">{{ fmtAmount(r.total_amount) }}</td>
                 <td class="px-4 py-3 text-right text-sm text-slate-500">{{ fmtAmount(r.avg_amount) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div v-show="activeTab === 'by_category'" class="space-y-3">
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="flex flex-wrap items-center gap-2">
+          <input
+            v-model="categoryFilter.q"
+            @input="categoryDebounce"
+            class="filter-input w-full sm:w-80"
+            placeholder="ค้นหาตามรหัสหมวด / ชื่อหมวด..."
+          />
+          <span class="text-xs text-slate-400">โหลดครั้งละ 50 รายการ</span>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-slate-700">ยอดขายแยกตามหมวดสินค้า</h3>
+          <span class="text-xs text-slate-400">
+            แสดง {{ categoryData.length.toLocaleString() }} / {{ categoryPag.total.toLocaleString() }} รายการ
+          </span>
+        </div>
+        <div
+          class="max-h-[620px] overflow-y-auto overflow-x-auto"
+          @scroll.passive="handleCategoryScroll"
+        >
+          <table class="w-full text-sm min-w-[760px]">
+            <thead class="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">#</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">รหัสหมวด</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">ชื่อหมวด</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">
+                  <button type="button" @click="toggleSalesSort(categorySort, 'item_count')" class="inline-flex items-center gap-1 hover:text-blue-600">
+                    จำนวนสินค้า <span class="text-[10px]">{{ sortMark(categorySort, 'item_count') }}</span>
+                  </button>
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">
+                  <button type="button" @click="toggleSalesSort(categorySort, 'total_qty')" class="inline-flex items-center gap-1 hover:text-blue-600">
+                    จำนวน <span class="text-[10px]">{{ sortMark(categorySort, 'total_qty') }}</span>
+                  </button>
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">
+                  <button type="button" @click="toggleSalesSort(categorySort, 'doc_count')" class="inline-flex items-center gap-1 hover:text-blue-600">
+                    จำนวนบิล <span class="text-[10px]">{{ sortMark(categorySort, 'doc_count') }}</span>
+                  </button>
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">
+                  <button type="button" @click="toggleSalesSort(categorySort, 'total_amount')" class="inline-flex items-center gap-1 hover:text-blue-600">
+                    ยอดรวม <span class="text-[10px]">{{ sortMark(categorySort, 'total_amount') }}</span>
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr v-if="!categoryData.length && !loadingCategories">
+                <td colspan="7" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูล</td>
+              </tr>
+              <tr v-for="(r, i) in sortedCategoryData" :key="r.category_code" class="hover:bg-slate-50">
+                <td class="px-4 py-3 text-xs text-slate-400">{{ i + 1 }}</td>
+                <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ r.category_code }}</td>
+                <td class="px-4 py-3 text-sm text-slate-700 font-medium">{{ r.category_name || '-' }}</td>
+                <td class="px-4 py-3 text-right text-sm text-slate-600">{{ r.item_count.toLocaleString() }}</td>
+                <td class="px-4 py-3 text-right text-sm text-slate-600">{{ fmtAmount(r.total_qty) }}</td>
+                <td class="px-4 py-3 text-right text-sm text-slate-600">{{ r.doc_count.toLocaleString() }}</td>
+                <td class="px-4 py-3 text-right text-sm font-semibold text-slate-800">{{ fmtAmount(r.total_amount) }}</td>
+              </tr>
+              <tr v-if="loadingCategories">
+                <td colspan="7" class="py-5 text-center text-slate-400 text-sm">
+                  กำลังโหลดข้อมูล...
+                </td>
+              </tr>
+              <tr v-else-if="categoryData.length && !categoryHasMore">
+                <td colspan="7" class="py-4 text-center text-slate-400 text-xs">
+                  แสดงครบแล้ว
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div v-show="activeTab === 'by_product'" class="space-y-3">
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="flex flex-wrap items-center gap-2">
+          <input
+            v-model="productFilter.q"
+            @input="productDebounce"
+            class="filter-input w-full sm:w-80"
+            placeholder="ค้นหาตามรหัสสินค้า / ชื่อสินค้า..."
+          />
+          <span class="text-xs text-slate-400">โหลดครั้งละ 50 รายการ</span>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-slate-700">ยอดขายแยกตามสินค้า</h3>
+          <span class="text-xs text-slate-400">
+            แสดง {{ productData.length.toLocaleString() }} / {{ productPag.total.toLocaleString() }} รายการ
+          </span>
+        </div>
+        <div
+          class="max-h-[620px] overflow-y-auto overflow-x-auto"
+          @scroll.passive="handleProductScroll"
+        >
+          <table class="w-full text-sm min-w-[760px]">
+            <thead class="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">#</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">รหัสสินค้า</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">ชื่อสินค้า</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">หน่วย</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">
+                  <button type="button" @click="toggleSalesSort(productSort, 'total_qty')" class="inline-flex items-center gap-1 hover:text-blue-600">
+                    จำนวน <span class="text-[10px]">{{ sortMark(productSort, 'total_qty') }}</span>
+                  </button>
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">
+                  <button type="button" @click="toggleSalesSort(productSort, 'doc_count')" class="inline-flex items-center gap-1 hover:text-blue-600">
+                    จำนวนบิล <span class="text-[10px]">{{ sortMark(productSort, 'doc_count') }}</span>
+                  </button>
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">
+                  <button type="button" @click="toggleSalesSort(productSort, 'avg_price')" class="inline-flex items-center gap-1 hover:text-blue-600">
+                    ราคาเฉลี่ย <span class="text-[10px]">{{ sortMark(productSort, 'avg_price') }}</span>
+                  </button>
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">
+                  <button type="button" @click="toggleSalesSort(productSort, 'total_amount')" class="inline-flex items-center gap-1 hover:text-blue-600">
+                    ยอดรวม <span class="text-[10px]">{{ sortMark(productSort, 'total_amount') }}</span>
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr v-if="!productData.length && !loadingProducts">
+                <td colspan="8" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูล</td>
+              </tr>
+              <tr v-for="(r, i) in sortedProductData" :key="`${r.item_code}-${r.item_name}-${r.unit_code}`" class="hover:bg-slate-50">
+                <td class="px-4 py-3 text-xs text-slate-400">{{ i + 1 }}</td>
+                <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ r.item_code }}</td>
+                <td class="px-4 py-3 text-sm text-slate-700 font-medium">{{ r.item_name || '-' }}</td>
+                <td class="px-4 py-3 text-xs text-slate-500">{{ r.unit_code || '-' }}</td>
+                <td class="px-4 py-3 text-right text-sm text-slate-600">{{ fmtAmount(r.total_qty) }}</td>
+                <td class="px-4 py-3 text-right text-sm text-slate-600">{{ r.doc_count.toLocaleString() }}</td>
+                <td class="px-4 py-3 text-right text-sm text-slate-500">{{ fmtAmount(r.avg_price) }}</td>
+                <td class="px-4 py-3 text-right text-sm font-semibold text-slate-800">{{ fmtAmount(r.total_amount) }}</td>
+              </tr>
+              <tr v-if="loadingProducts">
+                <td colspan="8" class="py-5 text-center text-slate-400 text-sm">
+                  กำลังโหลดข้อมูล...
+                </td>
+              </tr>
+              <tr v-else-if="productData.length && !productHasMore">
+                <td colspan="8" class="py-4 text-center text-slate-400 text-xs">
+                  แสดงครบแล้ว
+                </td>
               </tr>
             </tbody>
           </table>
@@ -678,6 +882,8 @@ const tabs = [
   { key: 'overview',       label: 'ภาพรวม' },
   { key: 'by_customer',    label: 'แยกตามลูกค้า' },
   { key: 'by_salesperson', label: 'แยกตามพนักงาน' },
+  { key: 'by_category',    label: 'แยกตามหมวด' },
+  { key: 'by_product',     label: 'แยกตามสินค้า' },
   { key: 'transactions',   label: 'รายการขาย' },
   { key: 'map',            label: 'แผนที่' },
 ]
@@ -697,13 +903,27 @@ const chartColors = ['#3b82f6','#f97316','#8b5cf6','#10b981','#f59e0b']
 
 const filter        = reactive({ date_from: '', date_to: '', sale_code: '' })
 const txFilter      = reactive({ doc_no: '', sale_code: '', cust_code: '' })
+const customerFilter = reactive({ q: '' })
+const salespersonFilter = reactive({ q: '' })
+const categoryFilter = reactive({ q: '' })
+const productFilter = reactive({ q: '' })
+const customerSort = reactive({ key: 'total_amount', dir: 'desc' })
+const salespersonSort = reactive({ key: 'total_amount', dir: 'desc' })
+const categorySort = reactive({ key: 'total_amount', dir: 'desc' })
+const productSort = reactive({ key: 'total_amount', dir: 'desc' })
 
 const summary         = ref({})
 const trendData       = ref([])
 const customerData    = ref([])
 const salespersonData = ref([])
+const categoryData    = ref([])
+const productData     = ref([])
 const transactions    = ref([])
 const txPag           = reactive({ total: 0, page: 1, pages: 1, limit: 20 })
+const categoryPag     = reactive({ total: 0, page: 1, pages: 1, limit: 50 })
+const productPag      = reactive({ total: 0, page: 1, pages: 1, limit: 50 })
+const loadingCategories = ref(false)
+const loadingProducts = ref(false)
 const salespeople     = ref([])
 const saleSearch      = ref('')
 const saleDropOpen    = ref(false)
@@ -716,6 +936,35 @@ const filteredSalespeople = computed(() => {
     (e.code  || '').toLowerCase().includes(q)
   )
 })
+const categoryHasMore = computed(() => categoryData.value.length < categoryPag.total)
+const productHasMore = computed(() => productData.value.length < productPag.total)
+const sortedCustomerData = computed(() => sortRows(customerData.value, customerSort))
+const sortedSalespersonData = computed(() => sortRows(salespersonData.value, salespersonSort))
+const sortedCategoryData = computed(() => sortRows(categoryData.value, categorySort))
+const sortedProductData = computed(() => sortRows(productData.value, productSort))
+
+function sortRows(rows, sort) {
+  const direction = sort.dir === 'asc' ? 1 : -1
+  return [...rows].sort((a, b) => {
+    const av = Number(a?.[sort.key] || 0)
+    const bv = Number(b?.[sort.key] || 0)
+    return (av - bv) * direction
+  })
+}
+
+function toggleSalesSort(sort, key) {
+  if (sort.key === key) {
+    sort.dir = sort.dir === 'desc' ? 'asc' : 'desc'
+  } else {
+    sort.key = key
+    sort.dir = 'desc'
+  }
+}
+
+function sortMark(sort, key) {
+  if (sort.key !== key) return '↕'
+  return sort.dir === 'desc' ? '↓' : '↑'
+}
 
 function selectSalesperson(e) {
   filter.sale_code = e.code
@@ -742,7 +991,7 @@ function saveTarget() {
   localStorage.setItem('crm_sales_target', String(parseFloat(targetInput.value) || 0))
 }
 
-// ── Ranking (TOP 5) ───────────────────────────────────────────
+// ── Ranking (TOP 10) ──────────────────────────────────────────
 const loadingRanking      = ref(false)
 const topProducts         = ref([])
 const topSalespeopleRanking = ref([])
@@ -790,8 +1039,8 @@ async function loadRanking() {
   loadingRanking.value = true
   const params = buildParams()
   const [prod, sale] = await Promise.all([
-    api.get('/sales/top-products',    { params: { ...params, limit: 5 } }).then(r => r.data).catch(() => []),
-    api.get('/sales/top-salespeople', { params: { ...params, limit: 5 } }).then(r => r.data).catch(() => []),
+    api.get('/sales/top-products',    { params: { ...params, limit: 10 } }).then(r => r.data).catch(() => []),
+    api.get('/sales/top-salespeople', { params: { ...params, limit: 10 } }).then(r => r.data).catch(() => []),
   ])
   topProducts.value          = prod
   topSalespeopleRanking.value = sale
@@ -835,8 +1084,12 @@ async function load() {
   // reset lazy-loaded tabs
   customerData.value    = []
   salespersonData.value = []
+  categoryData.value    = []
+  productData.value     = []
   transactions.value    = []
   txPag.total = 0; txPag.page = 1; txPag.pages = 1
+  categoryPag.total = 0; categoryPag.page = 1; categoryPag.pages = 1
+  productPag.total = 0; productPag.page = 1; productPag.pages = 1
 
   const [s, t] = await Promise.all([
     api.get('/sales/summary', { params: buildParams() }).then(r => r.data).catch(() => ({})),
@@ -850,6 +1103,8 @@ async function load() {
   // reload current tab if lazy
   if (activeTab.value === 'by_customer')    loadCustomerTab()
   if (activeTab.value === 'by_salesperson') loadSalespersonTab()
+  if (activeTab.value === 'by_category')    loadCategories(1, true)
+  if (activeTab.value === 'by_product')     loadProducts(1, true)
   if (activeTab.value === 'transactions')   loadTransactions(1)
   if (activeTab.value === 'map')            loadMap()
   // reset map data so next visit to map tab re-fetches
@@ -864,16 +1119,74 @@ async function loadTrend() {
 
 async function loadCustomerTab() {
   loadingTable.value = true
-  customerData.value = await api.get('/sales/by-customer', { params: buildParams() })
+  customerData.value = await api.get('/sales/by-customer', {
+    params: buildParams({ q: customerFilter.q.trim() || undefined }),
+  })
     .then(r => r.data).catch(() => [])
   loadingTable.value = false
 }
 
 async function loadSalespersonTab() {
   loadingTable.value = true
-  salespersonData.value = await api.get('/sales/by-salesperson', { params: { date_from: filter.date_from, date_to: filter.date_to } })
+  salespersonData.value = await api.get('/sales/by-salesperson', {
+    params: {
+      date_from: filter.date_from,
+      date_to: filter.date_to,
+      q: salespersonFilter.q.trim() || undefined,
+    },
+  })
     .then(r => r.data).catch(() => [])
   loadingTable.value = false
+}
+
+async function loadCategories(page = 1, reset = false) {
+  if (loadingCategories.value) return
+  loadingCategories.value = true
+  const params = {
+    ...buildParams(),
+    q: categoryFilter.q.trim() || undefined,
+    page,
+    limit: categoryPag.limit,
+  }
+  const res = await api.get('/sales/by-category', { params })
+    .then(r => r.data).catch(() => ({ data: [], pagination: {} }))
+  categoryData.value = reset ? (res.data || []) : categoryData.value.concat(res.data || [])
+  if (res.pagination) Object.assign(categoryPag, res.pagination)
+  categoryPag.page = page
+  loadingCategories.value = false
+}
+
+function handleCategoryScroll(e) {
+  const el = e.target
+  if (!categoryHasMore.value || loadingCategories.value) return
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+    loadCategories(categoryPag.page + 1)
+  }
+}
+
+async function loadProducts(page = 1, reset = false) {
+  if (loadingProducts.value) return
+  loadingProducts.value = true
+  const params = {
+    ...buildParams(),
+    q: productFilter.q.trim() || undefined,
+    page,
+    limit: productPag.limit,
+  }
+  const res = await api.get('/sales/by-product', { params })
+    .then(r => r.data).catch(() => ({ data: [], pagination: {} }))
+  productData.value = reset ? (res.data || []) : productData.value.concat(res.data || [])
+  if (res.pagination) Object.assign(productPag, res.pagination)
+  productPag.page = page
+  loadingProducts.value = false
+}
+
+function handleProductScroll(e) {
+  const el = e.target
+  if (!productHasMore.value || loadingProducts.value) return
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+    loadProducts(productPag.page + 1)
+  }
 }
 
 async function loadTransactions(page = 1) {
@@ -909,6 +1222,30 @@ let txTimer = null
 function txDebounce() {
   clearTimeout(txTimer)
   txTimer = setTimeout(() => loadTransactions(1), 350)
+}
+
+let customerTimer = null
+function customerDebounce() {
+  clearTimeout(customerTimer)
+  customerTimer = setTimeout(() => loadCustomerTab(), 350)
+}
+
+let salespersonTimer = null
+function salespersonDebounce() {
+  clearTimeout(salespersonTimer)
+  salespersonTimer = setTimeout(() => loadSalespersonTab(), 350)
+}
+
+let productTimer = null
+function productDebounce() {
+  clearTimeout(productTimer)
+  productTimer = setTimeout(() => loadProducts(1, true), 350)
+}
+
+let categoryTimer = null
+function categoryDebounce() {
+  clearTimeout(categoryTimer)
+  categoryTimer = setTimeout(() => loadCategories(1, true), 350)
 }
 
 // ── Map ───────────────────────────────────────────────────────
@@ -999,6 +1336,8 @@ function renderLeaflet() {
 watch(activeTab, t => {
   if (t === 'by_customer'    && !customerData.value.length)    loadCustomerTab()
   if (t === 'by_salesperson' && !salespersonData.value.length) loadSalespersonTab()
+  if (t === 'by_category'    && !categoryData.value.length)    loadCategories(1, true)
+  if (t === 'by_product'     && !productData.value.length)     loadProducts(1, true)
   if (t === 'transactions'   && !transactions.value.length)    loadTransactions(1)
   if (t === 'map'            && !mapMarkers.value.length)      loadMap()
 })
