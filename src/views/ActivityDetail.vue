@@ -40,6 +40,14 @@
         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-green-100 text-green-700 text-sm font-medium">
         ✓ ส่งแล้ว
       </span>
+      <!-- ปุ่มติดตาม -->
+      <button v-if="activity" @click="toggleFollow"
+        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+        :class="isFollowing
+          ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+          : 'bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200'">
+        {{ isFollowing ? '🔔 ติดตามแล้ว' : '🔕 ติดตาม' }}
+      </button>
       <RouterLink v-if="canEdit" :to="`/activities/${activityId}/edit`"
         class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-200 transition-colors">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -354,6 +362,16 @@ function openCloseModal() {
   closeModal.show = true
 }
 
+async function toggleFollow() {
+  try {
+    const { data } = await api.post(`/activities/${activityId.value}/follow`)
+    isFollowing.value = data.following
+    showToast('success', data.following ? 'ติดตามกิจกรรมแล้ว' : 'เลิกติดตามกิจกรรมแล้ว')
+  } catch (e) {
+    showToast('error', e.response?.data?.error || 'เกิดข้อผิดพลาด')
+  }
+}
+
 function canCloseActivity(act) {
   return !act?.requires_owner_assignment
 }
@@ -384,11 +402,13 @@ function onActivityDone(doneActivity) {
 
 const activity   = ref(null)
 const contactors = ref([])
+const isFollowing = ref(false)
 
 onMounted(async () => {
   try {
     const { data } = await api.get(`/activities/${activityId.value}`)
     activity.value = data
+    isFollowing.value = data.is_following ?? false
     // โหลด customer_name + contactors ถ้ามี ar_code
     if (data.ar_code) {
       try {
