@@ -545,7 +545,11 @@ const hasFilter = computed(() =>
   || Object.values(reportFilter).some(Boolean)
 )
 
-function setQuickFilter(key) { quickFilter.value = key; loadActivities(1) }
+function setQuickFilter(key) {
+  reportFilter.status = ''
+  quickFilter.value = key
+  loadActivities(1)
+}
 function toggleType(val) {
   typeFilter.value = typeFilter.value.includes(val) ? [] : [val]
   loadActivities(1)
@@ -567,14 +571,12 @@ async function loadActivities(page = 1) {
   loading.value = true
   try {
     const params = { page, limit: pagination.limit }
-    const hasReportFilter = Object.values(reportFilter).some(Boolean)
     if (reportFilter.status) params.status = reportFilter.status
     else if (quickFilter.value === 'done') params.status = 'done'
     else if (quickFilter.value === 'unassigned') params.unassigned = 'true'
     else if (['overdue', 'today', 'week'].includes(quickFilter.value)) { params.due = quickFilter.value }
     else if (quickFilter.value === 'meeting') { params.type = 'meeting'; params.due = 'today' }
     else if (quickFilter.value === 'all') {}
-    else if (hasReportFilter) {}
     else { params.status = 'open' }
     if (typeFilter.value.length === 1) params.type = typeFilter.value[0]
     if (reportFilter.owner_id) params.owner_id = reportFilter.owner_id
