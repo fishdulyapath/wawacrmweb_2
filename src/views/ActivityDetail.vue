@@ -305,7 +305,7 @@
       <div class="mt-4">
         <ActivityComments
           :activity-id="activityId"
-          :can-comment="!['done','cancelled'].includes(activity?.derived_status)"
+          :can-comment="!['done','cancelled'].includes(activity?.status)"
         />
       </div>
     </template>
