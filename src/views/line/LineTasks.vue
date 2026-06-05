@@ -433,7 +433,7 @@ function callResultLabel(r) {
 
 function callResultClass(r) {
   if (r === 'answered') return 'result-green'
-  if (r === 'no_answer' || r === 'busy') return 'result-red'
+  if (r === 'no_answer' || r === 'busy' || r === 'left_voicemail') return 'result-red'
   return 'result-gray'
 }
 

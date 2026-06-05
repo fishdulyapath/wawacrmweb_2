@@ -13,7 +13,7 @@
           </span>
         </div>
         <p class="mt-1 max-w-3xl text-sm text-slate-500">
-          กำหนดรอบโทรติดตาม การสร้างงานอัตโนมัติ และกติกาโทรซ้ำเมื่อลูกค้าไม่รับสาย
+          กำหนดรอบโทรติดตาม การสร้างงานอัตโนมัติ และกติกาโทรซ้ำเมื่อยังติดต่อไม่ได้
         </p>
       </div>
 
@@ -235,8 +235,8 @@
 
             <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
               <div>
-                <h3 class="text-sm font-semibold text-slate-800">โทรซ้ำเมื่อไม่รับสาย</h3>
-                <p class="mt-1 text-sm text-slate-500">ใช้เมื่อปิดงานด้วยผลลัพธ์ไม่รับสายและต้องติดตามซ้ำในวันเดียวกัน</p>
+                <h3 class="text-sm font-semibold text-slate-800">โทรซ้ำเมื่อยังติดต่อไม่ได้</h3>
+                <p class="mt-1 text-sm text-slate-500">ใช้เมื่อปิดงานด้วยผลลัพธ์ไม่รับสาย สายไม่ว่าง หรือฝากข้อความ และต้องติดตามซ้ำในวันเดียวกัน</p>
               </div>
               <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>

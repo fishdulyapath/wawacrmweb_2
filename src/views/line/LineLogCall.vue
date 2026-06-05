@@ -96,7 +96,7 @@
       </div>
 
       <!-- Followup -->
-      <div class="form-section" v-if="form.call_status === 'no_answer' || form.call_status === 'callback'">
+      <div class="form-section" v-if="retryCallStatuses.has(form.call_status) || form.call_status === 'callback'">
         <p class="section-label">📅 นัด Follow-up</p>
         <DateInput v-model="form.followup_date" class="form-input"/>
         <p class="form-hint">ระบบจะสร้าง Task ให้อัตโนมัติ</p>
@@ -212,8 +212,10 @@ const callStatuses = [
   { key: 'answered',  label: 'ติดต่อได้',     icon: '✅', color: '#059669' },
   { key: 'no_answer', label: 'ไม่รับสาย',      icon: '📵', color: '#ef4444' },
   { key: 'callback',  label: 'โทรกลับทีหลัง',  icon: '🔄', color: '#f59e0b' },
-  { key: 'busy',      label: 'สายไม่ว่าง',     icon: '📶', color: '#8b5cf6' }
+  { key: 'busy',      label: 'สายไม่ว่าง',     icon: '📶', color: '#8b5cf6' },
+  { key: 'left_voicemail', label: 'ฝากข้อความ', icon: '📨', color: '#f97316' }
 ]
+const retryCallStatuses = new Set(['no_answer', 'busy', 'left_voicemail'])
 
 // ── Methods ───────────────────────────────────────────────
 function onCustomerSearch() {
@@ -255,6 +257,7 @@ async function submit() {
   if (saving.value || !form.call_status || !form.phone_number) return
   saving.value = true
   try {
+    const hasManualFollowup = !!form.followup_date && (retryCallStatuses.has(form.call_status) || form.call_status === 'callback')
     await liffApi.post('/line/log-call', {
       ar_code:       form.ar_code,
       phone_number:  form.phone_number,
@@ -274,12 +277,13 @@ async function submit() {
         call_phone:    form.phone_number,
         duration_sec:  (form.duration_min || 0) * 60,
         description:   form.notes,
-        status:        'done'
+        status:        'done',
+        skip_retry_today: hasManualFollowup
       })
     }
 
-    // สร้าง Follow-up Task อัตโนมัติถ้าไม่รับสาย
-    if (form.followup_date && (form.call_status === 'no_answer' || form.call_status === 'callback')) {
+    // สร้าง Follow-up Task อัตโนมัติเมื่อยังติดต่อไม่ได้หรือขอโทรกลับ
+    if (hasManualFollowup) {
       await liffApi.post('/liff/quick-activity', {
         ar_code:       form.ar_code,
         activity_type: 'task',
@@ -287,6 +291,7 @@ async function submit() {
         due_date:      form.followup_date,
         priority:      'normal',
         status:        'open',
+        followup_type: 'scheduled',
         description:   `Follow-up หลังโทร ${new Date().toLocaleDateString('th-TH')}: ${form.notes}`
       })
       savedMessage.value = 'บันทึกการโทรและสร้าง Task Follow-up แล้ว'

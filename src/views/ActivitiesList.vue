@@ -454,7 +454,12 @@ const filteredUsers = computed(() => {
 
 function onOwnerSearchInput() {
   ownerDropdown.value = true
-  if (selectedUser.value?.name !== ownerSearch.value) reportFilter.owner_id = ''
+  if (selectedUser.value?.name !== ownerSearch.value && reportFilter.owner_id) {
+    selectedUser.value = null
+    reportFilter.owner_id = ''
+    clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => Promise.all([loadActivities(1), loadStats()]), 300)
+  }
 }
 function hideOwnerDropdown() { setTimeout(() => { ownerDropdown.value = false }, 150) }
 function selectOwner(u) {
@@ -462,11 +467,11 @@ function selectOwner(u) {
   ownerSearch.value = u?.name || ''
   reportFilter.owner_id = u ? String(u.id) : ''
   ownerDropdown.value = false
-  loadActivities(1)
+  Promise.all([loadActivities(1), loadStats()])
 }
 function clearOwnerFilter() {
   selectedUser.value = null; ownerSearch.value = ''; reportFilter.owner_id = ''
-  loadActivities(1)
+  Promise.all([loadActivities(1), loadStats()])
 }
 let searchTimer   = null
 
@@ -558,13 +563,18 @@ function clearFilter() {
   quickFilter.value = ''; typeFilter.value = []; searchInput.value = ''
   ownerSearch.value = ''; selectedUser.value = null
   Object.assign(reportFilter, { owner_id: '', date_from: '', date_to: '', call_result: '', status: '' })
-  loadActivities(1)
+  Promise.all([loadActivities(1), loadStats()])
 }
 function onSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadActivities(1), 300) }
 
 // ── Data loading ─────────────────────────────────────────────
 async function loadStats() {
-  try { const { data } = await api.get('/activities/stats'); stats.value = data } catch {}
+  try {
+    const params = {}
+    if (reportFilter.owner_id) params.owner_id = reportFilter.owner_id
+    const { data } = await api.get('/activities/stats', { params })
+    stats.value = data
+  } catch {}
 }
 
 async function loadActivities(page = 1) {
@@ -763,11 +773,11 @@ function clearReportFilterState() {
 
 watch(() => route.query, (query) => {
   if (query.report) {
-    if (syncReportFilter(query)) loadActivities(1)
+    if (syncReportFilter(query)) Promise.all([loadActivities(1), loadStats()])
     return
   }
   const reportChanged = clearReportFilterState()
-  if (syncQueueFilter(query.queue) || reportChanged) loadActivities(1)
+  if (syncQueueFilter(query.queue) || reportChanged) Promise.all([loadActivities(1), loadStats()])
 })
 
 onMounted(() => {

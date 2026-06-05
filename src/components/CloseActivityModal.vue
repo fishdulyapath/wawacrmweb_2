@@ -76,7 +76,7 @@
                 </div>
               </div>
 
-              <div v-if="form.call_result === 'no_answer'" class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 space-y-2">
+              <div v-if="shouldCreateRetry" class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 space-y-2">
                 <label class="flex items-start gap-2 cursor-pointer">
                   <input v-model="form.skip_retry_today" type="checkbox" class="mt-0.5" />
                   <span>
@@ -271,6 +271,8 @@ const cdrList     = ref([])
 const cdrLoading  = ref(false)
 const cdrError    = ref('')
 const selectedCdr = ref(null)
+const retryCallResults = new Set(['no_answer', 'busy', 'left_voicemail'])
+const shouldCreateRetry = computed(() => retryCallResults.has(form.call_result))
 
 const confirmDisabled = computed(() => {
   if (saving.value) return true
@@ -427,7 +429,7 @@ async function confirmClose() {
       if (form.cdr_recording_url) payload.cdr_recording_url = form.cdr_recording_url
       if (form.cdr_start_stamp)   payload.cdr_start_stamp   = form.cdr_start_stamp
       if (form.cdr_end_stamp)     payload.cdr_end_stamp     = form.cdr_end_stamp
-      if (form.call_result === 'no_answer') payload.skip_retry_today = !!form.skip_retry_today
+      if (retryCallResults.has(form.call_result)) payload.skip_retry_today = !!form.skip_retry_today
     }
     if (act.activity_type === 'meeting' && form.meeting_result) {
       const label = meetingStatuses.find(s => s.key === form.meeting_result)?.label || ''
