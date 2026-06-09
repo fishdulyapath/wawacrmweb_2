@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 lg:p-6 max-w-7xl mx-auto space-y-4">
+  <div class="p-4 lg:p-6 max-w-8xl mx-auto space-y-4">
 
     <!-- Header -->
     <div class="flex items-center justify-between">
@@ -710,7 +710,7 @@
               <span class="ml-2">{{ mapMarkers.length }} ลูกค้า</span>
             </div>
           </div>
-          <div id="sales-map" style="height:520px;width:100%"></div>
+          <div id="sales-map" style="height:680px;width:100%"></div>
         </div>
 
         <!-- District rank -->
