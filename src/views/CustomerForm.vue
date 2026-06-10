@@ -755,7 +755,7 @@
                     <p class="text-xs font-medium text-green-700 mb-1">📋 ผลลัพธ์</p>
                     <p class="text-sm text-green-800 whitespace-pre-wrap">{{ act.outcome }}</p>
                     <p v-if="act.created_by_name" class="text-xs text-green-600 mt-1">
-                      ปิดเมื่อ {{ formatActDateTime(act.updated_at) }}
+                      อัปเดตล่าสุด {{ formatActDateTime(act.updated_at) }}
                     </p>
                   </div>
 

@@ -289,9 +289,7 @@
         <!-- Timestamps -->
         <div class="px-5 py-3 bg-slate-50 rounded-b-xl flex items-center gap-6 text-xs text-slate-400">
           <span>สร้าง: {{ fmtDateTime(activity.created_at) }}</span>
-          <span v-if="activity.updated_at && activity.updated_at !== activity.created_at">
-            แก้ไข: {{ fmtDateTime(activity.updated_at) }}
-          </span>
+          <span>อัปเดทล่าสุด: {{ fmtDateTime(activity.updated_at || activity.created_at) }}</span>
         </div>
       </div>
 
@@ -306,6 +304,7 @@
         <ActivityComments
           :activity-id="activityId"
           :can-comment="!['done','cancelled'].includes(activity?.status)"
+          @changed="refreshActivity"
         />
       </div>
     </template>
@@ -384,7 +383,7 @@ function onCloseRequestedSnooze() {
 function onSnoozed(data) {
   snoozeModal.show = false
   if (data) {
-    activity.value = { ...activity.value, due_date: data.due_date, start_datetime: data.start_datetime, end_datetime: data.end_datetime }
+    activity.value = { ...activity.value, ...data }
   }
   showToast('success', 'เลื่อนงานแล้ว')
 }
@@ -404,11 +403,16 @@ const activity   = ref(null)
 const contactors = ref([])
 const isFollowing = ref(false)
 
+async function refreshActivity() {
+  const { data } = await api.get(`/activities/${activityId.value}`)
+  activity.value = { ...(activity.value || {}), ...data }
+  isFollowing.value = data.is_following ?? isFollowing.value
+  return data
+}
+
 onMounted(async () => {
   try {
-    const { data } = await api.get(`/activities/${activityId.value}`)
-    activity.value = data
-    isFollowing.value = data.is_following ?? false
+    const data = await refreshActivity()
     // โหลด customer_name + contactors ถ้ามี ar_code
     if (data.ar_code) {
       try {

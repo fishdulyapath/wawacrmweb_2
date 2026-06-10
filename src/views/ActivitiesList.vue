@@ -184,7 +184,10 @@
           <p v-if="a.act_no" class="text-[10px] font-mono text-slate-400 -mt-0.5 mb-0.5">{{ a.act_no }}</p>
           <p class="text-[10px] text-slate-400 mb-1">
             สร้างโดย: <span class="font-medium">{{ a.system_created ? 'ระบบ' : (a.created_by_name || '—') }}</span>
-            · {{ relativeDate(a.created_at) }}
+            · สร้าง {{ relativeDate(a.created_at) }}
+          </p>
+          <p class="text-[10px] text-slate-500 mb-1">
+            อัปเดทล่าสุด: <span class="font-medium">{{ fmtDateTimeDDMMYYYY(a.updated_at || a.created_at) }}</span>
           </p>
 
           <!-- Row 3: customer + owner -->
@@ -262,8 +265,8 @@
                 กำหนด <span class="ml-0.5 text-slate-400">{{ sortIndicator('due_date') }}</span>
               </th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">สถานะ</th>
-              <th @click="toggleSort('created_at')" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-32 cursor-pointer select-none hover:bg-slate-100" style="min-width:120px">
-                ล่าสุด <span class="ml-0.5 text-slate-400">{{ sortIndicator('created_at') }}</span>
+              <th @click="toggleSort('updated_at')" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-36 cursor-pointer select-none hover:bg-slate-100" style="min-width:132px">
+                อัปเดทล่าสุด <span class="ml-0.5 text-slate-400">{{ sortIndicator('updated_at') }}</span>
               </th>
               <th class="px-4 py-3" style="width: 200px;"></th>
             </tr>
@@ -359,9 +362,9 @@
                 <span :class="statusClass(a.status)" class="badge">{{ statusLabel(a.status) }}</span>
               </td>
 
-              <!-- ล่าสุด (sortable) -->
+              <!-- อัปเดทล่าสุด (sortable) -->
               <td class="px-4 py-3 text-xs text-slate-500">
-                {{ fmtDateDDMMYYYY(a.created_at) }}
+                {{ fmtDateTimeDDMMYYYY(a.updated_at || a.created_at) }}
               </td>
 
               <td class="px-4 py-3">
@@ -438,7 +441,7 @@ const pagination = reactive({ total: 0, page: 1, limit: 20, pages: 1 })
 const quickFilter = ref('')
 const typeFilter  = ref([])
 const searchInput = ref('')
-const sortBy  = ref('created_at')
+const sortBy  = ref('updated_at')
 const sortDir = ref('desc')
 const reportFilter = reactive({ owner_id: '', date_from: '', date_to: '', call_result: '', status: '' })
 const users         = ref([])
@@ -610,7 +613,7 @@ function toggleSort(field) {
     sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
   } else {
     sortBy.value  = field
-    sortDir.value = field === 'created_at' ? 'desc' : 'asc'
+    sortDir.value = ['created_at', 'updated_at'].includes(field) ? 'desc' : 'asc'
   }
   loadActivities(1)
 }
@@ -660,6 +663,13 @@ function fmtDateDDMMYYYY(v) {
   if (!s) return '—'
   const [y, m, dd] = s.split('-')
   return `${dd}/${m}/${y}`
+}
+
+function fmtDateTimeDDMMYYYY(v) {
+  if (!v) return '—'
+  const date = fmtDateDDMMYYYY(v)
+  const time = formatTime(v)
+  return time ? `${date} ${time}` : date
 }
 
 function relativeDate(v) {

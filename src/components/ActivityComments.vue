@@ -159,6 +159,7 @@ const props = defineProps({
   activityId: { type: [Number, String], required: true },
   canComment:  { type: Boolean, default: true }
 })
+const emit = defineEmits(['changed'])
 
 const auth     = useAuthStore()
 const authUser = computed(() => auth.user)
@@ -236,6 +237,7 @@ async function submitComment() {
     newText.value = ''
     pendingFiles.value = []
     if (fileInput.value) fileInput.value.value = ''
+    emit('changed')
   } catch (err) {
     alert(err.response?.data?.error || 'ส่งความคิดเห็นไม่สำเร็จ')
   } finally {
@@ -249,6 +251,7 @@ async function deleteComment(id) {
   try {
     await api.delete(`/activities/${props.activityId}/comments/${id}`)
     comments.value = comments.value.filter(c => c.id !== id)
+    emit('changed')
   } catch (err) {
     alert(err.response?.data?.error || 'ลบไม่สำเร็จ')
   }
