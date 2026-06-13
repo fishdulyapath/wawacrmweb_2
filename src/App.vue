@@ -35,7 +35,7 @@
               <p class="text-slate-400 text-xs mt-0.5">CRM System</p>
             </div>
             <!-- Close button (mobile only) -->
-            <button @click="sidebarOpen = false" class="lg:hidden text-slate-400 hover:text-white p-1">
+            <button @click="sidebarOpen = false" class="lg:hidden text-slate-400 hover:text-white p-1" aria-label="ปิดเมนู">
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -83,6 +83,17 @@
               />
             </svg>
             จัดการลูกค้า
+          </RouterLink>
+          <RouterLink v-if="canManageProducts" to="/products" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+            <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+              />
+            </svg>
+            จัดการสินค้า
           </RouterLink>
           <RouterLink to="/webboard" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
             <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -216,7 +227,7 @@
     <div class="flex-1 flex flex-col overflow-hidden">
       <!-- Mobile top bar -->
       <header class="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-200 shrink-0">
-        <button @click="sidebarOpen = true" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 -ml-2">
+        <button @click="sidebarOpen = true" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 -ml-2" aria-label="เปิดเมนู">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
@@ -224,7 +235,7 @@
         <span class="font-bold text-slate-800">Cus Management</span>
         <div class="ml-auto flex items-center gap-2">
           <!-- notification bell -->
-          <RouterLink to="/notifications" class="relative p-2 text-slate-500 hover:bg-slate-100 rounded-lg">
+          <RouterLink to="/notifications" class="relative p-2 text-slate-500 hover:bg-slate-100 rounded-lg" aria-label="การแจ้งเตือน">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 stroke-linecap="round"
@@ -332,7 +343,7 @@ import { usePermissions } from "./composables/usePermissions.js";
 const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
-const { canCreate, isManager, isSuperAdmin, canViewDashboards, canViewSalesFleet, canManageFollowupPolicy } = usePermissions();
+const { canCreate, isManager, isSuperAdmin, canViewDashboards, canViewSalesFleet, canManageFollowupPolicy, canManageProducts } = usePermissions();
 const isAdmin = computed(() => isSuperAdmin.value || auth.user?.role === "admin");
 
 const unreadNotif = ref(0);

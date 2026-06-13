@@ -9,6 +9,9 @@ const router = createRouter({
     { path: '/customers',          component: () => import('../views/CustomerList.vue') },
     { path: '/customers/new',      component: () => import('../views/CustomerForm.vue') },
     { path: '/customers/:code/edit', component: () => import('../views/CustomerForm.vue'), props: true },
+    { path: '/products',           component: () => import('../views/ProductList.vue'), meta: { requireProductManager: true } },
+    { path: '/products/new',       component: () => import('../views/ProductForm.vue'), meta: { requireProductManager: true } },
+    { path: '/products/:code/edit', component: () => import('../views/ProductForm.vue'), meta: { requireProductManager: true }, props: true },
 
     // ── Activities ──
     { path: '/activities',           component: () => import('../views/ActivitiesList.vue') },
@@ -56,6 +59,7 @@ function isManager(user)         { return isSuperAdmin(user) || ['admin', 'manag
 function isSupervisorUp(user)    { return isSuperAdmin(user) || ['admin', 'manager', 'supervisor'].includes(user?.role) }
 function canViewDashboard(user)  { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
 function canManagePolicy(user)   { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
+function canManageProducts(user) { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
 function isAdmin(user)           { return isSuperAdmin(user) || user?.role === 'admin' }
 
 router.beforeEach((to) => {
@@ -67,6 +71,7 @@ router.beforeEach((to) => {
   if (to.meta.requireSupervisor && !isSupervisorUp(auth.user))   return { path: '/activities' }
   if (to.meta.requireDashboard  && !canViewDashboard(auth.user)) return { path: '/activities' }
   if (to.meta.requireAdminManager && !canManagePolicy(auth.user)) return { path: '/activities' }
+  if (to.meta.requireProductManager && !canManageProducts(auth.user)) return { path: '/activities' }
   if (to.meta.requireAdmin      && !isAdmin(auth.user))          return { path: '/activities' }
 })
 
