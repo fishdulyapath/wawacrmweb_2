@@ -186,7 +186,7 @@
                 <div class="h-full rounded-full bg-blue-500" :style="{ width: topSuggestWidth(row) }"></div>
               </div>
             </div>
-            <RouterLink :to="detailLink(row)" class="text-right text-xs font-medium text-blue-600 hover:underline">detail</RouterLink>
+            <RouterLink :to="detailLink(row)" target="_blank" class="text-right text-xs font-medium text-blue-600 hover:underline">detail</RouterLink>
           </div>
         </div>
         <p v-else class="py-8 text-center text-sm text-slate-400">ไม่มีรายการแนะนำซื้อในหน้าปัจจุบัน</p>
@@ -277,7 +277,7 @@
                 </td>
                 <td class="px-4 py-3"><span class="code-pill">{{ row.ic_code }}</span></td>
                 <td class="px-4 py-3">
-                  <RouterLink :to="detailLink(row)" class="font-semibold text-blue-600 hover:underline">{{ row.ic_name || '-' }}</RouterLink>
+                  <RouterLink :to="detailLink(row)" target="_blank" class="font-semibold text-blue-600 hover:underline">{{ row.ic_name || '-' }}</RouterLink>
                   <div class="mt-1 text-xs text-slate-400">{{ row.unit_code || '-' }} / supplier {{ formatInt(row.supplier_count) }}</div>
                 </td>
                 <td class="px-4 py-3">
