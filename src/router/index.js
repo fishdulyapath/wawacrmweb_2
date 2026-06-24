@@ -9,16 +9,16 @@ const router = createRouter({
     { path: '/customers',          component: () => import('../views/CustomerList.vue') },
     { path: '/customers/new',      component: () => import('../views/CustomerForm.vue') },
     { path: '/customers/:code/edit', component: () => import('../views/CustomerForm.vue'), props: true },
-    { path: '/products',           component: () => import('../views/ProductList.vue'), meta: { requireProductManager: true } },
-    { path: '/products/new',       component: () => import('../views/ProductForm.vue'), meta: { requireProductManager: true } },
-    { path: '/products/:code/edit', component: () => import('../views/ProductForm.vue'), meta: { requireProductManager: true }, props: true },
-    { path: '/suppliers',           component: () => import('../views/SupplierList.vue'), meta: { requireSupplierManager: true } },
-    { path: '/suppliers/new',       component: () => import('../views/SupplierForm.vue'), meta: { requireSupplierManager: true } },
-    { path: '/suppliers/:code/edit', component: () => import('../views/SupplierForm.vue'), meta: { requireSupplierManager: true }, props: true },
-    { path: '/purchase-planning/master', component: () => import('../views/PurchasePlanningMaster.vue'), meta: { requireSupplierManager: true } },
-    { path: '/purchase-planning/report', component: () => import('../views/PurchasePlanningReport.vue'), meta: { requireSupplierManager: true } },
-    { path: '/purchase-planning/alerts', component: () => import('../views/PurchasePlanningReport.vue'), meta: { requireSupplierManager: true }, props: { alertOnly: true } },
-    { path: '/purchase-planning/items/:icCode', component: () => import('../views/PurchasePlanningItemDetail.vue'), meta: { requireSupplierManager: true }, props: true },
+    { path: '/products',           component: () => import('../views/ProductList.vue'), meta: { requireAdmin: true } },
+    { path: '/products/new',       component: () => import('../views/ProductForm.vue'), meta: { requireAdmin: true } },
+    { path: '/products/:code/edit', component: () => import('../views/ProductForm.vue'), meta: { requireAdmin: true }, props: true },
+    { path: '/suppliers',           component: () => import('../views/SupplierList.vue'), meta: { requireAdmin: true } },
+    { path: '/suppliers/new',       component: () => import('../views/SupplierForm.vue'), meta: { requireAdmin: true } },
+    { path: '/suppliers/:code/edit', component: () => import('../views/SupplierForm.vue'), meta: { requireAdmin: true }, props: true },
+    { path: '/purchase-planning/master', component: () => import('../views/PurchasePlanningMaster.vue'), meta: { requireAdmin: true } },
+    { path: '/purchase-planning/report', component: () => import('../views/PurchasePlanningReport.vue'), meta: { requireAdmin: true } },
+    { path: '/purchase-planning/alerts', component: () => import('../views/PurchasePlanningReport.vue'), meta: { requireAdmin: true }, props: { alertOnly: true } },
+    { path: '/purchase-planning/items/:icCode', component: () => import('../views/PurchasePlanningItemDetail.vue'), meta: { requireAdmin: true }, props: true },
 
     // ── Activities ──
     { path: '/activities',           component: () => import('../views/ActivitiesList.vue') },
@@ -61,27 +61,23 @@ const router = createRouter({
   ]
 })
 
-function isSuperAdmin(user)      { return user?.code?.toUpperCase() === 'SUPERADMIN' }
-function isManager(user)         { return isSuperAdmin(user) || ['admin', 'manager', 'supervisor'].includes(user?.role) }
-function isSupervisorUp(user)    { return isSuperAdmin(user) || ['admin', 'manager', 'supervisor'].includes(user?.role) }
-function canViewDashboard(user)  { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
-function canManagePolicy(user)   { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
-function canManageProducts(user) { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
-function canManageSuppliers(user) { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
-function isAdmin(user)           { return isSuperAdmin(user) || user?.role === 'admin' }
+function isSuperAdmin(user)    { return user?.code?.toUpperCase() === 'SUPERADMIN' }
+function isManager(user)       { return isSuperAdmin(user) || ['admin', 'manager', 'supervisor'].includes(user?.role) }
+function isSupervisorUp(user)  { return isSuperAdmin(user) || ['admin', 'manager', 'supervisor'].includes(user?.role) }
+function canViewDashboard(user){ return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
+function canManagePolicy(user) { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
+function isAdmin(user)         { return isSuperAdmin(user) || user?.role === 'admin' }
 
 router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.meta.liff) return   // LIFF pages จัดการ auth เอง
   if (!to.meta.public && !auth.isLoggedIn) return { path: '/login' }
   if (to.path === '/login' && auth.isLoggedIn) return { path: '/notifications' }
-  if (to.meta.requireManager    && !isManager(auth.user))        return { path: '/activities' }
-  if (to.meta.requireSupervisor && !isSupervisorUp(auth.user))   return { path: '/activities' }
-  if (to.meta.requireDashboard  && !canViewDashboard(auth.user)) return { path: '/activities' }
-  if (to.meta.requireAdminManager && !canManagePolicy(auth.user)) return { path: '/activities' }
-  if (to.meta.requireProductManager && !canManageProducts(auth.user)) return { path: '/activities' }
-  if (to.meta.requireSupplierManager && !canManageSuppliers(auth.user)) return { path: '/activities' }
-  if (to.meta.requireAdmin      && !isAdmin(auth.user))          return { path: '/activities' }
+  if (to.meta.requireManager      && !isManager(auth.user))        return { path: '/activities' }
+  if (to.meta.requireSupervisor   && !isSupervisorUp(auth.user))   return { path: '/activities' }
+  if (to.meta.requireDashboard    && !canViewDashboard(auth.user)) return { path: '/activities' }
+  if (to.meta.requireAdminManager && !canManagePolicy(auth.user))  return { path: '/activities' }
+  if (to.meta.requireAdmin        && !isAdmin(auth.user))          return { path: '/activities' }
 })
 
 export default router

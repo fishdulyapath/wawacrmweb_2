@@ -5,9 +5,15 @@
         <h1 class="text-xl font-bold text-slate-800">{{ pageTitle }}</h1>
         <p class="mt-0.5 text-sm text-slate-500">{{ pageSubtitle }}</p>
       </div>
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap items-center gap-2">
         <RouterLink to="/purchase-planning/master" class="btn-secondary">กำหนด master</RouterLink>
         <RouterLink v-if="alertOnly" to="/purchase-planning/report" class="btn-secondary">รายงานทั้งหมด</RouterLink>
+        <template v-if="canTriggerAlert">
+          <button class="btn-secondary disabled:cursor-not-allowed disabled:opacity-50" :disabled="triggering || isBusy" @click="triggerAlert">
+            {{ triggering ? 'กำลังส่ง...' : 'ทดสอบส่งแจ้งเตือน' }}
+          </button>
+          <span v-if="triggerResult" class="text-xs text-slate-500">{{ triggerResult }}</span>
+        </template>
         <button class="btn-primary disabled:cursor-not-allowed disabled:opacity-50" :disabled="selectedCount === 0" @click="showPuNotice">
           สร้าง PU ({{ selectedCount }})
         </button>
@@ -383,10 +389,35 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import api from '../composables/useApi.js'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import { useAuthStore } from '../stores/auth.js'
 
 const props = defineProps({
   alertOnly: { type: Boolean, default: false },
 })
+
+const auth = useAuthStore()
+const canTriggerAlert = computed(() => {
+  const user = auth.user || {}
+  return String(user.code || '').toUpperCase() === 'SUPERADMIN' || user.role === 'admin'
+})
+const triggering = ref(false)
+const triggerResult = ref('')
+
+async function triggerAlert() {
+  triggering.value = true
+  triggerResult.value = ''
+  try {
+    const { data } = await api.post('/purchase-planning/trigger-alert')
+    triggerResult.value = data.skipped
+      ? 'ไม่มี user ที่เปิดแจ้งเตือน'
+      : `ส่งแล้ว ${data.sent} คน / พบสินค้า ${data.itemCount} รายการ`
+  } catch (err) {
+    triggerResult.value = `ผิดพลาด: ${err.message}`
+  } finally {
+    triggering.value = false
+    setTimeout(() => { triggerResult.value = '' }, 8000)
+  }
+}
 
 const today = new Date().toISOString().slice(0, 10)
 const filter = reactive({

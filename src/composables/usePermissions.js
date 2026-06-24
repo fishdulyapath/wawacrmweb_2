@@ -37,15 +37,14 @@ export function usePermissions() {
     ['admin', 'manager'].includes(auth.user?.role)
   )
 
-  const canManageProducts = computed(() =>
-    isSuperAdmin.value ||
-    ['admin', 'manager'].includes(auth.user?.role)
+  // จัดการสินค้า, เจ้าหนี้, วางแผนสั่งซื้อ — admin ขึ้นไปเท่านั้น
+  const isAdmin = computed(() =>
+    isSuperAdmin.value || auth.user?.role === 'admin'
   )
 
-  const canManageSuppliers = computed(() =>
-    isSuperAdmin.value ||
-    ['admin', 'manager'].includes(auth.user?.role)
-  )
+  const canManageProducts = computed(() => isAdmin.value)
+
+  const canManageSuppliers = computed(() => isAdmin.value)
 
   // สร้างกิจกรรมใหม่ได้
   const canCreate = computed(() => isManager.value)
@@ -56,5 +55,5 @@ export function usePermissions() {
   // ปิดงาน / เลื่อนได้ (ทุกคน)
   const canClose = computed(() => true)
 
-  return { isSuperAdmin, isManager, canViewDashboards, canViewSalesFleet, canManageFollowupPolicy, canManageProducts, canManageSuppliers, canCreate, canEdit, canClose }
+  return { isSuperAdmin, isAdmin, isManager, canViewDashboards, canViewSalesFleet, canManageFollowupPolicy, canManageProducts, canManageSuppliers, canCreate, canEdit, canClose }
 }
