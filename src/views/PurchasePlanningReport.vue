@@ -380,7 +380,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import api from '../composables/useApi.js'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 
@@ -749,6 +749,7 @@ function statusClass(status) {
 
 onMounted(() => load())
 onBeforeUnmount(clearPollTimer)
+watch(() => props.alertOnly, () => load())
 </script>
 
 <style scoped>
