@@ -2,11 +2,12 @@
   <div class="p-4 lg:p-6">
     <div class="mb-5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
       <div>
-        <h1 class="text-xl font-bold text-slate-800">รายงานวางแผนสั่งซื้อ</h1>
-        <p class="mt-0.5 text-sm text-slate-500">1 แถวต่อสินค้า เลือกเจ้าหนี้เริ่มต้นจากราคาซื้อล่าสุดที่ถูกที่สุด และกดขยายเพื่อดูเจ้าหนี้รายอื่น</p>
+        <h1 class="text-xl font-bold text-slate-800">{{ pageTitle }}</h1>
+        <p class="mt-0.5 text-sm text-slate-500">{{ pageSubtitle }}</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <RouterLink to="/purchase-planning/master" class="btn-secondary">กำหนด master</RouterLink>
+        <RouterLink v-if="alertOnly" to="/purchase-planning/report" class="btn-secondary">รายงานทั้งหมด</RouterLink>
         <button class="btn-primary disabled:cursor-not-allowed disabled:opacity-50" :disabled="selectedCount === 0" @click="showPuNotice">
           สร้าง PU ({{ selectedCount }})
         </button>
@@ -43,12 +44,30 @@
       </div>
     </section>
 
+    <section v-if="showProgress" class="card mb-4 p-4">
+      <div class="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p class="text-sm font-semibold text-slate-800">ความคืบหน้าการโหลดรายงาน</p>
+          <p class="text-xs text-slate-400">{{ progressStatusText }}</p>
+        </div>
+        <strong class="text-lg tabular-nums text-blue-700">{{ progressPercent }}%</strong>
+      </div>
+      <div class="h-3 overflow-hidden rounded-full bg-slate-100">
+        <div class="h-full rounded-full bg-blue-600 transition-all duration-300" :style="{ width: `${progressPercent}%` }"></div>
+      </div>
+    </section>
+
     <section class="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       <div v-for="card in summaryCards" :key="card.key" class="card p-4">
         <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ card.label }}</p>
         <p class="mt-1 text-2xl font-bold" :class="card.class">{{ card.value }}</p>
         <p class="mt-0.5 text-xs text-slate-400">{{ card.note }}</p>
       </div>
+    </section>
+
+    <section v-if="alertOnly" class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+      <p class="font-semibold">แสดงเฉพาะสินค้าที่ถึงจุดสั่งซื้อ</p>
+      <p class="mt-1 text-red-700">เงื่อนไขคือ พร้อมใช้ ≤ Min/ROP โดย Min/ROP = D_avg × (Lead + Late + Wholesale)</p>
     </section>
 
     <section v-if="hasNoSupplierLinks" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -124,7 +143,7 @@
       </div>
     </section>
 
-    <section class="mb-4 grid gap-4 xl:grid-cols-[1.1fr_1.4fr_0.9fr]">
+    <section class="mb-4 grid gap-4 xl:grid-cols-[1fr_1fr]">
       <div class="card p-4">
         <div class="mb-4 flex items-center justify-between">
           <h2 class="chart-title">สถานะสต็อก</h2>
@@ -173,7 +192,7 @@
         <p v-else class="py-8 text-center text-sm text-slate-400">ไม่มีรายการแนะนำซื้อในหน้าปัจจุบัน</p>
       </div>
 
-      <div class="card p-4">
+      <!-- <div class="card p-4">
         <div class="mb-4">
           <h2 class="chart-title">ความพร้อม supplier</h2>
           <p class="mt-0.5 text-xs text-slate-400">ใช้ตรวจว่าพร้อม expand และเลือก supplier หรือยัง</p>
@@ -201,7 +220,7 @@
             รายการที่ไม่มี supplier จะยังสร้าง PU อัตโนมัติไม่ได้ ต้อง sync หรือกำหนดคู่สินค้า+เจ้าหนี้ก่อน
           </div>
         </div>
-      </div>
+      </div> -->
     </section>
 
     <section class="card overflow-hidden">
@@ -337,7 +356,7 @@
       </div>
 
       <div v-if="!loading && !error && total > 0" class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-        <p class="text-center text-sm text-slate-500 lg:text-left">แสดง {{ formatInt(rows.length) }} จาก {{ formatInt(total) }} รายการ เรียงตามจำนวนแนะนำซื้อจากมากไปน้อย</p>
+        <p class="text-center text-sm text-slate-500 lg:text-left">แสดง {{ formatInt(rows.length) }} จาก {{ formatInt(displayTotal) }} รายการ เรียงตามจำนวนแนะนำซื้อจากมากไปน้อย</p>
         <div class="flex justify-center gap-1">
           <button class="pager-btn" :disabled="jobStatus !== 'complete' || !hasMore || loadingMore" @click="loadMore">
             {{ jobStatus !== 'complete' ? 'รอคำนวณครบ' : loadingMore ? 'กำลังโหลด...' : 'โหลดเพิ่ม' }}
@@ -364,6 +383,10 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import api from '../composables/useApi.js'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+
+const props = defineProps({
+  alertOnly: { type: Boolean, default: false },
+})
 
 const today = new Date().toISOString().slice(0, 10)
 const filter = reactive({
@@ -397,18 +420,37 @@ const noticeDialog = reactive({
 let pollTimer = null
 let loadSeq = 0
 
+const alertOnly = computed(() => props.alertOnly)
+const pageTitle = computed(() => alertOnly.value ? 'แจ้งเตือนสั่งซื้อ' : 'รายงานวางแผนสั่งซื้อ')
+const pageSubtitle = computed(() => alertOnly.value
+  ? 'แสดงสินค้าที่พร้อมใช้ต่ำกว่าหรือเท่ากับจุดสั่งซื้อ กดชื่อสินค้าเพื่อดูรายละเอียด'
+  : '1 แถวต่อสินค้า เลือกเจ้าหนี้เริ่มต้นจากราคาซื้อล่าสุดที่ถูกที่สุด และกดขยายเพื่อดูเจ้าหนี้รายอื่น')
+const displayTotal = computed(() => alertOnly.value ? Number(summary.value.total || rows.value.length || 0) : total.value)
 const isBusy = computed(() => loading.value || loadingMore.value)
 const selectedCount = computed(() => Object.values(selected).filter(Boolean).length)
+const showProgress = computed(() => loading.value || jobStatus.value === 'running' || jobStatus.value === 'queued' || processed.value > 0)
+const progressPercent = computed(() => {
+  if (jobStatus.value === 'complete' && total.value > 0) return 100
+  if (!total.value) return processed.value > 0 ? 100 : 0
+  return Math.min(100, Math.max(0, Math.round((Number(processed.value || 0) / Number(total.value || 1)) * 100)))
+})
+const progressStatusText = computed(() => {
+  if (jobStatus.value === 'complete') return `โหลดครบแล้ว ${formatInt(processed.value || total.value)} / ${formatInt(total.value)} รายการ`
+  if (jobStatus.value === 'failed') return 'โหลดรายงานไม่สำเร็จ'
+  return `ประมวลผลแล้ว ${formatInt(processed.value)} / ${formatInt(total.value)} รายการ`
+})
 const summaryCards = computed(() => [
-  { key: 'total', label: 'สินค้าทั้งหมด', value: formatInt(summary.value.total), note: summaryNote.value, class: 'text-slate-800' },
-  { key: 'low', label: 'ต่ำกว่าเกณฑ์', value: formatInt(summary.value.low), note: 'available <= Min/ROP', class: 'text-red-600' },
+  { key: 'total', label: alertOnly.value ? 'รายการแจ้งเตือน' : 'สินค้าทั้งหมด', value: formatInt(summary.value.total), note: summaryNote.value, class: 'text-slate-800' },
+  { key: 'low', label: alertOnly.value ? 'ถึงจุดสั่งซื้อ' : 'ต่ำกว่าเกณฑ์', value: formatInt(summary.value.low), note: 'available <= Min/ROP', class: 'text-red-600' },
   { key: 'normal', label: 'ปกติ', value: formatInt(summary.value.normal), note: 'อยู่ในช่วง Min-Max', class: 'text-green-600' },
   { key: 'high', label: 'สูงกว่าเกณฑ์', value: formatInt(summary.value.high), note: 'available > Max', class: 'text-amber-600' },
   { key: 'มูลค่าแนะนำซื้อ', label: 'มูลค่าแนะนำซื้อ', value: formatMoney(summary.value.suggest_amount), note: 'คำนวณจากราคาซื้อ default', class: 'text-blue-600' },
 ])
 const summaryNote = computed(() => {
   if (jobStatus.value !== 'complete') return `กำลังคำนวณ ${formatInt(processed.value)} / ${formatInt(total.value)} รายการ`
-  return `รวมทั้งหมด ${formatInt(total.value)} รายการ`
+  return alertOnly.value
+    ? `พบสินค้าถึงจุดสั่งซื้อ ${formatInt(displayTotal.value)} รายการ`
+    : `รวมทั้งหมด ${formatInt(total.value)} รายการ`
 })
 const statusMeta = [
   { key: 'low', label: 'ต่ำกว่าเกณฑ์', barClass: 'bg-red-500', dotClass: 'bg-red-500' },
@@ -463,6 +505,7 @@ function requestParams() {
     as_of_date: filter.as_of_date,
     warehouse: filter.warehouse,
     limit: limit.value,
+    alert_only: alertOnly.value ? 1 : undefined,
   }
 }
 

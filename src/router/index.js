@@ -17,6 +17,7 @@ const router = createRouter({
     { path: '/suppliers/:code/edit', component: () => import('../views/SupplierForm.vue'), meta: { requireSupplierManager: true }, props: true },
     { path: '/purchase-planning/master', component: () => import('../views/PurchasePlanningMaster.vue'), meta: { requireSupplierManager: true } },
     { path: '/purchase-planning/report', component: () => import('../views/PurchasePlanningReport.vue'), meta: { requireSupplierManager: true } },
+    { path: '/purchase-planning/alerts', component: () => import('../views/PurchasePlanningReport.vue'), meta: { requireSupplierManager: true }, props: { alertOnly: true } },
     { path: '/purchase-planning/items/:icCode', component: () => import('../views/PurchasePlanningItemDetail.vue'), meta: { requireSupplierManager: true }, props: true },
 
     // ── Activities ──

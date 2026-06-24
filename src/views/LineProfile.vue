@@ -139,6 +139,48 @@
               </button>
             </label>
           </div>
+
+          <div v-if="canConfigurePurchaseAlerts" class="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm font-semibold text-amber-900">แจ้งเตือนจุดสั่งซื้อ MIN/ROP</p>
+                <p class="text-xs text-amber-700 mt-0.5">ส่ง LINE เมื่อมีสินค้าถึงจุดสั่งซื้อ ตามรายงานแจ้งเตือนสั่งซื้อ</p>
+              </div>
+              <button @click="settings.purchase_alert_notify_enabled = !settings.purchase_alert_notify_enabled"
+                :class="settings.purchase_alert_notify_enabled ? 'bg-amber-600' : 'bg-slate-200'"
+                class="relative inline-flex w-11 h-6 rounded-full transition-colors shrink-0">
+                <span :class="settings.purchase_alert_notify_enabled ? 'translate-x-5' : 'translate-x-0.5'"
+                  class="inline-block w-5 h-5 mt-0.5 bg-white rounded-full shadow transition-transform"></span>
+              </button>
+            </div>
+
+            <div v-if="settings.purchase_alert_notify_enabled" class="mt-3">
+              <label class="block">
+                <span class="block text-xs font-medium text-amber-800 mb-1">เวลาแจ้งเตือน</span>
+                <button type="button" @click="openTimePicker('purchase_alert_notify_time')"
+                  class="flex items-center gap-3 border border-amber-200 rounded-xl px-4 py-3 hover:border-amber-400 hover:bg-white transition-all group w-full bg-white/80">
+                  <span class="text-amber-500 text-lg">🕐</span>
+                  <span class="text-2xl font-bold text-slate-800 font-mono tracking-wider group-hover:text-amber-700 transition-colors">
+                    {{ currentTime('purchase_alert_notify_time') }}
+                  </span>
+                  <span class="text-sm text-slate-400 ml-1">น.</span>
+                  <svg class="w-4 h-4 text-slate-300 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </label>
+
+              <div class="flex flex-wrap gap-1.5 mt-2">
+                <button v-for="t in ['07:00','08:00','08:30','09:00','12:00','17:00']" :key="t"
+                  type="button"
+                  @click="applyPreset(t, 'purchase_alert_notify_time')"
+                  :class="settings.purchase_alert_notify_time === t ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-amber-800 border-amber-200 hover:border-amber-400'"
+                  class="text-xs px-2.5 py-1 rounded-full border font-medium transition-all">
+                  {{ t }}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- ═══ Time Picker Modal ═══ -->
@@ -243,11 +285,17 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import api from '../composables/useApi.js'
+import { useAuthStore } from '../stores/auth.js'
 
+const auth = useAuthStore()
 const loading = ref(true)
 const generating = ref(false)
 const savingSettings = ref(false)
 const saveMsg = ref('')
+const canConfigurePurchaseAlerts = computed(() => {
+  const user = auth.user || {}
+  return String(user.code || '').toUpperCase() === 'SUPERADMIN' || user.role === 'admin'
+})
 
 const lineStatus = reactive({
   linked: false,
@@ -258,12 +306,16 @@ const lineStatus = reactive({
   notify_time: '08:00',
   overdue_notify_time: '08:00',
   due_tomorrow_notify_time: '17:00',
+  purchase_alert_notify_enabled: false,
+  purchase_alert_notify_time: '08:00',
 })
 const settings = reactive({
   notify_enabled: false,
   notify_time: '08:00',
   overdue_notify_time: '08:00',
   due_tomorrow_notify_time: '17:00',
+  purchase_alert_notify_enabled: false,
+  purchase_alert_notify_time: '08:00',
 })
 const otp = ref('')
 const otpCountdown = ref(600)
@@ -279,11 +331,13 @@ const timePickerTitles = {
   notify_time: 'เวลาที่ต้องการรับ',
   overdue_notify_time: 'แจ้งงานเลยกำหนด',
   due_tomorrow_notify_time: 'แจ้งงานครบกำหนดพรุ่งนี้',
+  purchase_alert_notify_time: 'แจ้งเตือนจุดสั่งซื้อ',
 }
 const timePickerFallbacks = {
   notify_time: '08:00',
   overdue_notify_time: '08:00',
   due_tomorrow_notify_time: '17:00',
+  purchase_alert_notify_time: '08:00',
 }
 const timePickerTitle = computed(() => timePickerTitles[timePickerField.value] || 'เลือกเวลาแจ้งเตือน')
 
@@ -362,11 +416,15 @@ async function loadStatus() {
       notify_time: toHHMM(data.notify_time, '08:00'),
       overdue_notify_time: toHHMM(data.overdue_notify_time, '08:00'),
       due_tomorrow_notify_time: toHHMM(data.due_tomorrow_notify_time, '17:00'),
+      purchase_alert_notify_enabled: !!data.purchase_alert_notify_enabled,
+      purchase_alert_notify_time: toHHMM(data.purchase_alert_notify_time, '08:00'),
     })
     settings.notify_enabled = lineStatus.notify_enabled
     settings.notify_time = lineStatus.notify_time
     settings.overdue_notify_time = lineStatus.overdue_notify_time
     settings.due_tomorrow_notify_time = lineStatus.due_tomorrow_notify_time
+    settings.purchase_alert_notify_enabled = lineStatus.purchase_alert_notify_enabled
+    settings.purchase_alert_notify_time = lineStatus.purchase_alert_notify_time
   } catch (err) {
     console.error(err)
   } finally {
@@ -419,11 +477,15 @@ function startPolling() {
           notify_time: toHHMM(data.notify_time, '08:00'),
           overdue_notify_time: toHHMM(data.overdue_notify_time, '08:00'),
           due_tomorrow_notify_time: toHHMM(data.due_tomorrow_notify_time, '17:00'),
+          purchase_alert_notify_enabled: !!data.purchase_alert_notify_enabled,
+          purchase_alert_notify_time: toHHMM(data.purchase_alert_notify_time, '08:00'),
         })
         settings.notify_enabled = data.notify_enabled
         settings.notify_time = toHHMM(data.notify_time, '08:00')
         settings.overdue_notify_time = toHHMM(data.overdue_notify_time, '08:00')
         settings.due_tomorrow_notify_time = toHHMM(data.due_tomorrow_notify_time, '17:00')
+        settings.purchase_alert_notify_enabled = !!data.purchase_alert_notify_enabled
+        settings.purchase_alert_notify_time = toHHMM(data.purchase_alert_notify_time, '08:00')
       }
     } catch {}
   }, 3000)
@@ -445,12 +507,17 @@ async function saveSettings() {
   savingSettings.value = true
   saveMsg.value = ''
   try {
-    await api.put('/line/settings', {
+    const payload = {
       notify_enabled: settings.notify_enabled,
       notify_time: settings.notify_time,
       overdue_notify_time: settings.overdue_notify_time,
       due_tomorrow_notify_time: settings.due_tomorrow_notify_time,
-    })
+    }
+    if (canConfigurePurchaseAlerts.value) {
+      payload.purchase_alert_notify_enabled = settings.purchase_alert_notify_enabled
+      payload.purchase_alert_notify_time = settings.purchase_alert_notify_time
+    }
+    await api.put('/line/settings', payload)
     saveMsg.value = 'บันทึกเรียบร้อย'
     setTimeout(() => saveMsg.value = '', 3000)
   } catch (err) {
