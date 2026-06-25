@@ -15,6 +15,7 @@ const router = createRouter({
     { path: '/suppliers',           component: () => import('../views/SupplierList.vue'), meta: { requireAdmin: true } },
     { path: '/suppliers/new',       component: () => import('../views/SupplierForm.vue'), meta: { requireAdmin: true } },
     { path: '/suppliers/:code/edit', component: () => import('../views/SupplierForm.vue'), meta: { requireAdmin: true }, props: true },
+    { path: '/item-supplier-link', component: () => import('../views/ItemSupplierLink.vue'), meta: { requireAdmin: true } },
     { path: '/purchase-planning/master', component: () => import('../views/PurchasePlanningMaster.vue'), meta: { requireAdmin: true } },
     { path: '/purchase-planning/report', component: () => import('../views/PurchasePlanningReport.vue'), meta: { requireAdmin: true } },
     { path: '/purchase-planning/alerts', component: () => import('../views/PurchasePlanningReport.vue'), meta: { requireAdmin: true }, props: { alertOnly: true } },

@@ -106,6 +106,12 @@
             </svg>
             จัดการเจ้าหนี้
           </RouterLink>
+          <RouterLink v-if="canManageSuppliers" to="/item-supplier-link" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+            <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            ผูกสินค้า-เจ้าหนี้
+          </RouterLink>
           <RouterLink v-if="canManageSuppliers" to="/purchase-planning/master" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
             <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M7 12h10M10 18h4" />

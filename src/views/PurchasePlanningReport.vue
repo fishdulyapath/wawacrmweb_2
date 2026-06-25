@@ -320,14 +320,13 @@
                           <th class="supplier-head w-28 text-right">Wholesale</th>
                           <th class="supplier-head w-24 text-right">Cycle</th>
                           <th class="supplier-head w-24 text-right">MOQ</th>
-                          <th class="supplier-head w-24 text-right">Pack</th>
                           <th class="supplier-head w-28 text-right">แนะนำซื้อ</th>
                           <th class="supplier-head w-32 text-left">ซื้อล่าสุด</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-100">
                         <tr v-if="!supplierRows(row).length">
-                          <td colspan="11" class="py-8 text-center text-slate-400">ยังไม่มี supplier ที่ผูกกับสินค้านี้</td>
+                          <td colspan="10" class="py-8 text-center text-slate-400">ยังไม่มี supplier ที่ผูกกับสินค้านี้</td>
                         </tr>
                         <tr v-for="supplier in supplierRows(row)" :key="`${row.ic_code}-${supplier.ap_code}`" class="hover:bg-slate-50">
                           <td class="px-3 py-2 text-center">
@@ -343,7 +342,6 @@
                           <td class="px-3 py-2 text-right tabular-nums">{{ formatInt(supplier.wholesale_buffer_days) }}</td>
                           <td class="px-3 py-2 text-right tabular-nums">{{ formatInt(supplier.order_cycle_days) }}</td>
                           <td class="px-3 py-2 text-right tabular-nums">{{ formatQty(supplier.min_order_qty) }}</td>
-                          <td class="px-3 py-2 text-right tabular-nums">{{ formatQty(supplier.pack_size) }}</td>
                           <td class="px-3 py-2 text-right font-semibold text-blue-700 tabular-nums">{{ formatQty(supplier.suggest_qty) }}</td>
                           <td class="px-3 py-2 text-xs text-slate-500">{{ formatDate(supplier.last_purchase_date) }}</td>
                         </tr>

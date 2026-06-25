@@ -96,13 +96,6 @@
                 <td class="px-4 py-3 font-medium text-slate-800">{{ row.ap_name || '-' }}</td>
               </template>
 
-              <template v-else-if="activeTab === 'item'">
-                <td class="px-4 py-3"><CodePill :value="row.ic_code" /></td>
-                <td class="px-4 py-3 font-medium text-slate-800">{{ row.ic_name || '-' }}</td>
-                <td class="px-4 py-3 text-slate-600">{{ row.unit_code || '-' }}</td>
-                <td class="px-4 py-3"><span :class="holdClass(row)">{{ holdLabel(row) }}</span></td>
-              </template>
-
               <template v-else>
                 <td class="px-4 py-3"><CodePill :value="row.ic_code" /></td>
                 <td class="px-4 py-3 font-medium text-slate-800">{{ row.ic_name || '-' }}</td>
@@ -177,7 +170,6 @@ const CodePill = defineComponent({
 
 const tabs = [
   { key: 'supplier', label: 'เจ้าหนี้' },
-  { key: 'item', label: 'สินค้า' },
   { key: 'itemSupplier', label: 'สินค้า+เจ้าหนี้' },
 ]
 
@@ -222,27 +214,6 @@ const configs = {
     columns: [
       { key: 'ap_code', label: 'รหัสเจ้าหนี้', class: 'w-32 text-left' },
       { key: 'ap_name', label: 'ชื่อเจ้าหนี้', class: 'min-w-64 text-left' },
-      { key: 'lead', label: 'Lead', class: 'w-28 text-right' },
-      { key: 'late', label: 'Late', class: 'w-28 text-right' },
-      { key: 'wholesale', label: 'Wholesale', class: 'w-32 text-right' },
-      { key: 'cycle', label: 'Cycle', class: 'w-28 text-right' },
-      { key: 'enabled', label: 'ใช้', class: 'w-24 text-center' },
-      { key: 'remark', label: 'หมายเหตุ', class: 'min-w-44 text-left' },
-      { key: 'save', label: 'จัดการ', class: 'w-24 text-right' },
-    ],
-  },
-  item: {
-    url: '/purchase-planning/item-settings',
-    save: (row) => `/purchase-planning/item-settings/save/${encodeURIComponent(row.ic_code)}`,
-    searchLabel: 'ค้นหาสินค้า',
-    searchPlaceholder: 'ค้นหาตามรหัสหรือชื่อสินค้า',
-    emptyText: 'ไม่พบข้อมูลสินค้า',
-    tableClass: 'min-w-[1180px]',
-    columns: [
-      { key: 'ic_code', label: 'รหัสสินค้า', class: 'w-32 text-left' },
-      { key: 'ic_name', label: 'ชื่อสินค้า', class: 'min-w-72 text-left' },
-      { key: 'unit', label: 'หน่วย', class: 'w-24 text-left' },
-      { key: 'hold', label: 'สถานะ', class: 'w-32 text-left' },
       { key: 'lead', label: 'Lead', class: 'w-28 text-right' },
       { key: 'late', label: 'Late', class: 'w-28 text-right' },
       { key: 'wholesale', label: 'Wholesale', class: 'w-32 text-right' },
@@ -361,17 +332,6 @@ function normalizeRow(row) {
   return row
 }
 
-function holdLabel(row) {
-  if (Number(row.is_hold_purchase) === 1 && Number(row.is_hold_sale) === 1) return 'หยุดซื้อ/ขาย'
-  if (Number(row.is_hold_purchase) === 1) return 'หยุดซื้อ'
-  if (Number(row.is_hold_sale) === 1) return 'หยุดขาย'
-  return 'ปกติ'
-}
-
-function holdClass(row) {
-  const stopped = Number(row.is_hold_purchase) === 1 || Number(row.is_hold_sale) === 1
-  return stopped ? 'inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700' : 'inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700'
-}
 
 async function loadRows() {
   const seq = ++loadSeq
