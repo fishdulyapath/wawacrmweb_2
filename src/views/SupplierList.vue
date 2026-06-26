@@ -91,6 +91,10 @@
                 <p class="mt-1 break-words text-slate-700">{{ supplier.tax_id || '-' }}</p>
               </div>
               <div class="rounded-lg bg-slate-50 p-3">
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">ภาษี</p>
+                <p class="mt-1"><span v-if="supplier.tax_type" class="rounded px-2 py-0.5 text-xs font-medium" :class="taxTypeBadgeClass(supplier.tax_type)">{{ taxTypeLabel(supplier.tax_type) }}</span><span v-else class="text-slate-300">-</span></p>
+              </div>
+              <div class="rounded-lg bg-slate-50 p-3">
                 <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">เครดิตวัน</p>
                 <p class="mt-1 break-words text-slate-700">{{ supplier.credit_day || 0 }}</p>
               </div>
