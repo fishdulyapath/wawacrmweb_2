@@ -95,13 +95,41 @@
             <h2 class="section-title">กราฟขาย/ซื้อ/เครดิตโน้ต 90 วัน</h2>
             <span :class="statusClass(item.stock_status)">{{ statusLabel(item.stock_status) }}</span>
           </div>
-          <div class="h-56 overflow-hidden">
-            <div class="flex h-full items-end gap-1">
-              <div v-for="row in chartSample" :key="row.doc_date" class="flex min-w-0 flex-1 flex-col items-center justify-end" :title="chartTitle(row)">
-                <div v-if="Number(row.credit_note_qty) > 0" class="w-full rounded-t bg-amber-500" :style="{ height: barHeight(row.credit_note_qty) }"></div>
-                <div v-if="Number(row.purchase_qty) > 0" class="w-full rounded-t bg-green-500" :style="{ height: barHeight(row.purchase_qty) }"></div>
-                <div v-if="Number(row.sale_qty) > 0" class="w-full rounded-t bg-blue-500" :style="{ height: barHeight(row.sale_qty) }"></div>
-                <div v-if="!hasMovement(row)" class="w-full" style="height: 2px; background: #e2e8f0;"></div>
+          <div class="relative">
+            <div class="h-56 overflow-hidden">
+              <div class="flex h-full items-end gap-1">
+                <div
+                  v-for="row in chartSample"
+                  :key="row.doc_date"
+                  class="flex min-w-0 flex-1 flex-col items-center justify-end cursor-pointer"
+                  @mouseenter="hoverBar = row"
+                  @mouseleave="hoverBar = null"
+                >
+                  <div v-if="Number(row.credit_note_qty) > 0" class="w-full rounded-t bg-amber-500" :style="{ height: barHeight(row.credit_note_qty) }"></div>
+                  <div v-if="Number(row.purchase_qty) > 0" class="w-full rounded-t bg-green-500" :style="{ height: barHeight(row.purchase_qty) }"></div>
+                  <div v-if="Number(row.sale_qty) > 0" class="w-full rounded-t bg-blue-500" :style="{ height: barHeight(row.sale_qty) }"></div>
+                  <div v-if="!hasMovement(row)" class="w-full" style="height: 2px; background: #e2e8f0;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Hover tooltip -->
+            <div
+              v-if="hoverBar"
+              class="pointer-events-none absolute top-0 right-0 z-10 min-w-[160px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg"
+            >
+              <p class="mb-1.5 font-semibold text-slate-700">{{ formatTooltipDate(hoverBar.doc_date) }}</p>
+              <div class="flex items-center justify-between gap-4">
+                <span class="flex items-center gap-1.5 text-slate-500"><span class="legend-dot bg-blue-500"></span>ขาย</span>
+                <span class="font-semibold tabular-nums text-slate-800">{{ formatQty(hoverBar.sale_qty) }}</span>
+              </div>
+              <div class="flex items-center justify-between gap-4">
+                <span class="flex items-center gap-1.5 text-slate-500"><span class="legend-dot bg-green-500"></span>ซื้อ</span>
+                <span class="font-semibold tabular-nums text-slate-800">{{ formatQty(hoverBar.purchase_qty) }}</span>
+              </div>
+              <div class="flex items-center justify-between gap-4">
+                <span class="flex items-center gap-1.5 text-slate-500"><span class="legend-dot bg-amber-500"></span>เครดิตโน้ต</span>
+                <span class="font-semibold tabular-nums text-slate-800">{{ formatQty(hoverBar.credit_note_qty) }}</span>
               </div>
             </div>
           </div>
@@ -363,6 +391,7 @@ const movementChart = ref([])
 const pendingReceive = ref([])
 const suppliers = ref([])
 const units = ref([]) // หน่วยนับทั้งหมดของสินค้า (จาก ic_unit_use)
+const hoverBar = ref(null) // แท่งกราฟที่กำลัง hover เพื่อแสดง tooltip
 
 const imageSrc = computed(() => imageFailed.value ? placeholderSvg.value : (item.value.image_url || placeholderSvg.value))
 const placeholderSvg = computed(() => `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="100%" height="100%" fill="#f1f5f9"/><text x="50%" y="50%" text-anchor="middle" fill="#94a3b8" font-family="Arial" font-size="22">No image</text></svg>')}`)
@@ -412,8 +441,9 @@ function hasMovement(row) {
   return Number(row.sale_qty) > 0 || Number(row.purchase_qty) > 0 || Number(row.credit_note_qty) > 0
 }
 
-function chartTitle(row) {
-  return `${formatDate(row.doc_date)} ขาย ${formatQty(row.sale_qty)} ซื้อ ${formatQty(row.purchase_qty)} เครดิต ${formatQty(row.credit_note_qty)}`
+function formatTooltipDate(value) {
+  if (!value) return '-'
+  return new Date(value).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric', weekday: 'short' })
 }
 
 function formatInt(value) {
