@@ -19,6 +19,7 @@ const router = createRouter({
     { path: '/purchase-planning/master', component: () => import('../views/PurchasePlanningMaster.vue'), meta: { requireAdmin: true } },
     { path: '/purchase-planning/report', component: () => import('../views/PurchasePlanningReport.vue'), meta: { requireAdmin: true } },
     { path: '/purchase-planning/alerts', component: () => import('../views/PurchasePlanningReport.vue'), meta: { requireAdmin: true }, props: { alertOnly: true } },
+    { path: '/purchase-planning/cart', component: () => import('../views/PurchasePlanningCart.vue'), meta: { requireAdmin: true } },
     { path: '/purchase-planning/items/:icCode', component: () => import('../views/PurchasePlanningItemDetail.vue'), meta: { requireAdmin: true }, props: true },
 
     // ── Activities ──

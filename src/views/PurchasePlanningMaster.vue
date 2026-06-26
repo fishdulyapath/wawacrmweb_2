@@ -4,11 +4,11 @@
       <div>
         <h1 class="text-xl font-bold text-slate-800">กำหนดข้อมูลวางแผนสั่งซื้อ</h1>
         <p class="mt-0.5 text-sm text-slate-500">
-          ลำดับความสำคัญ: สินค้า+เจ้าหนี้ > สินค้า > เจ้าหนี้ > ค่าเริ่มต้น 1 วัน
+          ลำดับความสำคัญ: สินค้า+เจ้าหนี้  > เจ้าหนี้ > ค่าเริ่มต้น 1 วัน
         </p>
       </div>
       <div v-if="canSyncCurrentTab" class="flex flex-wrap gap-2">
-        <button class="btn-secondary" :disabled="syncing" @click="syncFromHistory(true)">
+        <button class="btn-secondary" :disabled="syncing || exporting || importing" @click="syncFromHistory(true)">
           <svg class="h-4 w-4" :class="{ 'animate-spin': syncing }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0" />
           </svg>
@@ -20,6 +20,19 @@
           </svg>
           {{ syncUpdateLabel }}
         </button>
+        <button class="btn-secondary" :disabled="exporting || importing" @click="exportExcel">
+          <svg class="h-4 w-4" :class="{ 'animate-spin': exporting }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          {{ exporting ? 'กำลังโหลด...' : 'Export Excel' }}
+        </button>
+        <button class="btn-secondary" :disabled="exporting || importing" @click="triggerImport">
+          <svg class="h-4 w-4" :class="{ 'animate-spin': importing }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          {{ importing ? 'กำลังนำเข้า...' : 'Import Excel' }}
+        </button>
+        <input ref="importInput" type="file" accept=".xlsx,.xls" class="hidden" @change="onImportFile" />
       </div>
     </div>
 
@@ -46,6 +59,30 @@
       <p v-if="syncPreviewText" class="mt-2 text-xs text-amber-700">ตัวอย่าง: {{ syncPreviewText }}</p>
     </div>
 
+    <div v-if="importResult" class="mb-4 rounded-xl border p-4 text-sm" :class="importResult.errors.length ? 'border-red-200 bg-red-50 text-red-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900'">
+      <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <strong>{{ importResult.commit ? 'บันทึกการนำเข้าสำเร็จ' : 'ผลตรวจสอบไฟล์ Excel' }}</strong>
+        <span>
+          ทั้งหมด {{ formatInt(importResult.total) }} รายการ
+          <template v-if="importResult.commit">/ บันทึก {{ formatInt(importResult.updated) }} รายการ</template>
+          <template v-else>/ พร้อมบันทึก {{ formatInt(importResult.updated) }} รายการ</template>
+          <template v-if="importResult.errors.length"> / ผิดพลาด {{ formatInt(importResult.errors.length) }} รายการ</template>
+        </span>
+      </div>
+      <div v-if="importResult.errors.length" class="mt-2 max-h-32 overflow-y-auto rounded bg-white/60 p-2 text-xs">
+        <p v-for="(err, i) in importResult.errors.slice(0, 20)" :key="i">
+          บรรทัด {{ err.line }}: {{ err.message }}<template v-if="err.ap_code"> ({{ err.ap_code }}<template v-if="err.ic_code">/{{ err.ic_code }}</template>)</template>
+        </p>
+        <p v-if="importResult.errors.length > 20" class="text-slate-500">...และอีก {{ formatInt(importResult.errors.length - 20) }} รายการ</p>
+      </div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button v-if="!importResult.commit && importResult.updated > 0" class="btn-primary" :disabled="importing" @click="confirmImport">
+          {{ importing ? 'กำลังบันทึก...' : `ยืนยันบันทึก ${formatInt(importResult.updated)} รายการ` }}
+        </button>
+        <button class="btn-secondary" @click="importResult = null">ปิด</button>
+      </div>
+    </div>
+
     <div class="card mb-4 p-4">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-end">
         <div class="min-w-0 flex-1">
@@ -59,6 +96,10 @@
             @keyup.enter="applySearch"
           />
         </div>
+        <label class="flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm text-slate-700 transition-colors hover:bg-slate-50">
+          <input v-model="enabledOnly" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" @change="onToggleEnabled" />
+          เฉพาะที่เปิดใช้
+        </label>
         <button class="btn-secondary justify-center" @click="resetSearch">ล้างคำค้น</button>
       </div>
     </div>
@@ -90,14 +131,20 @@
             <tr v-if="rows.length === 0">
               <td :colspan="currentConfig.columns.length" class="py-16 text-center text-slate-400">{{ currentConfig.emptyText }}</td>
             </tr>
-            <tr v-for="row in rows" :key="rowKey(row)" class="hover:bg-slate-50">
+            <tr v-for="row in rows" :key="rowKey(row)" :class="['hover:bg-slate-50', isDirty(row) ? 'bg-amber-50/40' : '']">
               <template v-if="activeTab === 'supplier'">
-                <td class="px-4 py-3"><CodePill :value="row.ap_code" /></td>
+                <td class="relative px-4 py-3">
+                  <span v-if="isDirty(row)" class="absolute left-1 top-1/2 -translate-y-1/2 text-amber-500" title="ยังไม่ได้บันทึก">●</span>
+                  <CodePill :value="row.ap_code" />
+                </td>
                 <td class="px-4 py-3 font-medium text-slate-800">{{ row.ap_name || '-' }}</td>
               </template>
 
               <template v-else>
-                <td class="px-4 py-3"><CodePill :value="row.ic_code" /></td>
+                <td class="relative px-4 py-3">
+                  <span v-if="isDirty(row)" class="absolute left-1 top-1/2 -translate-y-1/2 text-amber-500" title="ยังไม่ได้บันทึก">●</span>
+                  <CodePill :value="row.ic_code" />
+                </td>
                 <td class="px-4 py-3 font-medium text-slate-800">{{ row.ic_name || '-' }}</td>
                 <td class="px-4 py-3"><CodePill :value="row.ap_code" /></td>
                 <td class="px-4 py-3 text-slate-700">{{ row.ap_name || '-' }}</td>
@@ -105,25 +152,18 @@
               </template>
 
               <td v-for="field in dayFields" :key="field" class="px-2 py-3">
-                <input v-model.number="row[field]" type="number" min="0" max="999" class="input-field h-10 text-right" placeholder="" />
+                <input v-model.number="row[field]" type="number" min="0" max="999" class="input-field h-10 text-right" placeholder="" @input="markDirty(row)" />
               </td>
 
               <template v-if="activeTab === 'itemSupplier'">
-                <td class="px-2 py-3"><input v-model.number="row.min_order_qty" type="number" min="0" class="input-field h-10 text-right" /></td>
-                <td class="px-2 py-3"><input v-model.number="row.pack_size" type="number" min="0.000001" step="0.0001" class="input-field h-10 text-right" /></td>
-                <td class="px-2 py-3"><input v-model="row.purchase_unit_code" class="input-field h-10" /></td>
-                <td class="px-4 py-3 text-center"><input :checked="Number(row.is_preferred) === 1" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600" @change="row.is_preferred = $event.target.checked ? 1 : 0" /></td>
+                <td class="px-2 py-3"><input v-model.number="row.min_order_qty" type="number" min="0" class="input-field h-10 text-right" @input="markDirty(row)" /></td>
+                <td class="px-4 py-3 text-center"><input :checked="Number(row.is_preferred) === 1" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600" @change="onToggleField(row, 'is_preferred', $event.target.checked)" /></td>
               </template>
 
               <td class="px-4 py-3 text-center">
-                <input :checked="Number(row.planning_enabled) === 1" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600" @change="row.planning_enabled = $event.target.checked ? 1 : 0" />
+                <input :checked="Number(row.planning_enabled) === 1" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600" @change="onToggleField(row, 'planning_enabled', $event.target.checked)" />
               </td>
-              <td class="px-2 py-3"><input v-model="row.remark" class="input-field h-10" /></td>
-              <td class="px-4 py-3 text-right">
-                <button class="btn-secondary min-h-10 px-3" :disabled="savingKey === rowKey(row)" @click="saveRow(row)">
-                  {{ savingKey === rowKey(row) ? '...' : 'บันทึก' }}
-                </button>
-              </td>
+              <td class="px-2 py-3"><input v-model="row.remark" class="input-field h-10" @input="markDirty(row)" /></td>
             </tr>
           </tbody>
         </table>
@@ -137,6 +177,28 @@
           <button class="pager-btn" :disabled="page <= 1" @click="goPage(page - 1)">ก่อนหน้า</button>
           <button class="pager-btn" :disabled="page >= totalPages" @click="goPage(page + 1)">ถัดไป</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Floating save bar: แสดงเฉพาะเมื่อมี row ที่แก้แล้ว (dirty) -->
+    <Transition name="slide-up">
+      <div v-if="dirtyKeys.size > 0 && !loading" class="sticky bottom-4 z-30 mt-4 flex items-center justify-center gap-3 rounded-xl border border-amber-300 bg-white px-5 py-3 shadow-lg shadow-amber-200/50 lg:mx-auto lg:w-fit">
+        <span class="flex items-center gap-2 text-sm text-amber-800">
+          <span class="text-amber-500">●</span>
+          แก้ไขแล้ว <strong>{{ formatInt(dirtyKeys.size) }}</strong> รายการ ยังไม่ได้บันทึก
+        </span>
+        <button class="btn-primary min-h-10 px-5" :disabled="savingAll" @click="saveAll">
+          {{ savingAll ? '⏳ กำลังบันทึก...' : '💾 บันทึกทั้งหมด' }}
+        </button>
+      </div>
+    </Transition>
+
+    <!-- ผลลัพธ์การบันทึก -->
+    <div v-if="saveAllResult" class="mt-3 rounded-xl border p-3 text-center text-sm"
+      :class="saveAllResult.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'">
+      <p class="font-medium">{{ saveAllResult.message }}</p>
+      <div v-if="saveAllResult.errors?.length" class="mt-2 max-h-28 overflow-y-auto rounded bg-white/60 p-2 text-left text-xs">
+        <p v-for="(err, i) in saveAllResult.errors.slice(0, 10)" :key="i">{{ err }}</p>
       </div>
     </div>
 
@@ -179,12 +241,23 @@ const rows = ref([])
 const loading = ref(false)
 const error = ref('')
 const search = ref('')
+const enabledOnly = ref(false)
 const page = ref(1)
 const limit = ref(30)
 const total = ref(0)
 const savingKey = ref('')
 const syncing = ref(false)
 const syncResult = ref(null)
+const exporting = ref(false)
+const importing = ref(false)
+const importResult = ref(null)
+const importInput = ref(null)
+let pendingImportFile = null
+// dirty tracking: snapshot ของ row ดั้งเดิม + set ของ row keys ที่เปลี่ยน
+const dirtyKeys = ref(new Set())
+const originalSnapshot = new Map()
+const savingAll = ref(false)
+const saveAllResult = ref(null)
 const confirmDialog = reactive({
   open: false,
   title: '',
@@ -204,6 +277,8 @@ const configs = {
     url: '/purchase-planning/supplier-settings',
     save: (row) => `/purchase-planning/supplier-settings/save/${encodeURIComponent(row.ap_code)}`,
     syncUrl: '/purchase-planning/supplier-settings/sync-from-purchase-history',
+    exportUrl: '/purchase-planning/supplier-settings/export',
+    importUrl: '/purchase-planning/supplier-settings/import',
     syncCheckLabel: 'ตรวจเจ้าหนี้จากประวัติซื้อ',
     syncUpdateLabel: 'อัปเดต master เจ้าหนี้',
     syncUnit: 'ราย',
@@ -220,20 +295,21 @@ const configs = {
       { key: 'cycle', label: 'Cycle', class: 'w-28 text-right' },
       { key: 'enabled', label: 'ใช้', class: 'w-24 text-center' },
       { key: 'remark', label: 'หมายเหตุ', class: 'min-w-44 text-left' },
-      { key: 'save', label: 'จัดการ', class: 'w-24 text-right' },
     ],
   },
   itemSupplier: {
     url: '/purchase-planning/item-supplier-settings',
     save: () => '/purchase-planning/item-supplier-settings/save',
     syncUrl: '/purchase-planning/item-supplier-settings/sync-from-purchase-history',
+    exportUrl: '/purchase-planning/item-supplier-settings/export',
+    importUrl: '/purchase-planning/item-supplier-settings/import',
     syncCheckLabel: 'ตรวจการผูกสินค้ากับเจ้าหนี้',
     syncUpdateLabel: 'อัปเดตตารางผูกสินค้า+เจ้าหนี้',
     syncUnit: 'คู่',
     searchLabel: 'ค้นหาสินค้า+เจ้าหนี้',
     searchPlaceholder: 'ค้นหาตามรหัสสินค้า ชื่อสินค้า รหัสเจ้าหนี้ หรือชื่อเจ้าหนี้',
     emptyText: 'ไม่พบข้อมูลสินค้า+เจ้าหนี้',
-    tableClass: 'min-w-[1560px]',
+    tableClass: 'min-w-[1380px]',
     columns: [
       { key: 'ic_code', label: 'รหัสสินค้า', class: 'w-32 text-left' },
       { key: 'ic_name', label: 'ชื่อสินค้า', class: 'min-w-64 text-left' },
@@ -245,12 +321,9 @@ const configs = {
       { key: 'wholesale', label: 'Wholesale', class: 'w-28 text-right' },
       { key: 'cycle', label: 'Cycle', class: 'w-24 text-right' },
       { key: 'moq', label: 'MOQ', class: 'w-28 text-right' },
-      { key: 'pack', label: 'Pack', class: 'w-28 text-right' },
-      { key: 'unit', label: 'หน่วยซื้อ', class: 'w-28 text-left' },
       { key: 'preferred', label: 'หลัก', class: 'w-20 text-center' },
       { key: 'enabled', label: 'ใช้', class: 'w-20 text-center' },
       { key: 'remark', label: 'หมายเหตุ', class: 'min-w-44 text-left' },
-      { key: 'save', label: 'จัดการ', class: 'w-24 text-right' },
     ],
   },
 }
@@ -326,10 +399,51 @@ function normalizeRow(row) {
   row.planning_enabled = Number(row.planning_enabled ?? 1)
   row.is_preferred = Number(row.is_preferred ?? 0)
   row.min_order_qty = Number(row.min_order_qty ?? 0)
-  row.pack_size = Number(row.pack_size ?? 1) || 1
-  row.purchase_unit_code = row.purchase_unit_code || ''
   row.remark = row.remark || ''
   return row
+}
+
+// ฟิลด์ที่ใช้ track dirty (เฉพาะที่ editable)
+const editableFields = [...dayFields, 'planning_enabled', 'is_preferred', 'min_order_qty', 'remark']
+
+function snapshotRow(row) {
+  const snap = {}
+  for (const f of editableFields) snap[f] = row[f]
+  return snap
+}
+
+function isDirty(row) {
+  return dirtyKeys.value.has(rowKey(row))
+}
+
+function markDirty(row) {
+  const key = rowKey(row)
+  const snap = originalSnapshot.get(key)
+  if (!snap) return
+  // เปรียบเทียบค่าปัจจุบันกับ snapshot ถ้าเหมือนเดิม → ยกเลิก dirty
+  const current = snapshotRow(row)
+  const same = editableFields.every((f) => String(current[f] ?? '') === String(snap[f] ?? ''))
+  const next = new Set(dirtyKeys.value)
+  if (same) next.delete(key)
+  else next.add(key)
+  dirtyKeys.value = next
+}
+
+function onToggleField(row, field, checked) {
+  row[field] = checked ? 1 : 0
+  markDirty(row)
+}
+
+function resetDirtyTracking() {
+  dirtyKeys.value = new Set()
+  originalSnapshot.clear()
+}
+
+function seedSnapshot(rowsList) {
+  resetDirtyTracking()
+  for (const row of rowsList) {
+    originalSnapshot.set(rowKey(row), snapshotRow(row))
+  }
 }
 
 
@@ -339,10 +453,11 @@ async function loadRows() {
   error.value = ''
   try {
     const { data } = await api.get(currentConfig.value.url, {
-      params: { search: search.value, page: page.value, limit: limit.value },
+      params: { search: search.value, page: page.value, limit: limit.value, enabled_only: enabledOnly.value ? 1 : 0 },
     })
     if (seq !== loadSeq) return
     rows.value = (data.data || []).map(normalizeRow)
+    seedSnapshot(rows.value)
     total.value = data.total || 0
   } catch (err) {
     if (seq !== loadSeq) return
@@ -352,20 +467,36 @@ async function loadRows() {
   }
 }
 
-async function saveRow(row) {
-  savingKey.value = rowKey(row)
-  try {
-    await api.post(currentConfig.value.save(row), row)
+async function saveAll() {
+  const dirtyRows = rows.value.filter((r) => isDirty(r))
+  if (!dirtyRows.length) return
+  savingAll.value = true
+  saveAllResult.value = null
+  let ok = 0
+  let failed = 0
+  const errors = []
+  // บันทึกทีละ row ผ่าน save endpoint เดิม (parallel แบบจำกัด)
+  await Promise.all(dirtyRows.map(async (row) => {
+    try {
+      await api.post(currentConfig.value.save(row), row)
+      ok += 1
+    } catch (err) {
+      failed += 1
+      errors.push(`${rowKey(row)}: ${err.message}`)
+    }
+  }))
+  if (failed === 0) {
+    saveAllResult.value = { ok: true, message: `✓ บันทึกสำเร็จ ${ok} รายการ` }
+    // reload เพื่อ refresh snapshot (เคลียร์ dirty)
     await loadRows()
-  } catch (err) {
-    showNotice({
-      title: 'บันทึกไม่สำเร็จ',
-      message: err.message,
-      tone: 'danger',
-    })
-  } finally {
-    savingKey.value = ''
+  } else {
+    saveAllResult.value = { ok: false, message: `บันทึกสำเร็จ ${ok} / ล้มเหลว ${failed} รายการ`, errors }
+    // reload เพื่อ refresh (row ที่สำเร็จจะเคลียร์ dirty)
+    await loadRows()
   }
+  savingAll.value = false
+  // ล้างผลลัพธ์หลัง 5 วินาที
+  setTimeout(() => { saveAllResult.value = null }, 5000)
 }
 
 async function syncFromHistory(dryRun) {
@@ -402,12 +533,35 @@ async function syncFromHistory(dryRun) {
   }
 }
 
+// guard: เตือนก่อนทำ action ที่จะทำให้ dirty rows หาย
+async function guardDirty(action) {
+  if (dirtyKeys.value.size > 0) {
+    const ok = await askConfirm({
+      title: 'ยังไม่ได้บันทึกการแก้ไข',
+      message: `มี ${formatInt(dirtyKeys.value.size)} รายการที่แก้แล้วยังไม่ได้บันทึก`,
+      detail: 'ถ้าดำเนินการต่อ การแก้ไขเหล่านี้จะหายไป',
+      confirmLabel: 'ดำเนินการต่อ (ทิ้งการแก้ไข)',
+      cancelLabel: 'ยกเลิก',
+      tone: 'danger',
+    })
+    if (!ok) return false
+  }
+  await action()
+  return true
+}
+
 function switchTab(key) {
-  activeTab.value = key
-  search.value = ''
-  page.value = 1
-  syncResult.value = null
-  loadRows()
+  if (key === activeTab.value) return
+  guardDirty(() => {
+    activeTab.value = key
+    search.value = ''
+    enabledOnly.value = false
+    page.value = 1
+    syncResult.value = null
+    importResult.value = null
+    pendingImportFile = null
+    loadRows()
+  })
 }
 
 function onSearchInput() {
@@ -417,24 +571,117 @@ function onSearchInput() {
 
 function applySearch() {
   clearTimeout(searchTimer)
-  page.value = 1
-  loadRows()
+  guardDirty(() => {
+    page.value = 1
+    loadRows()
+  })
+}
+
+function onToggleEnabled() {
+  guardDirty(() => {
+    page.value = 1
+    loadRows()
+  })
 }
 
 function resetSearch() {
-  search.value = ''
-  page.value = 1
-  loadRows()
+  guardDirty(() => {
+    search.value = ''
+    page.value = 1
+    loadRows()
+  })
 }
 
 function goPage(nextPage) {
   if (nextPage < 1 || nextPage > totalPages.value) return
-  page.value = nextPage
-  loadRows()
+  guardDirty(() => {
+    page.value = nextPage
+    loadRows()
+  })
+}
+
+// ── Excel export/import ──────────────────────────────────────────────────────
+async function exportExcel() {
+  const url = currentConfig.value.exportUrl
+  if (!url) return
+  exporting.value = true
+  try {
+    const response = await api.get(url, { responseType: 'blob' })
+    // ดึงชื่อไฟล์จาก Content-Disposition ถ้ามี
+    const disposition = response.headers['content-disposition'] || ''
+    const match = /filename="?([^"]+)"?/.exec(disposition)
+    const filename = match ? decodeURIComponent(match[1]) : `${activeTab.value}-${new Date().toISOString().slice(0, 10)}.xlsx`
+    const blobUrl = URL.createObjectURL(new Blob([response.data]))
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(blobUrl)
+  } catch (err) {
+    showNotice({ title: 'Export ไม่สำเร็จ', message: err.message, tone: 'danger' })
+  } finally {
+    exporting.value = false
+  }
+}
+
+function triggerImport() {
+  if (!currentConfig.value.importUrl) return
+  importResult.value = null
+  pendingImportFile = null
+  if (importInput.value) importInput.value.value = ''
+  importInput.value?.click()
+}
+
+async function onImportFile(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  pendingImportFile = file
+  importing.value = true
+  importResult.value = null
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('commit', '0')
+    const { data } = await api.post(currentConfig.value.importUrl, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    importResult.value = data
+  } catch (err) {
+    showNotice({ title: 'นำเข้าไม่สำเร็จ', message: err.message, tone: 'danger' })
+  } finally {
+    importing.value = false
+  }
+}
+
+async function confirmImport() {
+  if (!pendingImportFile) return
+  importing.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', pendingImportFile)
+    formData.append('commit', '1')
+    const { data } = await api.post(currentConfig.value.importUrl, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    importResult.value = data
+    if (data.success) {
+      page.value = 1
+      await loadRows()
+    }
+  } catch (err) {
+    showNotice({ title: 'บันทึกไม่สำเร็จ', message: err.message, tone: 'danger' })
+  } finally {
+    importing.value = false
+  }
 }
 
 onMounted(loadRows)
-onBeforeUnmount(() => clearTimeout(searchTimer))
+onBeforeUnmount(() => {
+  clearTimeout(searchTimer)
+  pendingImportFile = null
+})
 </script>
 
 <style scoped>
@@ -443,5 +690,16 @@ onBeforeUnmount(() => clearTimeout(searchTimer))
 }
 .pager-btn {
   @apply min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40;
+}
+
+/* Slide-up transition สำหรับ floating save bar */
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.25s ease;
+}
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
 }
 </style>

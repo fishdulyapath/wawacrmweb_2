@@ -153,6 +153,14 @@
                   class="inline-block w-5 h-5 mt-0.5 bg-white rounded-full shadow transition-transform"></span>
               </button>
             </div>
+            <button @click="triggerPurchaseAlert" :disabled="triggeringAlert"
+              class="mt-3 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50">
+              {{ triggeringAlert ? '⏳ กำลังส่ง...' : '🔔 ทดสอบส่งแจ้งเตือนตอนนี้' }}
+            </button>
+            <p v-if="triggerResult" class="mt-2 text-center text-xs font-medium"
+              :class="triggerResult.startsWith('✓') ? 'text-green-700' : 'text-red-600'">
+              {{ triggerResult }}
+            </p>
           </div>
         </div>
 
@@ -265,6 +273,8 @@ const loading = ref(true)
 const generating = ref(false)
 const savingSettings = ref(false)
 const saveMsg = ref('')
+const triggeringAlert = ref(false)
+const triggerResult = ref('')
 const canConfigurePurchaseAlerts = computed(() => {
   const user = auth.user || {}
   return String(user.code || '').toUpperCase() === 'SUPERADMIN' || user.role === 'admin'
@@ -494,6 +504,25 @@ async function saveSettings() {
 function formatDate(d) {
   if (!d) return ''
   return new Date(d).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+// ── Manual trigger: แจ้งเตือนจุดสั่งซื้อ (สำหรับทดสอบ) ──────────────────────
+async function triggerPurchaseAlert() {
+  if (!confirm('ยืนยันการทดสอบส่งแจ้งเตือนจุดสั่งซื้อ MIN/ROP ทันที?\n\nระบบจะส่ง LINE + สร้างแจ้งเตือนใน CRM ให้ admin/SUPERADMIN ที่เปิดรับแจ้งเตือนนี้')) return
+  triggeringAlert.value = true
+  triggerResult.value = ''
+  try {
+    const { data } = await api.post('/purchase-planning/trigger-alert')
+    const parts = []
+    if (data.sent !== undefined) parts.push(`ส่ง ${data.sent} คน`)
+    if (data.itemCount !== undefined) parts.push(`พบ ${data.itemCount} รายการถึงจุดสั่งซื้อ`)
+    if (data.skipped) parts.push('ข้าม (ส่งวันนี้แล้ว)')
+    triggerResult.value = parts.length ? `✓ ${parts.join(' · ')}` : '✓ ส่งเรียบร้อย'
+  } catch (err) {
+    triggerResult.value = `✗ ${err.response?.data?.error || err.message || 'เกิดข้อผิดพลาด'}`
+  } finally {
+    triggeringAlert.value = false
+  }
 }
 
 onMounted(loadStatus)

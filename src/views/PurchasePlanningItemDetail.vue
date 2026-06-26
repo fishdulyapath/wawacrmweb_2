@@ -43,8 +43,49 @@
           <MetricCard label="Stockout" :value="formatInt(item.stockout_days)" note="วัน stock เป็น 0" tone="amber" />
           <MetricCard label="Min/ROP" :value="formatQty(item.min_stock)" :note="`Lead ${formatInt(item.lead_time_days)} + Late ${formatInt(item.late_buffer_days)} + Wholesale ${formatInt(item.wholesale_buffer_days)}`" />
           <MetricCard label="Max" :value="formatQty(item.max_stock)" :note="`Cycle ${formatInt(item.order_cycle_days)} วัน`" />
-          <MetricCard label="แนะนำซื้อ" :value="formatQty(item.suggest_qty)" note="ปัดตาม MOQ/pack size" tone="blue" />
+          <MetricCard label="แนะนำซื้อ" :value="formatQty(item.suggest_qty)" note="ปัดเป็นจำนวนเต็ม (ไม่ต่ำกว่า MOQ)" tone="blue" />
           <MetricCard label="ต้นทุนเฉลี่ย" :value="formatMoney(item.average_cost)" note="average_cost_end" />
+        </div>
+      </section>
+
+      <!-- สต๊อกตามหน่วยนับ (แสดงเฉพาะเมื่อมีหลายหน่วย) -->
+      <section v-if="units.length > 1" class="mb-4">
+        <div class="card overflow-hidden">
+          <div class="border-b border-slate-200 px-4 py-3">
+            <h2 class="section-title">สต๊อกตามหน่วยนับ</h2>
+            <p class="mt-0.5 text-xs text-slate-400">สต๊อกเก็บในหน่วยหลัก ({{ item.unit_code }}) · แปลงตาม ratio ใน ic_unit_use · ต้นทุนเฉลี่ย = average_cost × ratio · กำไร/หน่วยคำนวณจากยอดขายสุทธิ 365 วัน</p>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="border-b border-slate-200 bg-slate-50">
+                <tr>
+                  <th class="px-4 py-2 text-left text-xs font-semibold uppercase text-slate-500">หน่วยนับ</th>
+                  <th class="px-4 py-2 text-right text-xs font-semibold uppercase text-slate-500">Ratio</th>
+                  <th class="px-4 py-2 text-right text-xs font-semibold uppercase text-slate-500">คงเหลือ</th>
+                  <th class="px-4 py-2 text-right text-xs font-semibold uppercase text-slate-500">พร้อมใช้</th>
+                  <th class="px-4 py-2 text-right text-xs font-semibold uppercase text-slate-500">แนะนำซื้อ</th>
+                  <th class="px-4 py-2 text-right text-xs font-semibold uppercase text-slate-500">ต้นทุนเฉลี่ย<br /><span class="font-normal normal-case text-slate-400">/หน่วย</span></th>
+                  <th class="px-4 py-2 text-right text-xs font-semibold uppercase text-slate-500">ราคาขายเฉลี่ย<br /><span class="font-normal normal-case text-slate-400">/หน่วย · 365d</span></th>
+                  <th class="px-4 py-2 text-right text-xs font-semibold uppercase text-slate-500">กำไร<br /><span class="font-normal normal-case text-slate-400">/หน่วย</span></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr v-for="u in units" :key="u.unit_code" :class="u.is_base ? 'bg-blue-50/40' : ''">
+                  <td class="px-4 py-2.5">
+                    <span class="font-medium text-slate-800">{{ u.unit_code }}</span>
+                    <span v-if="u.is_base" class="ml-1.5 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">หลัก</span>
+                  </td>
+                  <td class="px-4 py-2.5 text-right tabular-nums text-slate-500">{{ u.ratio }} : 1</td>
+                  <td class="px-4 py-2.5 text-right tabular-nums" :class="u.is_base ? 'font-semibold text-slate-800' : 'text-slate-600'">{{ formatQty(item.balance_qty / u.ratio) }}</td>
+                  <td class="px-4 py-2.5 text-right tabular-nums" :class="u.is_base ? 'font-semibold text-blue-700' : 'text-slate-600'">{{ formatQty(item.available_qty / u.ratio) }}</td>
+                  <td class="px-4 py-2.5 text-right tabular-nums font-medium" :class="Number(item.suggest_qty) > 0 ? 'text-blue-700' : 'text-slate-400'">{{ formatQty(item.suggest_qty / u.ratio) }}</td>
+                  <td class="px-4 py-2.5 text-right tabular-nums font-medium" :class="u.is_base ? 'text-slate-800' : 'text-slate-600'">{{ formatMoney(Number(item.average_cost || 0) * u.ratio) }}</td>
+                  <td class="px-4 py-2.5 text-right tabular-nums" :class="u.is_base ? 'font-semibold text-slate-800' : 'text-slate-600'">{{ formatMoney(avgSalePricePerUnit(u.ratio)) }}</td>
+                  <td class="px-4 py-2.5 text-right tabular-nums font-semibold" :class="profitPerUnitColor(u.ratio)">{{ formatMoney(profitPerUnit(u.ratio)) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -54,12 +95,13 @@
             <h2 class="section-title">กราฟขาย/ซื้อ/เครดิตโน้ต 90 วัน</h2>
             <span :class="statusClass(item.stock_status)">{{ statusLabel(item.stock_status) }}</span>
           </div>
-          <div class="h-64 overflow-hidden">
+          <div class="h-56 overflow-hidden">
             <div class="flex h-full items-end gap-1">
-              <div v-for="row in chartSample" :key="row.doc_date" class="flex min-w-0 flex-1 flex-col items-center justify-end gap-0.5" :title="chartTitle(row)">
-                <div class="w-full rounded-t bg-blue-500" :style="{ height: barHeight(row.sale_qty) }"></div>
-                <div class="w-full rounded-t bg-green-500" :style="{ height: barHeight(row.purchase_qty) }"></div>
-                <div class="w-full rounded-t bg-amber-500" :style="{ height: barHeight(row.credit_note_qty) }"></div>
+              <div v-for="row in chartSample" :key="row.doc_date" class="flex min-w-0 flex-1 flex-col items-center justify-end" :title="chartTitle(row)">
+                <div v-if="Number(row.credit_note_qty) > 0" class="w-full rounded-t bg-amber-500" :style="{ height: barHeight(row.credit_note_qty) }"></div>
+                <div v-if="Number(row.purchase_qty) > 0" class="w-full rounded-t bg-green-500" :style="{ height: barHeight(row.purchase_qty) }"></div>
+                <div v-if="Number(row.sale_qty) > 0" class="w-full rounded-t bg-blue-500" :style="{ height: barHeight(row.sale_qty) }"></div>
+                <div v-if="!hasMovement(row)" class="w-full" style="height: 2px; background: #e2e8f0;"></div>
               </div>
             </div>
           </div>
@@ -71,19 +113,62 @@
         </div>
 
         <div class="card p-4">
-          <h2 class="section-title mb-3">ยอดขายย้อนหลัง</h2>
-          <div class="space-y-3">
-            <SaleTotal label="30 วัน" :qty="salesTotals.qty_30" :amount="salesTotals.amount_30" />
-            <SaleTotal label="90 วัน" :qty="salesTotals.qty_90" />
-            <SaleTotal label="180 วัน" :qty="salesTotals.qty_180" />
-            <SaleTotal label="365 วัน" :qty="salesTotals.qty_365" :amount="salesTotals.amount_365" />
+          <h2 class="section-title mb-3">ยอดขาย & กำไรขั้นต้น</h2>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="border-b border-slate-200">
+                <tr>
+                  <th class="px-2 py-2 text-left text-xs font-semibold text-slate-500">ช่วง</th>
+                  <th class="px-2 py-2 text-right text-xs font-semibold text-slate-500">จำนวน</th>
+                  <th class="px-2 py-2 text-right text-xs font-semibold text-slate-500">ยอดขาย</th>
+                  <th class="px-2 py-2 text-right text-xs font-semibold text-slate-500">ต้นทุน</th>
+                  <th class="px-2 py-2 text-right text-xs font-semibold text-slate-500">กำไร</th>
+                  <th class="px-2 py-2 text-right text-xs font-semibold text-slate-500">%กำไร</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr>
+                  <td class="px-2 py-2 font-medium text-slate-700">30 วัน</td>
+                  <td class="px-2 py-2 text-right tabular-nums text-slate-600">{{ formatQty(salesTotals.qty_30) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums text-slate-600">{{ formatMoney(salesTotals.amount_net_30) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums text-slate-600">{{ formatMoney(salesTotals.cost_net_30) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums font-medium" :class="profitColor(salesTotals.amount_net_30, salesTotals.cost_net_30)">{{ formatProfit(salesTotals.amount_net_30, salesTotals.cost_net_30) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums font-medium" :class="profitColor(salesTotals.amount_net_30, salesTotals.cost_net_30)">{{ formatPct(salesTotals.amount_net_30, salesTotals.cost_net_30) }}%</td>
+                </tr>
+                <tr>
+                  <td class="px-2 py-2 font-medium text-slate-700">90 วัน</td>
+                  <td class="px-2 py-2 text-right tabular-nums text-slate-600">{{ formatQty(salesTotals.qty_90) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums text-slate-600">{{ formatMoney(salesTotals.amount_net_90) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums text-slate-600">{{ formatMoney(salesTotals.cost_net_90) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums font-medium" :class="profitColor(salesTotals.amount_net_90, salesTotals.cost_net_90)">{{ formatProfit(salesTotals.amount_net_90, salesTotals.cost_net_90) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums font-medium" :class="profitColor(salesTotals.amount_net_90, salesTotals.cost_net_90)">{{ formatPct(salesTotals.amount_net_90, salesTotals.cost_net_90) }}%</td>
+                </tr>
+                <tr>
+                  <td class="px-2 py-2 font-medium text-slate-700">180 วัน</td>
+                  <td class="px-2 py-2 text-right tabular-nums text-slate-600">{{ formatQty(salesTotals.qty_180) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums text-slate-600">{{ formatMoney(salesTotals.amount_net_180) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums text-slate-600">{{ formatMoney(salesTotals.cost_net_180) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums font-medium" :class="profitColor(salesTotals.amount_net_180, salesTotals.cost_net_180)">{{ formatProfit(salesTotals.amount_net_180, salesTotals.cost_net_180) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums font-medium" :class="profitColor(salesTotals.amount_net_180, salesTotals.cost_net_180)">{{ formatPct(salesTotals.amount_net_180, salesTotals.cost_net_180) }}%</td>
+                </tr>
+                <tr>
+                  <td class="px-2 py-2 font-medium text-slate-700">365 วัน</td>
+                  <td class="px-2 py-2 text-right tabular-nums text-slate-600">{{ formatQty(salesTotals.qty_365) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums text-slate-600">{{ formatMoney(salesTotals.amount_net_365) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums text-slate-600">{{ formatMoney(salesTotals.cost_net_365) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums font-medium" :class="profitColor(salesTotals.amount_net_365, salesTotals.cost_net_365)">{{ formatProfit(salesTotals.amount_net_365, salesTotals.cost_net_365) }}</td>
+                  <td class="px-2 py-2 text-right tabular-nums font-medium" :class="profitColor(salesTotals.amount_net_365, salesTotals.cost_net_365)">{{ formatPct(salesTotals.amount_net_365, salesTotals.cost_net_365) }}%</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
+          <p class="mt-2 text-xs text-slate-400">กำไรขั้นต้น = ยอดขาย(ถอด VAT) − ต้นทุน · net = ขาย − รับคืน</p>
         </div>
       </section>
 
       <section class="mb-4 grid gap-4 xl:grid-cols-2">
         <DataPanel title="Supplier ของสินค้านี้">
-          <table class="detail-table min-w-[720px]">
+          <table class="detail-table min-w-[640px]">
             <thead>
               <tr>
                 <th>เจ้าหนี้</th>
@@ -92,7 +177,7 @@
                 <th class="text-right">Late</th>
                 <th class="text-right">Cycle</th>
                 <th class="text-right">MOQ</th>
-                <th class="text-right">Pack</th>
+                <th>หน่วยซื้อ</th>
               </tr>
             </thead>
             <tbody>
@@ -106,7 +191,7 @@
                 <td class="text-right tabular-nums">{{ formatInt(supplier.late_buffer_days) }}</td>
                 <td class="text-right tabular-nums">{{ formatInt(supplier.order_cycle_days) }}</td>
                 <td class="text-right tabular-nums">{{ formatQty(supplier.min_order_qty) }}</td>
-                <td class="text-right tabular-nums">{{ formatQty(supplier.pack_size) }}</td>
+                <td class="text-xs text-slate-500">{{ supplier.purchase_unit_code || item.unit_code || '-' }}</td>
               </tr>
               <tr v-if="!suppliers.length"><td colspan="7" class="empty-cell">ยังไม่มี supplier</td></tr>
             </tbody>
@@ -114,27 +199,32 @@
         </DataPanel>
 
         <DataPanel title="บิลซื้อล่าสุด 5 ใบ">
-          <table class="detail-table min-w-[720px]">
+          <table class="detail-table min-w-[760px]">
             <thead>
               <tr>
                 <th>วันที่</th>
                 <th>เอกสาร</th>
                 <th>เจ้าหนี้</th>
                 <th class="text-right">จำนวน</th>
-                <th class="text-right">ราคา</th>
-                <th class="text-right">ยอด</th>
+                <th>หน่วย</th>
+                <th class="text-right">ราคา/หน่วย<br /><span class="font-normal text-slate-400">(รวม VAT)</span></th>
+                <th class="text-right">ยอดรวม<br /><span class="font-normal text-slate-400">(รวม VAT)</span></th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="bill in lastPurchases" :key="`${bill.doc_no}-${bill.ap_code}`">
                 <td>{{ formatDate(bill.doc_date) }}</td>
                 <td class="font-mono text-xs">{{ bill.doc_no }}</td>
-                <td>{{ bill.ap_name || bill.ap_code || '-' }}</td>
+                <td>
+                  <div class="font-medium text-slate-700">{{ bill.ap_name || '-' }}</div>
+                  <div class="text-xs text-slate-400">{{ bill.ap_code }}</div>
+                </td>
                 <td class="text-right tabular-nums">{{ formatQty(bill.qty) }}</td>
+                <td class="text-xs text-slate-500">{{ bill.unit_code || '-' }}</td>
                 <td class="text-right tabular-nums">{{ formatMoney(bill.price) }}</td>
-                <td class="text-right tabular-nums">{{ formatMoney(bill.sum_amount) }}</td>
+                <td class="text-right font-medium tabular-nums text-slate-800">{{ formatMoney(bill.sum_amount) }}</td>
               </tr>
-              <tr v-if="!lastPurchases.length"><td colspan="6" class="empty-cell">ไม่พบประวัติซื้อ</td></tr>
+              <tr v-if="!lastPurchases.length"><td colspan="7" class="empty-cell">ไม่พบประวัติซื้อ</td></tr>
             </tbody>
           </table>
         </DataPanel>
@@ -153,8 +243,11 @@
             </thead>
             <tbody>
               <tr v-for="customer in topCustomers" :key="customer.cust_code">
-                <td class="font-mono text-xs">{{ customer.cust_code || '-' }}</td>
-                <td class="text-right tabular-nums">{{ formatQty(customer.qty) }}</td>
+                <td>
+                  <div class="font-medium text-slate-700">{{ customer.cust_name || '-' }}</div>
+                  <div class="text-xs text-slate-400">{{ customer.cust_code }}</div>
+                </td>
+                <td class="text-right tabular-nums">{{ formatQty(customer.qty) }} <span class="text-xs text-slate-400">{{ item.unit_code }}</span></td>
                 <td class="text-right tabular-nums">{{ formatMoney(customer.amount) }}</td>
                 <td>{{ formatDate(customer.last_sale_date) }}</td>
               </tr>
@@ -171,6 +264,7 @@
                 <th>เอกสาร</th>
                 <th>เจ้าหนี้</th>
                 <th class="text-right">จำนวน</th>
+                <th>หน่วย</th>
                 <th class="text-right">รอ</th>
               </tr>
             </thead>
@@ -178,11 +272,15 @@
               <tr v-for="row in pendingReceive" :key="`${row.doc_no}-${row.ap_code}`">
                 <td>{{ formatDate(row.doc_date) }}</td>
                 <td class="font-mono text-xs">{{ row.doc_no }}</td>
-                <td>{{ row.ap_name || row.ap_code || '-' }}</td>
+                <td>
+                  <div class="font-medium text-slate-700">{{ row.ap_name || '-' }}</div>
+                  <div class="text-xs text-slate-400">{{ row.ap_code }}</div>
+                </td>
                 <td class="text-right tabular-nums">{{ formatQty(row.qty) }}</td>
+                <td class="text-xs text-slate-500">{{ row.unit_code || '-' }}</td>
                 <td class="text-right tabular-nums">{{ formatInt(row.waiting_days) }} วัน</td>
               </tr>
-              <tr v-if="!pendingReceive.length"><td colspan="5" class="empty-cell">ไม่พบเอกสารค้างรับ</td></tr>
+              <tr v-if="!pendingReceive.length"><td colspan="6" class="empty-cell">ไม่พบเอกสารค้างรับ</td></tr>
             </tbody>
           </table>
         </DataPanel>
@@ -264,6 +362,7 @@ const topCustomers = ref([])
 const movementChart = ref([])
 const pendingReceive = ref([])
 const suppliers = ref([])
+const units = ref([]) // หน่วยนับทั้งหมดของสินค้า (จาก ic_unit_use)
 
 const imageSrc = computed(() => imageFailed.value ? placeholderSvg.value : (item.value.image_url || placeholderSvg.value))
 const placeholderSvg = computed(() => `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="100%" height="100%" fill="#f1f5f9"/><text x="50%" y="50%" text-anchor="middle" fill="#94a3b8" font-family="Arial" font-size="22">No image</text></svg>')}`)
@@ -288,6 +387,13 @@ async function load() {
     movementChart.value = data.movement_chart || []
     pendingReceive.value = data.pending_receive || []
     suppliers.value = data.suppliers || []
+    // ดึงหน่วยนับ (parallel — ไม่บล็อก detail หลัก)
+    try {
+      const { data: unitData } = await api.get(`/purchase-planning/items/${encodeURIComponent(itemCode.value)}/units`)
+      units.value = unitData.units || []
+    } catch {
+      units.value = []
+    }
   } catch (err) {
     error.value = err.message
   } finally {
@@ -296,8 +402,14 @@ async function load() {
 }
 
 function barHeight(value) {
-  const pct = Math.max(1, Math.round((Number(value || 0) / maxChartValue.value) * 100))
-  return `${pct}%`
+  // ใช้ px แทน % เพราะใน flexbox % อ้างอิงจาก content ไม่ใช่ parent height → bar สูง 0 ไม่แสดง
+  // ความสูงกราฟสูงสุด ~220px (h-56 = 224px)
+  const px = Math.max(2, Math.round((Number(value || 0) / maxChartValue.value) * 220))
+  return `${px}px`
+}
+
+function hasMovement(row) {
+  return Number(row.sale_qty) > 0 || Number(row.purchase_qty) > 0 || Number(row.credit_note_qty) > 0
 }
 
 function chartTitle(row) {
@@ -315,6 +427,53 @@ function formatQty(value) {
 function formatMoney(value) {
   if (value === null || value === undefined || value === '') return '-'
   return Number(value || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// กำไรขั้นต้น
+function formatProfit(amountExclVat, cost) {
+  const profit = Number(amountExclVat || 0) - Number(cost || 0)
+  return formatMoney(profit)
+}
+function formatPct(amountExclVat, cost) {
+  const amt = Number(amountExclVat || 0)
+  if (amt === 0) return '0.0'
+  const profit = amt - Number(cost || 0)
+  return (profit * 100 / amt).toFixed(1)
+}
+function profitColor(amountExclVat, cost) {
+  const amt = Number(amountExclVat || 0)
+  if (amt === 0) return 'text-slate-400'
+  const profit = amt - Number(cost || 0)
+  if (profit > 0) return 'text-emerald-600'
+  if (profit < 0) return 'text-red-600'
+  return 'text-slate-500'
+}
+
+// คำนวณราคาขาย/กำไร ต่อหน่วยนับ — ฐานยอดขายสุทธิ 365 วัน (หน่วยหลัก)
+// qty_365 เก็บในหน่วยหลัก, amount/cost ไม่ขึ้นหน่วย → ราคา/หน่วย = (total / qty_base) × ratio
+const salesBaseQty = computed(() => Number(salesTotals.value.qty_365 || 0))
+function avgSalePricePerUnit(ratio) {
+  if (salesBaseQty.value <= 0) return null
+  const avg = Number(salesTotals.value.amount_net_365 || 0) / salesBaseQty.value
+  return avg * Number(ratio || 1)
+}
+function avgCostPerUnit(ratio) {
+  if (salesBaseQty.value <= 0) return null
+  const avg = Number(salesTotals.value.cost_net_365 || 0) / salesBaseQty.value
+  return avg * Number(ratio || 1)
+}
+function profitPerUnit(ratio) {
+  const sale = avgSalePricePerUnit(ratio)
+  const cost = avgCostPerUnit(ratio)
+  if (sale === null || cost === null) return null
+  return sale - cost
+}
+function profitPerUnitColor(ratio) {
+  const p = profitPerUnit(ratio)
+  if (p === null) return 'text-slate-400'
+  if (p > 0) return 'text-emerald-600'
+  if (p < 0) return 'text-red-600'
+  return 'text-slate-500'
 }
 
 function formatDate(value) {

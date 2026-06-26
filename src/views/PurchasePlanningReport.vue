@@ -8,15 +8,11 @@
       <div class="flex flex-wrap items-center gap-2">
         <RouterLink to="/purchase-planning/master" class="btn-secondary">กำหนด master</RouterLink>
         <RouterLink v-if="alertOnly" to="/purchase-planning/report" class="btn-secondary">รายงานทั้งหมด</RouterLink>
-        <template v-if="canTriggerAlert">
-          <button class="btn-secondary disabled:cursor-not-allowed disabled:opacity-50" :disabled="triggering || isBusy" @click="triggerAlert">
-            {{ triggering ? 'กำลังส่ง...' : 'ทดสอบส่งแจ้งเตือน' }}
-          </button>
-          <span v-if="triggerResult" class="text-xs text-slate-500">{{ triggerResult }}</span>
-        </template>
-        <button class="btn-primary disabled:cursor-not-allowed disabled:opacity-50" :disabled="selectedCount === 0" @click="showPuNotice">
-          สร้าง PU ({{ selectedCount }})
-        </button>
+        <RouterLink to="/purchase-planning/cart" class="relative btn-secondary" title="ตะกร้าสั่งซื้อ">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+          <span v-if="cartCount > 0" class="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{{ cartCount }}</span>
+        </RouterLink>
+        <RouterLink v-if="cartCount > 0" to="/purchase-planning/cart" class="btn-primary">สร้าง PR ({{ cartCount }})</RouterLink>
       </div>
     </div>
 
@@ -71,11 +67,6 @@
       </div>
     </section>
 
-    <section v-if="alertOnly" class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-      <p class="font-semibold">แสดงเฉพาะสินค้าที่ถึงจุดสั่งซื้อ</p>
-      <p class="mt-1 text-red-700">เงื่อนไขคือ พร้อมใช้ ≤ Min/ROP โดย Min/ROP = D_avg × (Lead + Late + Wholesale)</p>
-    </section>
-
     <section v-if="hasNoSupplierLinks" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <p class="font-medium">ยังไม่มีข้อมูลผูกสินค้า+เจ้าหนี้ในหน้ารายงานนี้</p>
@@ -86,7 +77,7 @@
     <section class="mb-4 grid gap-4 xl:grid-cols-2">
       <div class="card overflow-hidden">
         <div class="chart-header">
-          <h2 class="chart-title text-white">ยอดสั่งซื้อรวมทั้งหมดตาม / ผู้จัดจำหน่าย</h2>
+          <h2 class="chart-title text-white">จำนวนแนะนำซื้อรวม / ผู้จัดจำหน่าย</h2>
         </div>
         <div class="h-[260px] overflow-y-auto p-4">
           <div v-if="supplierOrderChart.length" class="space-y-3">
@@ -96,12 +87,12 @@
               </div>
               <div class="supplier-chart-track">
                 <div class="supplier-chart-bar" :style="{ width: supplierOrderWidth(supplier) }"></div>
-                <span class="supplier-chart-value">{{ formatCompactMoney(supplier.suggest_amount) }}</span>
+                <span class="supplier-chart-value">{{ formatQty(supplier.suggest_qty) }}</span>
               </div>
             </div>
           </div>
           <div v-else class="flex h-full items-center justify-center text-sm text-slate-400">
-            ยังไม่มียอดแนะนำสั่งซื้อ
+            ยังไม่มีสินค้าถึงจุดสั่งซื้อ
           </div>
         </div>
       </div>
@@ -192,7 +183,7 @@
                 <div class="h-full rounded-full bg-blue-500" :style="{ width: topSuggestWidth(row) }"></div>
               </div>
             </div>
-            <RouterLink :to="detailLink(row)" target="_blank" class="text-right text-xs font-medium text-blue-600 hover:underline">detail</RouterLink>
+            <a :href="detailHref(row)" target="_blank" rel="noopener" class="text-right text-xs font-medium text-blue-600 hover:underline">detail</a>
           </div>
         </div>
         <p v-else class="py-8 text-center text-sm text-slate-400">ไม่มีรายการแนะนำซื้อในหน้าปัจจุบัน</p>
@@ -248,71 +239,106 @@
         <div v-if="jobStatus && jobStatus !== 'complete'" class="border-b border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           กำลังคำนวณต่อในพื้นหลัง {{ formatInt(processed) }} / {{ formatInt(total) }} รายการ แถวที่แสดงเป็นผลลัพธ์ที่คำนวณแล้วและเรียงตามแนะนำซื้อ
         </div>
-        <table class="w-full min-w-[1640px] text-sm">
+
+        <!-- Toggle คอลัมน์เพิ่มเติม (desktop เท่านั้น) -->
+        <div class="hidden items-center justify-end gap-2 border-b border-slate-100 bg-slate-50/60 px-4 py-2 lg:flex">
+          <label class="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+            <input v-model="showExtraColumns" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+            แสดงคอลัมน์เพิ่มเติม (คงเหลือ/ค้างxxx/D_avg/Min/Max/Cover)
+          </label>
+        </div>
+
+        <table class="w-full text-sm" :class="showExtraColumns ? 'min-w-[1640px]' : 'min-w-[1040px]'">
           <thead class="border-b border-slate-200 bg-slate-50">
             <tr>
               <th class="table-head w-12 text-center"></th>
-              <th class="table-head w-12 text-center"></th>
-              <th class="table-head w-32 text-left">รหัส</th>
-              <th class="table-head min-w-72 text-left">สินค้า</th>
-              <th class="table-head min-w-64 text-left">เจ้าหนี้เริ่มต้น</th>
-              <th class="table-head w-24 text-right">ราคา</th>
-              <th class="table-head w-24 text-right">คงเหลือ</th>
-              <th class="table-head w-24 text-right">ค้างรับ</th>
-              <th class="table-head w-24 text-right">ค้างจอง</th>
-              <th class="table-head w-24 text-right">ค้างส่ง</th>
+              <th class="table-head w-60 text-left">สินค้า</th>
+              <th class="table-head min-w-56 text-left">เจ้าหนี้เริ่มต้น</th>
               <th class="table-head w-24 text-right">พร้อมใช้</th>
-              <th class="table-head w-24 text-right">D_avg</th>
-              <th class="table-head w-24 text-right">Min/ROP</th>
-              <th class="table-head w-24 text-right">Max</th>
+              <th v-if="showExtraColumns" class="table-head w-24 text-right">คงเหลือ</th>
+              <th v-if="showExtraColumns" class="table-head w-24 text-right">ค้างรับ</th>
+              <th v-if="showExtraColumns" class="table-head w-24 text-right">ค้างจอง</th>
+              <th v-if="showExtraColumns" class="table-head w-24 text-right">ค้างส่ง</th>
+              <th v-if="showExtraColumns" class="table-head w-24 text-right">D_avg</th>
+              <th v-if="showExtraColumns" class="table-head w-24 text-right">Min/ROP</th>
+              <th v-if="showExtraColumns" class="table-head w-24 text-right">Max</th>
+              <th v-if="showExtraColumns" class="table-head w-28 text-right">มูลค่าขายสุทธิ</th>
+              <th v-if="showExtraColumns" class="table-head w-28 text-right">ต้นทุนสุทธิ</th>
+              <th v-if="showExtraColumns" class="table-head w-28 text-right">กำไร(ขาดทุน)</th>
+              <th v-if="showExtraColumns" class="table-head w-20 text-right">%กำไร</th>
               <th class="table-head w-28 text-right">แนะนำซื้อ</th>
-              <th class="table-head w-28 text-left">สถานะ</th>
-              <th class="table-head w-28 text-right">Cover</th>
+              <th class="table-head w-40 text-left">สถานะ</th>
+              <th v-if="showExtraColumns" class="table-head w-28 text-right">Cover</th>
+              <th class="table-head w-24 text-right">ราคา</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             <template v-for="row in rows" :key="row.ic_code">
               <tr class="hover:bg-slate-50">
                 <td class="px-4 py-3 text-center">
-                  <input :checked="isSelected(row)" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600" @change="toggleSelected(row, $event.target.checked)" />
-                </td>
-                <td class="px-2 py-3 text-center">
-                  <button class="icon-btn" :disabled="Number(row.supplier_count || 0) === 0" :title="expandTitle(row)" @click="toggleExpand(row)">
-                    {{ expanded[row.ic_code] ? '-' : '+' }}
+                  <button class="cart-add-btn" :title="Number(row.suggest_qty || 0) > 0 ? 'ใส่ตะกร้า (ใช้ยอดแนะนำซื้อ)' : 'ใส่ตะกร้า (ไม่มียอดแนะนำซื้อ → ใช้ MOQ/1)'" @click="addToCartFromRow(row)">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                   </button>
                 </td>
-                <td class="px-4 py-3"><span class="code-pill">{{ row.ic_code }}</span></td>
                 <td class="px-4 py-3">
-                  <RouterLink :to="detailLink(row)" target="_blank" class="font-semibold text-blue-600 hover:underline">{{ row.ic_name || '-' }}</RouterLink>
-                  <div class="mt-1 text-xs text-slate-400">{{ row.unit_code || '-' }} / supplier {{ formatInt(row.supplier_count) }}</div>
+                  <a :href="detailHref(row)" target="_blank" rel="noopener" class="font-semibold text-blue-600 hover:underline">{{ row.ic_name || '-' }}</a>
+                  <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                    <span class="code-pill">{{ row.ic_code }}</span>
+                    <span class="text-xs text-slate-400">{{ row.unit_code || '-' }}</span>
+                  </div>
                 </td>
                 <td class="px-4 py-3">
-                  <div class="font-medium text-slate-800">{{ selectedSupplierName(row) }}</div>
-                  <div class="text-xs text-slate-400">{{ selectedSupplierCode(row) || '-' }}</div>
+                  <!-- ปุ่มเปิดดูรายละเอียดเจ้าหนี้ (สวยใหม่) -->
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      class="supplier-toggle-btn"
+                      :class="{ 'supplier-toggle-btn--open': expanded[row.ic_code] }"
+                      :disabled="Number(row.supplier_count || 0) === 0"
+                      :title="expandTitle(row)"
+                      @click="toggleExpand(row)"
+                    >
+                      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" :d="expanded[row.ic_code] ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7'" />
+                      </svg>
+                      <span class="supplier-toggle-count">{{ formatInt(row.supplier_count) }}</span>
+                    </button>
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-1.5">
+                        <span class="font-medium text-slate-800 truncate">{{ selectedSupplierName(row) }}</span>
+                        <span v-if="Number(row.is_preferred) === 1" class="preferred-badge" title="เจ้าหนี้หลัก">หลัก</span>
+                      </div>
+                      <div class="text-xs text-slate-400">{{ selectedSupplierCode(row) || '-' }}</div>
+                    </div>
+                  </div>
                 </td>
-                <td class="px-4 py-3 text-right tabular-nums">{{ formatMoney(selectedSupplierPrice(row)) }}</td>
-                <td class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.balance_qty) }}</td>
-                <td class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.accrued_in_qty_calc) }}</td>
-                <td class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.book_out_qty) }}</td>
-                <td class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.accrued_out_qty_calc) }}</td>
-                <td class="px-4 py-3 text-right font-semibold tabular-nums">{{ formatQty(row.available_qty) }}</td>
-                <td class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.d_avg) }}</td>
-                <td class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.min_stock) }}</td>
-                <td class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.max_stock) }}</td>
-                <td class="px-4 py-3 text-right font-semibold tabular-nums text-blue-700">{{ formatQty(row.suggest_qty) }}</td>
+                <td class="px-4 py-3 text-right font-semibold tabular-nums">{{ formatQty(row.available_qty) }} <span class="text-xs font-normal text-slate-400">{{ row.unit_code }}</span></td>
+                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.balance_qty) }}</td>
+                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.accrued_in_qty_calc) }}</td>
+                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.book_out_qty) }}</td>
+                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.accrued_out_qty_calc) }}</td>
+                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.d_avg) }}</td>
+                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.min_stock) }}</td>
+                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.max_stock) }}</td>
+                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums text-slate-600">{{ formatMoney(row.amount_net_3m) }}</td>
+                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums text-slate-600">{{ formatMoney(row.cost_net_3m) }}</td>
+                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums" :class="profitColor(row.profit_lost_amount_3m)">{{ formatMoney(row.profit_lost_amount_3m) }}</td>
+                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums" :class="profitPctColor(row.profit_lost_amount_3m, row.amount_net_3m)">{{ formatPct(row.profit_lost_amount_3m, row.amount_net_3m) }}%</td>
+                <td class="px-4 py-3 text-right font-semibold tabular-nums text-blue-700">{{ formatQty(row.suggest_qty) }} <span class="text-xs font-normal text-slate-400">{{ row.unit_code }}</span></td>
                 <td class="px-4 py-3"><span :class="statusClass(row.stock_status)">{{ statusLabel(row.stock_status) }}</span></td>
-                <td class="px-4 py-3 text-right tabular-nums">{{ row.stock_cover_days === null ? '-' : `${formatQty(row.stock_cover_days)} วัน` }}</td>
+                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ row.stock_cover_days === null ? '-' : `${formatQty(row.stock_cover_days)} วัน` }}</td>
+                <td class="px-4 py-3 text-right tabular-nums">{{ formatMoney(selectedSupplierPrice(row)) }}</td>
               </tr>
 
               <tr v-if="expanded[row.ic_code]" class="bg-slate-50/70">
-                <td colspan="17" class="px-14 py-4">
-                  <div v-if="supplierLoading[row.ic_code]" class="py-6 text-sm text-slate-400">กำลังโหลด supplier...</div>
-                  <div v-else-if="supplierErrors[row.ic_code]" class="py-4 text-sm text-red-500">{{ supplierErrors[row.ic_code] }}</div>
+                <td :colspan="showExtraColumns ? 19 : 7" class="px-4 py-4 sm:px-8">
+                  <div v-if="supplierLoading[row.ic_code]" class="py-6 text-center text-sm text-slate-400">กำลังโหลด supplier...</div>
+                  <div v-else-if="supplierErrors[row.ic_code]" class="py-4 text-center text-sm text-red-500">{{ supplierErrors[row.ic_code] }}</div>
                   <div v-else class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-                    <table class="w-full min-w-[980px] text-sm">
+                    <table class="w-full min-w-[720px] text-sm">
                       <thead class="bg-slate-50">
                         <tr>
-                          <th class="supplier-head w-14 text-center">เลือก</th>
+                          <th class="supplier-head w-16 text-center">ใส่ตะกร้า</th>
                           <th class="supplier-head text-left">เจ้าหนี้</th>
                           <th class="supplier-head w-28 text-right">ราคา</th>
                           <th class="supplier-head w-24 text-right">Lead</th>
@@ -330,7 +356,9 @@
                         </tr>
                         <tr v-for="supplier in supplierRows(row)" :key="`${row.ic_code}-${supplier.ap_code}`" class="hover:bg-slate-50">
                           <td class="px-3 py-2 text-center">
-                            <input :checked="selectedSupplierCode(row) === supplier.ap_code" type="radio" class="h-4 w-4 text-blue-600" @change="chooseSupplier(row, supplier)" />
+                            <button class="cart-add-btn" title="ใส่ตะกร้าจากเจ้าหนี้นี้" @click="addToCartFromSupplier(row, supplier)">
+                              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                            </button>
                           </td>
                           <td class="px-3 py-2">
                             <div class="font-medium text-slate-800">{{ supplier.ap_name || '-' }}</div>
@@ -353,7 +381,7 @@
             </template>
 
             <tr v-if="rows.length === 0">
-              <td colspan="17" class="py-16 text-center text-slate-400">ไม่พบข้อมูลตามเงื่อนไข</td>
+              <td :colspan="showExtraColumns ? 19 : 7" class="py-16 text-center text-slate-400">ไม่พบข้อมูลตามเงื่อนไข</td>
             </tr>
           </tbody>
         </table>
@@ -380,6 +408,13 @@
       @confirm="noticeDialog.open = false"
       @cancel="noticeDialog.open = false"
     />
+
+    <!-- Toast feedback สั้นเมื่อเพิ่มลงตะกร้า -->
+    <Transition name="toast">
+      <div v-if="toastMsg" class="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+        ✓ {{ toastMsg }}
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -388,16 +423,61 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import api from '../composables/useApi.js'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { useAuthStore } from '../stores/auth.js'
+import { usePlanningCart } from '../composables/usePlanningCart.js'
 
 const props = defineProps({
   alertOnly: { type: Boolean, default: false },
 })
 
 const auth = useAuthStore()
+const { cartCount, addToCart } = usePlanningCart()
+const toastMsg = ref('')
+let toastTimer = null
 const canTriggerAlert = computed(() => {
   const user = auth.user || {}
   return String(user.code || '').toUpperCase() === 'SUPERADMIN' || user.role === 'admin'
 })
+
+// เพิ่มลงตะกร้าพร้อม toast feedback สั้น
+function addToCartFromRow(row) {
+  const suggest = Number(row.suggest_qty || 0)
+  // ถ้าไม่มีแนะนำซื้อ → ใช้ MOQ ของเจ้าหนี้ที่เลือก, ถ้าไม่มี MOQ ด้วย → ใช้ 1
+  const qty = suggest > 0 ? suggest : (selectedSupplierMOQ(row) > 0 ? selectedSupplierMOQ(row) : 1)
+  addToCart({
+    ic_code: row.ic_code,
+    ic_name: row.ic_name,
+    unit_code: row.unit_code,
+    ap_code: selectedSupplierCode(row),
+    ap_name: selectedSupplierName(row),
+    qty,
+    price: Number(selectedSupplierPrice(row) || 0),
+    suggest_qty: suggest,
+  })
+  showToast(`เพิ่ม "${row.ic_name || row.ic_code}" ลงตะกร้าแล้ว`)
+}
+
+function addToCartFromSupplier(row, supplier) {
+  const suggest = Number(supplier.suggest_qty || 0)
+  // ถ้า supplier นี้ไม่มียอดแนะนำซื้อ → ใช้ MOQ, ถ้าไม่มี MOQ ด้วย → ใช้ 1
+  const qty = suggest > 0 ? suggest : (Number(supplier.min_order_qty || 0) > 0 ? Number(supplier.min_order_qty) : 1)
+  addToCart({
+    ic_code: row.ic_code,
+    ic_name: row.ic_name,
+    unit_code: supplier.last_purchase_unit_code || row.unit_code,
+    ap_code: supplier.ap_code,
+    ap_name: supplier.ap_name,
+    qty,
+    price: Number(supplier.last_purchase_price || 0),
+    suggest_qty: suggest,
+  })
+  showToast(`เพิ่ม "${row.ic_name || row.ic_code}" จาก "${supplier.ap_name || supplier.ap_code}" ลงตะกร้าแล้ว`)
+}
+
+function showToast(msg) {
+  toastMsg.value = msg
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { toastMsg.value = '' }, 2500)
+}
 const triggering = ref(false)
 const triggerResult = ref('')
 
@@ -437,6 +517,7 @@ const processed = ref(0)
 const hasMore = ref(false)
 const selected = reactive({})
 const expanded = reactive({})
+const showExtraColumns = ref(true) // toggle คอลัมน์เพิ่มเติม (ค้างรับ/ค้างจอง/ค้างส่ง/D_avg/Min/Max/Cover) — default เปิด
 const suppliersByItem = reactive({})
 const supplierLoading = reactive({})
 const supplierErrors = reactive({})
@@ -513,7 +594,7 @@ const supplierCoverage = computed(() => {
 })
 const hasNoSupplierLinks = computed(() => rows.value.length > 0 && rows.value.every((row) => Number(row.supplier_count || 0) === 0))
 const supplierOrderChart = computed(() => summary.value.supplier_order_chart || [])
-const supplierOrderMax = computed(() => Math.max(1, ...supplierOrderChart.value.map((row) => Number(row.suggest_amount || 0))))
+const supplierOrderMax = computed(() => Math.max(1, ...supplierOrderChart.value.map((row) => Number(row.suggest_qty || 0))))
 const stockStatusAmountChart = computed(() => summary.value.stock_status_amount_chart || [])
 const statusAmountMax = computed(() => Math.max(
   1,
@@ -593,10 +674,10 @@ async function pollReportJob(seq) {
       loading.value = false
       return
     }
+    // partial result: แสดง row ที่คำนวณแล้วให้ user เห็นความคืบหน้า แต่ยัง poll ต่อ
+    // ไม่ตั้ง hasMore = false เพราะ job ยังไม่ complete (อาจมี row ที่ suggest_qty สูงกว่ามาทีหลัง)
     if ((data.data || []).length) {
       rows.value = data.data || []
-      hasMore.value = false
-      loading.value = false
     }
     summary.value = data.partial_summary || {}
     pollTimer = setTimeout(() => pollReportJob(seq), 1200)
@@ -686,6 +767,17 @@ function selectedSupplierPrice(row) {
   return row.selected_supplier_price ?? row.last_purchase_price
 }
 
+// MOQ ของเจ้าหนี้ที่เลือกอยู่ (ใช้เป็น qty เริ่มต้นเมื่อ suggest_qty = 0)
+function selectedSupplierMOQ(row) {
+  const apCode = selectedSupplierCode(row)
+  const list = supplierRows(row)
+  const match = apCode ? list.find((s) => s.ap_code === apCode) : null
+  if (match) return Number(match.min_order_qty || 0)
+  // ถ้าไม่เจอเจ้าหนี้ที่เลือก → ใช้ MOQ ของเจ้าหนี้แรกที่มีค่า
+  const withMoq = list.find((s) => Number(s.min_order_qty || 0) > 0)
+  return withMoq ? Number(withMoq.min_order_qty || 0) : 0
+}
+
 function supplierRows(row) {
   return suppliersByItem[row.ic_code] || []
 }
@@ -701,12 +793,19 @@ function detailLink(row) {
   }
 }
 
+// สร้าง full URL สำหรับเปิด new tab (RouterLink + target=_blank ใน SPA ไม่เปิด tab จริง)
+function detailHref(row) {
+  const link = detailLink(row)
+  const query = new URLSearchParams(link.query).toString()
+  return `${link.path}${query ? `?${query}` : ''}`
+}
+
 function topSuggestWidth(row) {
   return `${Math.max(4, Math.round((Number(row.suggest_qty || 0) / topSuggestMax.value) * 100))}%`
 }
 
 function supplierOrderWidth(row) {
-  return `${Math.max(3, Math.round((Number(row.suggest_amount || 0) / supplierOrderMax.value) * 100))}%`
+  return `${Math.max(3, Math.round((Number(row.suggest_qty || 0) / supplierOrderMax.value) * 100))}%`
 }
 
 function statusBarHeight(value) {
@@ -742,6 +841,27 @@ function formatQty(value) {
 function formatMoney(value) {
   if (value === null || value === undefined || value === '') return '-'
   return Number(value || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// กำไรขั้นต้น: % และสี
+function formatPct(profit, amount) {
+  const amt = Number(amount || 0)
+  if (amt === 0) return '0.0'
+  return (Number(profit || 0) * 100 / amt).toFixed(1)
+}
+function profitColor(profit) {
+  const p = Number(profit || 0)
+  if (p > 0) return 'text-emerald-600 font-medium'
+  if (p < 0) return 'text-red-600 font-medium'
+  return 'text-slate-400'
+}
+function profitPctColor(profit, amount) {
+  const pct = Number(formatPct(profit, amount))
+  if (pct >= 15) return 'text-emerald-700 font-semibold'
+  if (pct >= 5) return 'text-emerald-600 font-medium'
+  if (pct > 0) return 'text-amber-600 font-medium'
+  if (Number(amount || 0) > 0) return 'text-red-600 font-medium'
+  return 'text-slate-400'
 }
 
 function formatCompactMoney(value) {
@@ -854,7 +974,40 @@ watch(() => props.alertOnly, () => load())
 .icon-btn {
   @apply inline-flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40;
 }
+
+/* ปุ่มเปิดดูรายละเอียดเจ้าหนี้ (พร้อมจำนวน supplier) */
+.supplier-toggle-btn {
+  @apply inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-600 transition-all hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40;
+}
+.supplier-toggle-btn--open {
+  @apply border-blue-500 bg-blue-600 text-white hover:bg-blue-700 hover:text-white;
+}
+.supplier-toggle-count {
+  @apply rounded-full bg-slate-100 px-1.5 text-[10px] leading-4 text-slate-600;
+}
+.supplier-toggle-btn--open .supplier-toggle-count {
+  @apply bg-white/25 text-white;
+}
+
+/* Badge "หลัก" สำหรับ preferred supplier */
+.preferred-badge {
+  @apply inline-flex shrink-0 items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-700;
+}
 .pager-btn {
   @apply min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40;
+}
+/* ปุ่มใส่ตะกร้า (icon) */
+.cart-add-btn {
+  @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-500 transition-all hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-30;
+}
+/* Toast animation */
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 20px);
 }
 </style>
