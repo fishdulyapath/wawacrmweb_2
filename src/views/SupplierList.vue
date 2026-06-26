@@ -117,13 +117,14 @@
                 <th class="table-head text-left w-40" :aria-sort="ariaSort('tax_id')">
                   <button type="button" class="sort-button" @click="toggleSort('tax_id')">เลขภาษี <span aria-hidden="true">{{ sortIndicator('tax_id') }}</span></button>
                 </th>
+                <th class="table-head text-left w-32">ภาษี</th>
                 <th class="table-head-static w-24 text-right">เครดิตวัน</th>
                 <th class="table-head-static w-24 text-right">จัดการ</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-if="suppliers.length === 0">
-                <td colspan="7" role="status" class="py-16 text-center text-slate-400">{{ emptyText }}</td>
+                <td colspan="8" role="status" class="py-16 text-center text-slate-400">{{ emptyText }}</td>
               </tr>
               <tr v-for="supplier in suppliers" :key="supplier.code" class="transition-colors duration-75 hover:bg-slate-50">
                 <td class="px-4 py-3">
@@ -136,6 +137,7 @@
                 <td class="px-4 py-3 text-slate-600">{{ supplier.province || '-' }}</td>
                 <td class="px-4 py-3 text-slate-600">{{ supplier.telephone || '-' }}</td>
                 <td class="px-4 py-3 text-slate-600">{{ supplier.tax_id || '-' }}</td>
+                <td class="px-4 py-3"><span v-if="supplier.tax_type" class="rounded px-2 py-0.5 text-xs font-medium" :class="taxTypeBadgeClass(supplier.tax_type)">{{ taxTypeLabel(supplier.tax_type) }}</span><span v-else class="text-slate-300">-</span></td>
                 <td class="px-4 py-3 text-right text-slate-600">{{ supplier.credit_day || 0 }}</td>
                 <td class="px-4 py-3">
                   <div class="flex justify-end">
@@ -270,6 +272,19 @@ function sortIndicator(field) {
 function ariaSort(field) {
   if (sortBy.value !== field) return 'none'
   return sortDir.value === 'asc' ? 'ascending' : 'descending'
+}
+
+// ประเภทภาษี: '0'=ภาษีแยกนอก, '1'=ภาษีรวมใน, '2'=ภาษีศูนย์
+function taxTypeLabel(taxType) {
+  return { '0': 'แยกนอก', '1': 'รวมใน', '2': 'ศูนย์' }[String(taxType)] || '-'
+}
+function taxTypeBadgeClass(taxType) {
+  // '1' (รวมใน) เด่นสีแดง เพราะกระทบราคา/ภาษีมากสุด
+  return {
+    '0': 'bg-slate-100 text-slate-600',
+    '1': 'bg-red-100 text-red-600',
+    '2': 'bg-emerald-100 text-emerald-700',
+  }[String(taxType)] || 'bg-slate-100 text-slate-600'
 }
 
 onMounted(loadSuppliers)

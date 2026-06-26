@@ -12,6 +12,7 @@
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
           <span v-if="cartCount > 0" class="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{{ cartCount }}</span>
         </RouterLink>
+
         <RouterLink v-if="cartCount > 0" to="/purchase-planning/cart" class="btn-primary">สร้าง PR ({{ cartCount }})</RouterLink>
       </div>
     </div>
@@ -82,8 +83,8 @@
         <div class="h-[260px] overflow-y-auto p-4">
           <div v-if="supplierOrderChart.length" class="space-y-3">
             <div v-for="supplier in supplierOrderChart" :key="supplier.ap_code" class="supplier-chart-row">
-              <div class="supplier-chart-label" :title="`${supplier.ap_code} - ${supplier.ap_name}`">
-                {{ shortSupplierLabel(supplier) }}
+              <div class="supplier-chart-label" :class="String(supplier.tax_type) === '1' ? 'text-red-600 font-semibold' : ''" :title="`${supplier.ap_code} - ${supplier.ap_name}${String(supplier.tax_type) === '1' ? ' (มีภาษี)' : ''}`">
+                {{ shortSupplierLabel(supplier) }}<span v-if="String(supplier.tax_type) === '1'" class="ml-1 text-[10px]">VAT</span>
               </div>
               <div class="supplier-chart-track">
                 <div class="supplier-chart-bar" :style="{ width: supplierOrderWidth(supplier) }"></div>
@@ -304,9 +305,11 @@
                       <span class="supplier-toggle-count">{{ formatInt(row.supplier_count) }}</span>
                     </button>
                     <div class="min-w-0">
-                      <div class="flex items-center gap-1.5">
-                        <span class="font-medium text-slate-800 truncate">{{ selectedSupplierName(row) }}</span>
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="font-medium truncate" :class="hasTax(row) ? 'text-red-600' : 'text-slate-800'" :title="hasTax(row) ? 'เจ้าหนี้นี้มีภาษี' : ''">{{ selectedSupplierName(row) }}</span>
                         <span v-if="Number(row.is_preferred) === 1" class="preferred-badge" title="เจ้าหนี้หลัก">หลัก</span>
+                        <span v-if="hasTax(row)" class="rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold text-red-600" title="มีภาษี">VAT</span>
+                        <span v-if="pendingPRCountByAp(selectedSupplierCode(row)) > 0" class="inline-flex items-center gap-0.5 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm" title="ใบเสนอซื้อ (PR) ที่ยังไม่ถูกดึงไปทำใบซื้อ">📄 PR {{ pendingPRCountByAp(selectedSupplierCode(row)) }}</span>
                       </div>
                       <div class="text-xs text-slate-400">{{ selectedSupplierCode(row) || '-' }}</div>
                     </div>
@@ -361,7 +364,11 @@
                             </button>
                           </td>
                           <td class="px-3 py-2">
-                            <div class="font-medium text-slate-800">{{ supplier.ap_name || '-' }}</div>
+                            <div class="flex flex-wrap items-center gap-1.5">
+                              <span class="font-medium" :class="String(supplier.tax_type) === '1' ? 'text-red-600' : 'text-slate-800'">{{ supplier.ap_name || '-' }}</span>
+                              <span v-if="String(supplier.tax_type) === '1'" class="rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold text-red-600" title="มีภาษี">VAT</span>
+                              <span v-if="pendingPRCountByAp(supplier.ap_code) > 0" class="inline-flex items-center gap-0.5 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm" title="ใบเสนอซื้อ (PR) ที่ยังไม่ถูกดึงไปทำใบซื้อ">📄 PR {{ pendingPRCountByAp(supplier.ap_code) }}</span>
+                            </div>
                             <div class="text-xs text-slate-400">{{ supplier.ap_code }}</div>
                           </td>
                           <td class="px-3 py-2 text-right tabular-nums">{{ formatMoney(supplier.last_purchase_price) }}</td>
@@ -511,6 +518,14 @@ const loading = ref(false)
 const loadingMore = ref(false)
 const error = ref('')
 const summary = ref({})
+// ใบเสนอซื้อ (PR) ที่ยังไม่ถูกดึงไปทำซื้อ (trans_flag=2, doc_success=0)
+const pendingPR = ref({ total: 0, byAp: {} })
+
+// นับ PR รอทำซื้อของเจ้าหนี้ตามรหัส (จาก pending_pr.byAp)
+function pendingPRCountByAp(apCode) {
+  if (!apCode) return 0
+  return Number(pendingPR.value.byAp?.[apCode] || 0)
+}
 const jobId = ref('')
 const jobStatus = ref('')
 const processed = ref(0)
@@ -632,6 +647,7 @@ async function load() {
   error.value = ''
   rows.value = []
   summary.value = {}
+  pendingPR.value = { total: 0, byAp: {} }
   total.value = 0
   processed.value = 0
   hasMore.value = false
@@ -670,6 +686,7 @@ async function pollReportJob(seq) {
     if (data.status === 'complete') {
       rows.value = data.data || []
       summary.value = data.summary || {}
+      pendingPR.value = data.pending_pr || { total: 0, byAp: {} }
       hasMore.value = Boolean(data.has_more)
       loading.value = false
       return
@@ -680,6 +697,7 @@ async function pollReportJob(seq) {
       rows.value = data.data || []
     }
     summary.value = data.partial_summary || {}
+    if (data.pending_pr) pendingPR.value = data.pending_pr
     pollTimer = setTimeout(() => pollReportJob(seq), 1200)
   } catch (err) {
     if (seq !== loadSeq) return
@@ -736,6 +754,7 @@ function chooseSupplier(row, supplier) {
   row.selected_supplier_code = supplier.ap_code
   row.selected_supplier_name = supplier.ap_name
   row.selected_supplier_price = supplier.last_purchase_price
+  row.selected_supplier_tax_type = supplier.tax_type
   row.suggest_qty = supplier.suggest_qty
   row.min_stock = supplier.min_stock
   row.max_stock = supplier.max_stock
@@ -761,6 +780,11 @@ function selectedSupplierCode(row) {
 
 function selectedSupplierName(row) {
   return row.selected_supplier_name || row.ap_name || '-'
+}
+// เจ้าหนี้มีภาษี (tax_type = '1') → แสดงชื่อสีแดง
+function hasTax(row) {
+  const t = String(row.tax_type ?? row.selected_supplier_tax_type ?? '')
+  return t === '1'
 }
 
 function selectedSupplierPrice(row) {

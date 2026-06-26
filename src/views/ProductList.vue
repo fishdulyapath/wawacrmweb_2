@@ -3,14 +3,14 @@
     <div class="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 class="text-xl font-bold text-slate-800">จัดการสินค้า</h1>
-        <p class="text-slate-500 text-sm mt-0.5">ข้อมูลสินค้าอ่านและบันทึกที่ POS DB โดยตรง</p>
+        <!-- <p class="text-slate-500 text-sm mt-0.5">ข้อมูลสินค้าอ่านและบันทึกที่ POS DB โดยตรง</p> -->
       </div>
-      <RouterLink to="/products/new" class="btn-primary">
+      <!-- <RouterLink to="/products/new" class="btn-primary">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
         เพิ่มสินค้า
-      </RouterLink>
+      </RouterLink> -->
     </div>
 
     <div class="card p-4 mb-4">

@@ -183,7 +183,7 @@
             <tbody>
               <tr v-for="supplier in suppliers" :key="supplier.ap_code">
                 <td>
-                  <div class="font-medium text-slate-800">{{ supplier.ap_name || '-' }}</div>
+                  <div class="font-medium" :class="String(supplier.tax_type) === '1' ? 'text-red-600' : 'text-slate-800'">{{ supplier.ap_name || '-' }}<span v-if="String(supplier.tax_type) === '1'" class="ml-1 rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold align-middle" title="มีภาษี">VAT</span></div>
                   <div class="text-xs text-slate-400">{{ supplier.ap_code }}</div>
                 </td>
                 <td class="text-right tabular-nums">{{ formatMoney(supplier.last_purchase_price) }}</td>
@@ -216,7 +216,7 @@
                 <td>{{ formatDate(bill.doc_date) }}</td>
                 <td class="font-mono text-xs">{{ bill.doc_no }}</td>
                 <td>
-                  <div class="font-medium text-slate-700">{{ bill.ap_name || '-' }}</div>
+                  <div class="font-medium" :class="String(bill.tax_type) === '1' ? 'text-red-600' : 'text-slate-700'">{{ bill.ap_name || '-' }}<span v-if="String(bill.tax_type) === '1'" class="ml-1 rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold align-middle" title="มีภาษี">VAT</span></div>
                   <div class="text-xs text-slate-400">{{ bill.ap_code }}</div>
                 </td>
                 <td class="text-right tabular-nums">{{ formatQty(bill.qty) }}</td>
@@ -273,7 +273,7 @@
                 <td>{{ formatDate(row.doc_date) }}</td>
                 <td class="font-mono text-xs">{{ row.doc_no }}</td>
                 <td>
-                  <div class="font-medium text-slate-700">{{ row.ap_name || '-' }}</div>
+                  <div class="font-medium" :class="String(row.tax_type) === '1' ? 'text-red-600' : 'text-slate-700'">{{ row.ap_name || '-' }}<span v-if="String(row.tax_type) === '1'" class="ml-1 rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold align-middle" title="มีภาษี">VAT</span></div>
                   <div class="text-xs text-slate-400">{{ row.ap_code }}</div>
                 </td>
                 <td class="text-right tabular-nums">{{ formatQty(row.qty) }}</td>

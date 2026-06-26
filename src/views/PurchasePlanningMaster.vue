@@ -137,7 +137,9 @@
                   <span v-if="isDirty(row)" class="absolute left-1 top-1/2 -translate-y-1/2 text-amber-500" title="ยังไม่ได้บันทึก">●</span>
                   <CodePill :value="row.ap_code" />
                 </td>
-                <td class="px-4 py-3 font-medium text-slate-800">{{ row.ap_name || '-' }}</td>
+                <td class="px-4 py-3 font-medium" :class="String(row.tax_type) === '1' ? 'text-red-600' : 'text-slate-800'">
+                  {{ row.ap_name || '-' }}<span v-if="String(row.tax_type) === '1'" class="ml-1 rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold align-middle" title="มีภาษี">VAT</span>
+                </td>
               </template>
 
               <template v-else>
@@ -147,7 +149,7 @@
                 </td>
                 <td class="px-4 py-3 font-medium text-slate-800">{{ row.ic_name || '-' }}</td>
                 <td class="px-4 py-3"><CodePill :value="row.ap_code" /></td>
-                <td class="px-4 py-3 text-slate-700">{{ row.ap_name || '-' }}</td>
+                <td class="px-4 py-3" :class="String(row.tax_type) === '1' ? 'text-red-600 font-medium' : 'text-slate-700'">{{ row.ap_name || '-' }}<span v-if="String(row.tax_type) === '1'" class="ml-1 rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold align-middle" title="มีภาษี">VAT</span></td>
                 <td class="px-4 py-3 text-right tabular-nums">{{ formatMoney(row.last_purchase_price) }}</td>
               </template>
 

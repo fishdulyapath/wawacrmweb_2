@@ -145,6 +145,15 @@
             </select>
           </div>
           <div>
+            <label for="supplier-tax-type" class="label-text">ประเภทภาษี</label>
+            <select id="supplier-tax-type" v-model="form.tax_type" class="input-field">
+              <option value="">ไม่มีภาษี</option>
+              <option value="0">ภาษีแยกนอก</option>
+              <option value="1">ภาษีรวมใน</option>
+              <option value="2">ภาษีศูนย์</option>
+            </select>
+          </div>
+          <div>
             <label for="supplier-credit-day" class="label-text">เครดิตวัน</label>
             <input id="supplier-credit-day" v-model.number="form.credit_day" type="number" min="0" step="1" class="input-field text-right" :aria-invalid="!!fieldErrors.credit_day" :aria-describedby="fieldErrors.credit_day ? 'supplier-credit-day-error' : undefined" />
             <p v-if="fieldErrors.credit_day" id="supplier-credit-day-error" class="mt-1 text-xs text-red-600">{{ fieldErrors.credit_day }}</p>
@@ -225,6 +234,7 @@ const form = reactive({
   branch_code: '',
   branch_type: 0,
   credit_day: 0,
+  tax_type: '',
 })
 
 const isDirty = computed(() => initialSnapshot.value && initialSnapshot.value !== formSnapshot())
@@ -257,6 +267,7 @@ function assignForm(data) {
     branch_code: data.branch_code || '',
     branch_type: Number(data.branch_type || 0),
     credit_day: Number(data.credit_day || 0),
+    tax_type: data.tax_type || '',
   })
 }
 
