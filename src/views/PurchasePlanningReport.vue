@@ -734,7 +734,8 @@ function resetFilter() {
 
 async function toggleExpand(row) {
   expanded[row.ic_code] = !expanded[row.ic_code]
-  if (!expanded[row.ic_code] || suppliersByItem[row.ic_code]) return
+  // เมื่อกดขยายใหม่ทุกครั้ง → re-fetch เสมอ (ไม่ใช้ cache เดิม) เพื่อให้สะท้อนการแก้ไข master ล่าสุด
+  if (!expanded[row.ic_code]) return
 
   supplierLoading[row.ic_code] = true
   supplierErrors[row.ic_code] = ''
