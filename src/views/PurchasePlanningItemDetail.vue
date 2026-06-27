@@ -313,6 +313,35 @@
           </table>
         </DataPanel>
       </section>
+
+      <!-- ทยอยรับ (trans_flag=310) — 5 ใบล่าสุด -->
+      <section class="mb-4">
+        <DataPanel title="ทยอยรับ (10 ใบล่าสุด)">
+          <table class="detail-table min-w-[760px]">
+            <thead>
+              <tr>
+                <th>วันที่</th>
+                <th>เวลา</th>
+                <th>เอกสาร</th>
+                <th class="text-right">จำนวน</th>
+                <th>หน่วย</th>
+                <th class="text-right">ราคา/หน่วย<br /><span class="font-normal text-slate-400">(ถอด VAT)</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in billReceive" :key="row.doc_no">
+                <td>{{ formatDate(row.doc_date) }}</td>
+                <td class="tabular-nums text-slate-500">{{ row.doc_time || '-' }}</td>
+                <td class="font-mono text-xs">{{ row.doc_no }}</td>
+                <td class="text-center tabular-nums">{{ formatQty(row.qty) }}</td>
+                <td class="text-xs text-slate-500">{{ row.unit_code || '-' }}</td>
+                <td class="text-right tabular-nums">{{ formatMoney(row.price_exclude_vat) }}</td>
+              </tr>
+              <tr v-if="!billReceive.length"><td colspan="6" class="empty-cell">ไม่พบเอกสารทยอยรับ</td></tr>
+            </tbody>
+          </table>
+        </DataPanel>
+      </section>
     </template>
   </div>
 </template>
@@ -389,6 +418,7 @@ const salesTotals = ref({})
 const topCustomers = ref([])
 const movementChart = ref([])
 const pendingReceive = ref([])
+const billReceive = ref([]) // ทยอยรับ (trans_flag=310)
 const suppliers = ref([])
 const units = ref([]) // หน่วยนับทั้งหมดของสินค้า (จาก ic_unit_use)
 const hoverBar = ref(null) // แท่งกราฟที่กำลัง hover เพื่อแสดง tooltip
@@ -415,6 +445,7 @@ async function load() {
     topCustomers.value = data.top_customers || []
     movementChart.value = data.movement_chart || []
     pendingReceive.value = data.pending_receive || []
+    billReceive.value = data.bill_receive || []
     suppliers.value = data.suppliers || []
     // ดึงหน่วยนับ (parallel — ไม่บล็อก detail หลัก)
     try {
