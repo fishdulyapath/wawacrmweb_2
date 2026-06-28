@@ -356,10 +356,11 @@ const statusFilters = [
 ]
 
 const typeOptions = [
-  { value: 'task',     label: 'งาน',     icon: '✅', activeClass: 'bg-blue-50 text-blue-700 border-blue-300'   },
-  { value: 'call',     label: 'โทร',     icon: '📞', activeClass: 'bg-purple-50 text-purple-700 border-purple-300' },
-  { value: 'meeting',  label: 'ประชุม',  icon: '👥', activeClass: 'bg-orange-50 text-orange-700 border-orange-300' },
-  { value: 'transfer', label: 'โอนเงิน', icon: '💸', activeClass: 'bg-green-50 text-green-700 border-green-300'  },
+  { value: 'task',     label: 'งาน',       icon: '✅', activeClass: 'bg-blue-50 text-blue-700 border-blue-300'   },
+  { value: 'call',     label: 'โทร',       icon: '📞', activeClass: 'bg-purple-50 text-purple-700 border-purple-300' },
+  { value: 'meeting',  label: 'ประชุม',    icon: '👥', activeClass: 'bg-orange-50 text-orange-700 border-orange-300' },
+  { value: 'transfer', label: 'โอนเงิน',  icon: '💸', activeClass: 'bg-green-50 text-green-700 border-green-300'  },
+  { value: 'visit',    label: 'เยี่ยมลูกค้า', icon: '🤝', activeClass: 'bg-teal-50 text-teal-700 border-teal-300' },
 ]
 
 const hasFilter = computed(() => activeStatus.value !== '' || typeFilter.value !== '' || searchInput.value !== '' || ownerFilter.value !== '')

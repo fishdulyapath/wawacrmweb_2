@@ -94,6 +94,14 @@
           class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-200">
           โทรซ้ำ{{ activity.attempt_no ? ` #${activity.attempt_no}` : '' }}
         </span>
+        <span v-if="activity.followup_type === 'visit_scheduled'"
+          class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border bg-green-50 text-green-700 border-green-200">
+          เยี่ยมตามนัด
+        </span>
+        <span v-if="activity.followup_type === 'no_met_retry'"
+          class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border bg-orange-50 text-orange-700 border-orange-200">
+          เยี่ยมซ้ำ{{ activity.attempt_no ? ` #${activity.attempt_no}` : '' }}
+        </span>
         <span v-if="activity.requires_owner_assignment"
           class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-200">
           รอระบุผู้รับผิดชอบ

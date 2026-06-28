@@ -739,6 +739,15 @@ function automationBadges(a) {
       class: 'bg-amber-50 text-amber-700 border-amber-200',
     })
   }
+  if (a.followup_type === 'visit_scheduled') {
+    badges.push({ label: 'เยี่ยมตามนัด', class: 'bg-green-50 text-green-700 border-green-200' })
+  }
+  if (a.followup_type === 'no_met_retry') {
+    badges.push({
+      label: `เยี่ยมซ้ำ${a.attempt_no ? ' #' + a.attempt_no : ''}`,
+      class: 'bg-orange-50 text-orange-700 border-orange-200',
+    })
+  }
   if (a.system_created) {
     badges.push({ label: 'สร้างโดยระบบ', class: 'bg-indigo-50 text-indigo-700 border-indigo-200' })
   }

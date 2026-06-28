@@ -595,8 +595,7 @@
             <section v-if="followupSummary" class="card p-4 border border-blue-100 bg-blue-50/40">
               <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
                 <div>
-                  <h3 class="text-sm font-semibold text-slate-800">Follow-up ลูกค้า</h3>
-       
+                  <h3 class="text-sm font-semibold text-slate-800">Follow-up โทร</h3>
                 </div>
                 <button v-if="isManager" type="button" @click="toggleCustomerFollowup"
                   :disabled="savingFollowup"
@@ -686,6 +685,104 @@
                   @click="resumeCustomerFollowup"
                   :disabled="savingFollowup"
                   class="ml-auto text-blue-700 font-semibold hover:underline disabled:opacity-60">
+                  เปิดใช้งานอีกครั้ง
+                </button>
+              </div>
+            </section>
+
+            <!-- ── Visit Follow-up ── -->
+            <section v-if="followupSummary" class="card p-4 border border-green-100 bg-green-50/40">
+              <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+                <div>
+                  <h3 class="text-sm font-semibold text-slate-800">Follow-up เยี่ยม</h3>
+                </div>
+                <button v-if="isManager" type="button" @click="toggleCustomerVisitFollowup"
+                  :disabled="savingFollowup"
+                  :class="followupForm.visit_followup_enabled ? 'bg-green-600' : 'bg-slate-300'"
+                  class="relative w-12 h-7 rounded-full transition-colors flex-shrink-0 disabled:opacity-60">
+                  <span :class="followupForm.visit_followup_enabled ? 'translate-x-5' : 'translate-x-0'"
+                    class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full shadow transition-transform" />
+                </button>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label class="label-text">วันเยี่ยมถัดไป</label>
+                  <div class="flex flex-col gap-2 sm:flex-row">
+                    <DateInput v-model="followupForm.next_visit_followup" class="input-field text-sm" :disabled="!isManager" />
+                    <button v-if="isManager" type="button" @click="saveFollowupOverride({ next_visit_followup: followupForm.next_visit_followup || null })"
+                      :disabled="savingFollowup"
+                      class="px-3 rounded-lg bg-white border border-green-200 text-green-700 text-xs font-semibold hover:bg-green-50 disabled:opacity-60">
+                      บันทึก
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label class="label-text">พักถึงวันที่</label>
+                  <DateInput v-model="followupForm.visit_followup_pause_until" class="input-field text-sm" :disabled="!isManager" />
+                </div>
+                <div>
+                  <label class="label-text">เหตุผลพัก</label>
+                  <div class="flex flex-col gap-2 sm:flex-row">
+                    <input v-model="followupForm.visit_followup_pause_reason" class="input-field text-sm" placeholder="เช่น นัดหมายแล้ว" :disabled="!isManager" />
+                    <button v-if="isManager" type="button" @click="pauseCustomerVisitFollowup"
+                      :disabled="savingFollowup || !followupForm.visit_followup_pause_until"
+                      class="px-3 rounded-lg bg-white border border-amber-200 text-amber-700 text-xs font-semibold hover:bg-amber-50 disabled:opacity-60">
+                      พัก
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-3 rounded-xl border border-green-100 bg-white/70 p-3">
+                <div class="flex flex-wrap items-end gap-3">
+                  <div class="min-w-[180px]">
+                    <label class="label-text">รอบเยี่ยมเฉพาะลูกค้า</label>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <input
+                        v-model.number="followupForm.visit_followup_interval_days"
+                        type="number"
+                        min="1"
+                        max="365"
+                        class="input-field text-sm max-w-[140px]"
+                        :disabled="!isManager"
+                      />
+                      <span class="text-xs text-slate-500">วัน</span>
+                      <button v-if="isManager" type="button" @click="saveCustomerVisitInterval"
+                        :disabled="savingFollowup"
+                        class="px-3 py-2 rounded-lg bg-white border border-green-200 text-green-700 text-xs font-semibold hover:bg-green-50 disabled:opacity-60">
+                        บันทึกรอบเยี่ยม
+                      </button>
+                      <button v-if="isManager" type="button" @click="useDefaultVisitInterval"
+                        :disabled="savingFollowup || !followupForm.visit_followup_interval_days"
+                        class="px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 disabled:opacity-60">
+                        ใช้ค่ากลาง
+                      </button>
+                    </div>
+                  </div>
+                  <div class="text-xs text-slate-500">
+                    <span class="inline-flex rounded-full bg-green-50 px-2 py-1 font-semibold text-green-700">
+                      {{ followupForm.visit_followup_interval_days ? `${followupForm.visit_followup_interval_days} วัน` : 'ใช้ค่ากลาง' }}
+                    </span>
+                    <span class="ml-2">{{ followupForm.visit_followup_interval_days ? 'รอบเยี่ยมเฉพาะลูกค้า' : 'ตามค่า global' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <span v-if="!followupForm.visit_followup_enabled" class="px-2 py-1 rounded bg-slate-100 text-slate-600">ปิด follow-up เยี่ยม</span>
+                <span v-if="followupForm.visit_followup_pause_until" class="px-2 py-1 rounded bg-amber-100 text-amber-700">
+                  พักถึง {{ formatActDate(followupForm.visit_followup_pause_until) }}
+                </span>
+                <span v-if="followupSummary.policy" class="px-2 py-1 rounded bg-white border border-slate-200">
+                  เยี่ยมทุก {{ followupSummary.policy.default_visit_interval_days || 30 }} วัน • เยี่ยมซ้ำ {{ followupSummary.policy.no_met_retry_minutes || 60 }} นาที
+                </span>
+                <span v-if="!isManager" class="ml-auto text-slate-400">ดูได้อย่างเดียว</span>
+                <button v-if="isManager && (followupForm.visit_followup_pause_until || !followupForm.visit_followup_enabled)"
+                  type="button"
+                  @click="resumeCustomerVisitFollowup"
+                  :disabled="savingFollowup"
+                  class="ml-auto text-green-700 font-semibold hover:underline disabled:opacity-60">
                   เปิดใช้งานอีกครั้ง
                 </button>
               </div>
@@ -1546,6 +1643,12 @@ const followupForm = reactive({
   followup_pause_reason: '',
   next_followup: '',
   followup_interval_days: '',
+  // visit
+  visit_followup_enabled: false,
+  visit_followup_pause_until: '',
+  visit_followup_pause_reason: '',
+  next_visit_followup: '',
+  visit_followup_interval_days: '',
 })
 
 const followupIntervalDays = computed(() => {
@@ -1871,6 +1974,11 @@ async function loadCustomer() {
     followupForm.followup_pause_reason = data.crm?.followup_pause_reason || ''
     followupForm.next_followup = dateOnly(data.crm?.next_followup) || form.crm.next_followup
     followupForm.followup_interval_days = data.crm?.followup_interval_days || ''
+    followupForm.visit_followup_enabled = data.crm?.visit_followup_enabled === true
+    followupForm.visit_followup_pause_until = dateOnly(data.crm?.visit_followup_pause_until)
+    followupForm.visit_followup_pause_reason = data.crm?.visit_followup_pause_reason || ''
+    followupForm.next_visit_followup = dateOnly(data.crm?.next_visit_followup) || ''
+    followupForm.visit_followup_interval_days = data.crm?.visit_followup_interval_days || ''
     shopImageUrl.value = data.crm?.shop_image ? `/uploads/${data.crm.shop_image}` : null
   } catch (e) {
     showToast('error', e.message)
@@ -2096,6 +2204,11 @@ function applyFollowupOverride(data = {}) {
   followupForm.next_followup = dateOnly(data.next_followup)
   followupForm.followup_interval_days = data.followup_interval_days || ''
   form.crm.next_followup = followupForm.next_followup
+  if ('visit_followup_enabled' in data) followupForm.visit_followup_enabled = data.visit_followup_enabled === true
+  if ('visit_followup_pause_until' in data) followupForm.visit_followup_pause_until = dateOnly(data.visit_followup_pause_until)
+  if ('visit_followup_pause_reason' in data) followupForm.visit_followup_pause_reason = data.visit_followup_pause_reason || ''
+  if ('next_visit_followup' in data) followupForm.next_visit_followup = dateOnly(data.next_visit_followup)
+  if ('visit_followup_interval_days' in data) followupForm.visit_followup_interval_days = data.visit_followup_interval_days || ''
   if (followupSummary.value) {
     followupSummary.value = { ...followupSummary.value }
   }
@@ -2145,6 +2258,39 @@ function resumeCustomerFollowup() {
     followup_enabled: true,
     followup_pause_until: null,
     followup_pause_reason: null,
+  })
+}
+
+function toggleCustomerVisitFollowup() {
+  saveFollowupOverride({ visit_followup_enabled: !followupForm.visit_followup_enabled })
+}
+
+function pauseCustomerVisitFollowup() {
+  saveFollowupOverride({
+    visit_followup_enabled: true,
+    visit_followup_pause_until: followupForm.visit_followup_pause_until,
+    visit_followup_pause_reason: followupForm.visit_followup_pause_reason || null,
+  })
+}
+
+function saveCustomerVisitInterval() {
+  const n = Number(followupForm.visit_followup_interval_days || 0)
+  if (!Number.isInteger(n) || n < 1 || n > 365) {
+    showToast('error', 'รอบเยี่ยมรายลูกค้าต้องอยู่ระหว่าง 1-365 วัน')
+    return
+  }
+  saveFollowupOverride({ visit_followup_interval_days: n })
+}
+
+function useDefaultVisitInterval() {
+  saveFollowupOverride({ visit_followup_interval_days: null })
+}
+
+function resumeCustomerVisitFollowup() {
+  saveFollowupOverride({
+    visit_followup_enabled: true,
+    visit_followup_pause_until: null,
+    visit_followup_pause_reason: null,
   })
 }
 
