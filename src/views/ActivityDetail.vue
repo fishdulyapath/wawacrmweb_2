@@ -125,7 +125,10 @@
             <p class="text-sm font-semibold text-slate-800">
               <span class="font-mono text-slate-500 mr-1">{{ activity.ar_code }}</span>{{ activity.customer_name }}
             </p>
-            <p v-if="activity.customer_amper" class="text-xs text-blue-500 mt-0.5">[{{ activity.customer_amper }}]</p>
+            <div class="flex flex-wrap gap-1 mt-0.5">
+              <span v-if="activity.price_level != null && activity.price_level !== ''" class="text-[13px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">ราคา {{ activity.price_level }}</span>
+              <span v-if="activity.logistic_area_name" class="text-[13px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">{{ activity.logistic_area }}{{ activity.logistic_area_name ? ' · ' + activity.logistic_area_name : '' }}</span>
+            </div>
             <!-- ผู้ติดต่อ -->
             <div v-if="contactors.length" class="mt-2 space-y-2">
               <p class="text-xs text-slate-400 font-medium">ผู้ติดต่อ</p>
@@ -342,7 +345,435 @@
           @changed="refreshActivity"
         />
       </div>
+
+      <!-- Customer history tabs -->
+      <div v-if="activity.ar_code" class="mt-6">
+        <h2 class="font-semibold text-slate-700 mb-3">ข้อมูลลูกค้า</h2>
+
+        <!-- Tab bar -->
+        <div class="flex gap-1 border-b border-slate-200 mb-4 overflow-x-auto">
+          <button v-for="tab in customerTabs" :key="tab.key"
+            @click="customerActiveTab = tab.key"
+            :class="customerActiveTab === tab.key
+              ? 'border-b-2 border-blue-500 text-blue-600 font-medium'
+              : 'text-slate-500 hover:text-slate-700'"
+            class="px-4 py-2 text-sm transition-colors whitespace-nowrap">
+            {{ tab.label }}
+          </button>
+        </div>
+
+        <!-- ── ประวัติการขนส่ง ── -->
+        <div v-show="customerActiveTab === 'delivery_history'" class="space-y-4">
+          <!-- Filter row -->
+          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <input v-model="deliveryFilter.bill" @input="deliveryDebounce"
+              class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm w-full sm:w-48 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              placeholder="ค้นหาเลขบิล / ร้าน / เที่ยวรถ..." />
+            <div class="flex items-center gap-1.5 w-full sm:w-auto">
+              <span class="text-xs text-slate-500">จาก</span>
+              <DateInput v-model="deliveryFilter.date_from" @change="loadDeliveryHistory(1)"
+                class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+            </div>
+            <div class="flex items-center gap-1.5 w-full sm:w-auto">
+              <span class="text-xs text-slate-500">ถึง</span>
+              <DateInput v-model="deliveryFilter.date_to" @change="loadDeliveryHistory(1)"
+                class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+            </div>
+          </div>
+
+          <div v-if="loadingDelivery" class="text-center text-slate-400 py-8 text-sm">
+            <svg class="animate-spin w-5 h-5 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+            กำลังโหลด...
+          </div>
+
+          <div v-else class="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+            <table class="w-full text-sm min-w-[700px]">
+              <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th class="w-8 px-4 py-3"></th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">วันที่</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">เที่ยวรถ</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">คนขับ / รถ</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">เลขบิล</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">ยอด (บาท)</th>
+                  <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500">สถานะ</th>
+                  <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500">ปัญหา</th>
+                </tr>
+              </thead>
+              <tbody v-if="!deliveryTimeline.length">
+                <tr>
+                  <td colspan="8" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูลการขนส่ง</td>
+                </tr>
+              </tbody>
+              <tbody v-for="row in deliveryTimeline" :key="row.list_id" class="border-b border-slate-100">
+                <tr class="hover:bg-slate-50 cursor-pointer" @click="toggleDeliveryRow(row)">
+                  <td class="px-4 py-3 text-center">
+                    <svg class="w-3.5 h-3.5 text-slate-400 transition-transform inline-block"
+                      :class="expandedDelivery === row.list_id ? 'rotate-90' : ''"
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </td>
+                  <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                    {{ row.trip_date ? new Date(row.trip_date).toLocaleDateString('th-TH', { day:'2-digit', month:'short', year:'2-digit' }) : '—' }}
+                  </td>
+                  <td class="px-4 py-3 font-mono text-xs text-slate-700">{{ row.car_release_code || '—' }}</td>
+                  <td class="px-4 py-3 text-xs text-slate-600">
+                    <div>{{ row.driver_name || '—' }}</div>
+                    <div class="text-slate-400">{{ row.license_plate || row.car_name || '' }}</div>
+                  </td>
+                  <td class="px-4 py-3 font-mono text-xs text-slate-700">{{ row.data_store_no || '—' }}</td>
+                  <td class="px-4 py-3 text-right font-semibold text-slate-800">{{ dlFmtAmount(row.amount) }}</td>
+                  <td class="px-4 py-3 text-center">
+                    <span v-if="row.bypass" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-orange-100 text-orange-600">ข้าม</span>
+                    <span v-else-if="row.off_site" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-yellow-100 text-yellow-700">นอกสถานที่</span>
+                    <span v-else-if="!row.check_out_id" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-600">ไม่มี checkout</span>
+                    <span v-else class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700">{{ row.visit_name || 'ส่งสำเร็จ' }}</span>
+                  </td>
+                  <td class="px-4 py-3 text-center">
+                    <span v-if="row.problem_count > 0"
+                      class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-red-50 text-red-600 border border-red-200">
+                      ⚠ {{ row.problem_count }}
+                    </span>
+                    <span v-else class="text-slate-300 text-xs">—</span>
+                  </td>
+                </tr>
+                <tr v-if="expandedDelivery === row.list_id">
+                  <td colspan="8" class="bg-slate-50/70 px-6 py-4">
+                    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      <div class="space-y-3">
+                        <div class="text-xs text-slate-500 font-semibold uppercase tracking-wide">ข้อมูลการส่ง</div>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                          <div class="text-slate-500">Check-in</div>
+                          <div class="text-slate-700">{{ dlFmtDateTime(row.date_time_check_in) }}</div>
+                          <div class="text-slate-500">Check-out</div>
+                          <div class="text-slate-700">{{ dlFmtDateTime(row.date_time_check_out) }}</div>
+                          <div class="text-slate-500">ชำระ</div>
+                          <div class="text-slate-700">{{ row.payment_name || '—' }}</div>
+                          <div v-if="row.visit_note" class="text-slate-500">หมายเหตุ</div>
+                          <div v-if="row.visit_note" class="text-slate-700">{{ row.visit_note }}</div>
+                        </div>
+                        <div v-if="row.problems && row.problems.length" class="space-y-1">
+                          <div class="text-xs text-red-600 font-semibold">ปัญหาที่พบ</div>
+                          <div v-for="p in row.problems" :key="p.problem_id"
+                            class="text-xs text-slate-600 bg-red-50 border border-red-100 rounded px-2 py-1">
+                            <span class="font-medium text-red-700">{{ p.problem_type }}</span>
+                            <span v-if="p.description"> — {{ p.description }}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="space-y-3">
+                        <div class="text-xs text-slate-500 font-semibold uppercase tracking-wide">รูปภาพ</div>
+                        <div class="flex flex-wrap gap-2">
+                          <div v-if="row.image_check_in">
+                            <div class="text-[10px] text-slate-400 mb-1">Check-in</div>
+                            <img v-if="deliveryImgCache[row.image_check_in] && deliveryImgCache[row.image_check_in] !== 'loading'"
+                              :src="deliveryImgCache[row.image_check_in]"
+                              class="h-24 w-24 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                              @click="openLightbox(row.image_check_in, 'Check-in')" />
+                            <div v-else class="h-24 w-24 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center text-xs text-slate-400 cursor-pointer"
+                              @click="openLightbox(row.image_check_in, 'Check-in')">
+                              <span>โหลดรูป</span>
+                            </div>
+                          </div>
+                          <div v-for="(img, idx) in (row.check_out_images || [])" :key="img.image_check_out_id">
+                            <div class="text-[10px] text-slate-400 mb-1">รูป {{ idx + 1 }}<span v-if="img.note"> · {{ img.note }}</span></div>
+                            <img v-if="deliveryImgCache[img.image_path] && deliveryImgCache[img.image_path] !== 'loading'"
+                              :src="deliveryImgCache[img.image_path]"
+                              class="h-24 w-24 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                              @click="openLightbox(img.image_path, `รูป ${idx + 1}${img.note ? ' · ' + img.note : ''}`)" />
+                            <div v-else class="h-24 w-24 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center text-xs text-slate-400 cursor-pointer"
+                              @click="openLightbox(img.image_path, `รูป ${idx + 1}${img.note ? ' · ' + img.note : ''}`)">
+                              <span>โหลดรูป</span>
+                            </div>
+                          </div>
+                          <div v-if="!row.image_check_in && !(row.check_out_images && row.check_out_images.length)"
+                            class="text-xs text-slate-400">ไม่มีรูปภาพ</div>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div v-if="deliveryPag.pages > 1"
+              class="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-500">
+              <span>ทั้งหมด {{ deliveryPag.total }} รายการ</span>
+              <div class="flex gap-1.5">
+                <button @click="loadDeliveryHistory(deliveryPag.page - 1)"
+                  :disabled="deliveryPag.page <= 1"
+                  class="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">←</button>
+                <span class="px-2 py-1">{{ deliveryPag.page }} / {{ deliveryPag.pages }}</span>
+                <button @click="loadDeliveryHistory(deliveryPag.page + 1)"
+                  :disabled="deliveryPag.page >= deliveryPag.pages"
+                  class="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">→</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── ประวัติการซื้อ ── -->
+        <div v-show="customerActiveTab === 'purchase_history'" class="space-y-4">
+          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <input v-model="purchaseFilter.doc_no" @input="purchaseDebounce"
+              class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm w-full sm:w-36 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              placeholder="เลขที่เอกสาร..." />
+            <input v-model="purchaseFilter.quote_no" @input="purchaseDebounce"
+              class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm w-full sm:w-36 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              placeholder="ใบเสนอราคา..." />
+            <input v-model="purchaseFilter.sale_code" @input="purchaseDebounce"
+              class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm w-full sm:w-32 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              placeholder="รหัสพนักงาน..." />
+            <div class="flex items-center gap-1.5 w-full sm:w-auto">
+              <span class="text-xs text-slate-500">จาก</span>
+              <DateInput v-model="purchaseFilter.date_from" @change="loadPurchaseHistory(1)"
+                class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+            </div>
+            <div class="flex items-center gap-1.5 w-full sm:w-auto">
+              <span class="text-xs text-slate-500">ถึง</span>
+              <DateInput v-model="purchaseFilter.date_to" @change="loadPurchaseHistory(1)"
+                class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+            </div>
+          </div>
+
+          <div v-if="loadingPurchase" class="text-center text-slate-400 py-8 text-sm">
+            <svg class="animate-spin w-5 h-5 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+            กำลังโหลด...
+          </div>
+
+          <div v-else class="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+            <table class="w-full text-sm min-w-[600px]">
+              <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th class="w-8 px-4 py-3"></th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">วันที่</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">เลขที่เอกสาร</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">ใบเสนอราคา</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">พนักงาน</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">ยอดรวม (บาท)</th>
+                  <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500">VAT</th>
+                </tr>
+              </thead>
+              <tbody v-if="!purchaseHistory.length">
+                <tr>
+                  <td colspan="7" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูลการซื้อ</td>
+                </tr>
+              </tbody>
+              <tbody v-for="row in purchaseHistory" :key="row.doc_no" class="border-b border-slate-100">
+                <tr class="hover:bg-slate-50 cursor-pointer" @click="toggleExpandDoc(row.doc_no)">
+                  <td class="px-4 py-3 text-center">
+                    <svg class="w-3.5 h-3.5 text-slate-400 transition-transform inline-block"
+                      :class="expandedDoc === row.doc_no ? 'rotate-90' : ''"
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </td>
+                  <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                    {{ new Date(row.doc_date).toLocaleDateString('th-TH', { day:'2-digit', month:'short', year:'2-digit' }) }}
+                  </td>
+                  <td class="px-4 py-3 font-mono text-xs text-slate-700">{{ row.doc_no }}</td>
+                  <td class="px-4 py-3 font-mono text-xs">
+                    <span v-if="row.quote_no"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                      {{ row.quote_no }}
+                    </span>
+                    <span v-else class="text-slate-300">—</span>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-slate-600">{{ row.sale_name || row.sale_code || '—' }}</td>
+                  <td class="px-4 py-3 text-right font-semibold text-slate-800">{{ phFmtAmount(row.total_amount) }}</td>
+                  <td class="px-4 py-3 text-center">
+                    <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500">
+                      {{ phVatLabel(row.vat_type) }}
+                    </span>
+                  </td>
+                </tr>
+                <tr v-if="expandedDoc === row.doc_no">
+                  <td colspan="7" class="bg-slate-50/70 px-6 py-3">
+                    <div v-if="loadingLines" class="text-xs text-slate-400 py-2 text-center">กำลังโหลดรายการสินค้า...</div>
+                    <table v-else class="w-full text-xs">
+                      <thead>
+                        <tr class="text-slate-500">
+                          <th class="pb-1.5 text-left font-semibold">รหัสสินค้า</th>
+                          <th class="pb-1.5 text-left font-semibold">ชื่อสินค้า</th>
+                          <th class="pb-1.5 text-right font-semibold">จำนวน</th>
+                          <th class="pb-1.5 text-left font-semibold">หน่วย</th>
+                          <th class="pb-1.5 text-right font-semibold">ราคา</th>
+                          <th class="pb-1.5 text-right font-semibold">ส่วนลด</th>
+                          <th class="pb-1.5 text-right font-semibold">รวม</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-if="!expandedLines.length">
+                          <td colspan="7" class="py-3 text-center text-slate-400">ไม่มีรายการสินค้า</td>
+                        </tr>
+                        <tr v-for="line in expandedLines" :key="line.item_code + '_' + line.item_name"
+                          class="border-t border-slate-100">
+                          <td class="py-1.5 font-mono text-slate-600">{{ line.item_code }}</td>
+                          <td class="py-1.5 text-slate-700">{{ line.item_name }}</td>
+                          <td class="py-1.5 text-right text-slate-600">{{ line.qty }}</td>
+                          <td class="py-1.5 text-slate-500 pl-2">{{ line.unit_name || line.unit_code }}</td>
+                          <td class="py-1.5 text-right text-slate-600">{{ phFmtAmount(line.price) }}</td>
+                          <td class="py-1.5 text-right text-slate-400">{{ line.discount || '—' }}</td>
+                          <td class="py-1.5 text-right font-medium text-slate-800">{{ phFmtAmount(line.sum_amount) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div v-if="purchasePag.pages > 1"
+              class="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-500">
+              <span>ทั้งหมด {{ purchasePag.total }} รายการ</span>
+              <div class="flex gap-1.5">
+                <button @click="loadPurchaseHistory(purchasePag.page - 1)"
+                  :disabled="purchasePag.page <= 1"
+                  class="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">←</button>
+                <span class="px-2 py-1">{{ purchasePag.page }} / {{ purchasePag.pages }}</span>
+                <button @click="loadPurchaseHistory(purchasePag.page + 1)"
+                  :disabled="purchasePag.page >= purchasePag.pages"
+                  class="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">→</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── หนี้คงค้าง ── -->
+        <div v-show="customerActiveTab === 'credit_detail'" class="space-y-4">
+          <div v-if="loadingCreditDetail" class="text-center text-slate-400 py-8 text-sm">
+            <svg class="animate-spin w-5 h-5 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+            กำลังโหลด...
+          </div>
+
+          <template v-else>
+            <div v-if="creditDetail" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="bg-white rounded-xl border border-slate-200 p-4">
+                <p class="text-slate-400 text-xs font-medium">วงเงินเครดิต</p>
+                <p class="text-lg font-bold text-slate-800 mt-1">{{ creditDetail.data_head.credit_money }}</p>
+              </div>
+              <div class="bg-white rounded-xl border border-slate-200 p-4">
+                <p class="text-slate-400 text-xs font-medium">สั่งขาย</p>
+                <p class="text-lg font-bold text-blue-600 mt-1">{{ creditDetail.data_head.sum_sr }}</p>
+              </div>
+              <div class="bg-white rounded-xl border border-slate-200 p-4">
+                <p class="text-slate-400 text-xs font-medium">เช็คคงค้าง</p>
+                <p class="text-lg font-bold text-amber-600 mt-1">{{ creditDetail.data_head.sum_cheque }}</p>
+              </div>
+              <div class="bg-white rounded-xl border border-slate-200 p-4">
+                <p class="text-slate-400 text-xs font-medium">หนี้คงค้าง</p>
+                <p class="text-lg font-bold text-red-600 mt-1">{{ creditDetail.data_head.sum_status }}</p>
+              </div>
+            </div>
+            <div v-else class="bg-white rounded-xl border border-slate-200 p-4 text-center text-slate-400 text-sm">ไม่พบข้อมูลเครดิต</div>
+
+            <div class="flex gap-1 bg-slate-50 rounded-xl p-1 border border-slate-200 overflow-x-auto">
+              <button v-for="t in [
+                  { key: 'credit_docs',    label: 'รายการคงค้าง' },
+                  { key: 'credit_cheques', label: 'เช็ค' },
+                  { key: 'credit_srss',    label: 'SR/SS' }
+                ]" :key="t.key"
+                @click="creditActiveTab = t.key"
+                class="flex-1 min-w-max py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                :class="creditActiveTab === t.key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:bg-white/60'">
+                {{ t.label }}
+              </button>
+            </div>
+
+            <div v-if="creditActiveTab === 'credit_docs'" class="space-y-2">
+              <div v-if="creditDetail" class="bg-white rounded-xl border border-red-200 bg-red-50 py-3 px-4 flex justify-between items-center">
+                <span class="text-sm font-medium text-slate-600">ยอดรวมหนี้คงค้าง</span>
+                <span class="text-lg font-bold text-red-600">{{ creditDetail.data_head.sum_status }}</span>
+              </div>
+              <div v-if="!creditDetail || !creditDetail.data_1.length" class="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400 text-sm">ไม่พบข้อมูล</div>
+              <div v-else v-for="(item, i) in creditDetail.data_1" :key="i" class="bg-white rounded-xl border border-slate-200 py-3 px-4">
+                <div class="flex justify-between items-start">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-slate-700">{{ item.doc_no }}</p>
+                    <p class="text-xs text-slate-400 mt-0.5">{{ creditFmtDate(item.doc_date) }} · ครบกำหนด {{ creditFmtDate(item.due_date) }}</p>
+                    <p v-if="item.remark" class="text-xs text-slate-400 mt-0.5">{{ item.remark }}</p>
+                  </div>
+                  <div class="text-right ml-3">
+                    <p class="text-sm font-medium" :class="Number(item.amount) < 0 ? 'text-emerald-600' : 'text-slate-800'">{{ creditFmt(item.amount) }}</p>
+                    <p class="text-xs text-slate-400">คงค้าง {{ creditFmt(item.ar_balance) }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="creditActiveTab === 'credit_cheques'" class="space-y-2">
+              <div v-if="creditDetail" class="bg-amber-50 border border-amber-200 rounded-xl py-3 px-4 flex justify-between items-center">
+                <span class="text-sm font-medium text-slate-600">ยอดรวมเช็คคงค้าง</span>
+                <span class="text-lg font-bold text-amber-600">{{ creditDetail.data_head.sum_cheque }}</span>
+              </div>
+              <div v-if="!creditDetail || !creditDetail.data_2.length" class="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400 text-sm">ไม่พบข้อมูล</div>
+              <div v-else v-for="(item, i) in creditDetail.data_2" :key="i" class="bg-white rounded-xl border border-slate-200 py-3 px-4">
+                <div class="flex justify-between items-start">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-slate-700">{{ item.chq_number }}</p>
+                    <p class="text-xs text-slate-400 mt-0.5">รับเช็ค {{ creditFmtDate(item.chq_get_date) }} · ครบกำหนด {{ creditFmtDate(item.chq_due_date) }}</p>
+                    <p v-if="item.doc_ref" class="text-xs text-slate-400 mt-0.5">อ้างอิง: {{ item.doc_ref }}</p>
+                  </div>
+                  <div class="text-right ml-3">
+                    <p class="text-sm font-medium text-slate-800">{{ creditFmt(item.amount) }}</p>
+                    <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">{{ item.status }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="creditActiveTab === 'credit_srss'" class="space-y-2">
+              <div v-if="creditDetail" class="bg-blue-50 border border-blue-200 rounded-xl py-3 px-4 flex justify-between items-center">
+                <span class="text-sm font-medium text-slate-600">ยอดรวมสั่งขาย</span>
+                <span class="text-lg font-bold text-blue-600">{{ creditDetail.data_head.sum_sr }}</span>
+              </div>
+              <div v-if="!creditDetail || !creditDetail.data_3.length" class="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400 text-sm">ไม่พบข้อมูล</div>
+              <div v-else v-for="(item, i) in creditDetail.data_3" :key="i" class="bg-white rounded-xl border border-slate-200 py-3 px-4">
+                <div class="flex justify-between items-start">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-slate-700">{{ item.doc_no }}</p>
+                    <p class="text-xs text-slate-400 mt-0.5">{{ creditFmtDate(item.doc_date) }}</p>
+                    <p v-if="item.remark" class="text-xs text-slate-400 mt-0.5">{{ item.remark }}</p>
+                  </div>
+                  <div class="text-right ml-3">
+                    <p class="text-sm font-medium text-slate-800">{{ creditFmt(item.total_amount) }}</p>
+                    <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded-full"
+                      :class="String(item.trans_flag) === '36' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'">
+                      {{ String(item.trans_flag) === '36' ? 'SR' : 'SS' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+      </div>
     </template>
+
+  <!-- Lightbox -->
+  <Teleport to="body">
+    <div v-if="lightbox.open"
+      class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80"
+      @click.self="closeLightbox">
+      <div class="relative max-w-[90vw] max-h-[90vh] flex flex-col items-center">
+        <button @click="closeLightbox"
+          class="absolute -top-10 right-0 text-white/80 hover:text-white text-3xl leading-none">&times;</button>
+        <img :src="lightbox.src" class="max-w-full max-h-[80vh] rounded-lg shadow-2xl object-contain" />
+        <div v-if="lightbox.label" class="mt-3 text-sm text-white/70">{{ lightbox.label }}</div>
+      </div>
+    </div>
+  </Teleport>
 
   <!-- Toast -->
   <Teleport to="body">
@@ -363,13 +794,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../composables/useApi.js'
 import ActivityAttachments from '../components/ActivityAttachments.vue'
 import ActivityComments from '../components/ActivityComments.vue'
 import CloseActivityModal from '../components/CloseActivityModal.vue'
 import SnoozeActivityModal from '../components/SnoozeActivityModal.vue'
+import DateInput from '../components/DateInput.vue'
 import { usePermissions } from '../composables/usePermissions.js'
 
 const { canEdit } = usePermissions()
@@ -438,6 +870,37 @@ const activity   = ref(null)
 const contactors = ref([])
 const isFollowing = ref(false)
 
+// ── Customer history tabs ─────────────────────────────────────
+const customerActiveTab = ref('delivery_history')
+const customerTabs = [
+  { key: 'delivery_history', label: 'ประวัติการขนส่ง' },
+  { key: 'purchase_history', label: 'ประวัติการซื้อ' },
+  { key: 'credit_detail',   label: 'หนี้คงค้าง' },
+]
+
+// Delivery history
+const deliveryTimeline  = ref([])
+const deliveryPag       = reactive({ total: 0, page: 1, pages: 1, limit: 20 })
+const loadingDelivery   = ref(false)
+const deliveryFilter    = reactive({ bill: '', date_from: '', date_to: '' })
+const expandedDelivery  = ref(null)
+const deliveryImgCache  = reactive({})
+const lightbox          = reactive({ open: false, src: null, label: '' })
+
+// Purchase history
+const purchaseHistory = ref([])
+const purchasePag     = reactive({ total: 0, page: 1, pages: 1, limit: 10 })
+const loadingPurchase = ref(false)
+const purchaseFilter  = reactive({ doc_no: '', sale_code: '', quote_no: '', date_from: '', date_to: '' })
+const expandedDoc     = ref(null)
+const expandedLines   = ref([])
+const loadingLines    = ref(false)
+
+// Credit detail
+const creditDetail        = ref(null)
+const loadingCreditDetail = ref(false)
+const creditActiveTab     = ref('credit_docs')
+
 async function refreshActivity() {
   const { data } = await api.get(`/activities/${activityId.value}`)
   activity.value = { ...(activity.value || {}), ...data }
@@ -465,11 +928,148 @@ onMounted(async () => {
         }))
       } catch {}
     }
+    if (data.ar_code) loadDeliveryHistory(1)
   } catch (e) {
     errorMsg.value = e.message || 'โหลดข้อมูลไม่สำเร็จ'
   } finally {
     loading.value = false
   }
+})
+
+// ── Customer history functions ────────────────────────────────
+
+async function loadDeliveryHistory(page = 1) {
+  const code = activity.value?.ar_code
+  if (!code) return
+  loadingDelivery.value = true
+  const p = {
+    from:  deliveryFilter.date_from || undefined,
+    to:    deliveryFilter.date_to   || undefined,
+    bill:  deliveryFilter.bill      || undefined,
+    page, limit: deliveryPag.limit,
+  }
+  const res = await api.get(`/fleet/customer/${code}/timeline`, { params: p })
+    .then(r => r.data).catch(() => ({ timeline: [], pagination: {} }))
+  deliveryTimeline.value = res.timeline || []
+  if (res.pagination) Object.assign(deliveryPag, res.pagination)
+  deliveryPag.page = page
+  loadingDelivery.value = false
+}
+
+let deliveryTimer = null
+function deliveryDebounce() {
+  clearTimeout(deliveryTimer)
+  deliveryTimer = setTimeout(() => loadDeliveryHistory(1), 350)
+}
+
+function toggleDeliveryRow(row) {
+  if (expandedDelivery.value === row.list_id) {
+    expandedDelivery.value = null
+    return
+  }
+  expandedDelivery.value = row.list_id
+  if (row.image_check_in) loadDeliveryImg(row.image_check_in)
+  ;(row.check_out_images || []).forEach(img => loadDeliveryImg(img.image_path))
+}
+
+async function loadDeliveryImg(path) {
+  if (!path || deliveryImgCache[path] !== undefined) return
+  deliveryImgCache[path] = 'loading'
+  const blob = await api.get('/fleet/image', { params: { path }, responseType: 'blob' })
+    .then(r => r.data).catch(() => null)
+  deliveryImgCache[path] = blob ? URL.createObjectURL(blob) : null
+}
+
+async function openLightbox(path, label) {
+  if (!path) return
+  if (!deliveryImgCache[path] || deliveryImgCache[path] === 'loading') {
+    await loadDeliveryImg(path)
+  }
+  if (!deliveryImgCache[path]) return
+  lightbox.src = deliveryImgCache[path]
+  lightbox.label = label || ''
+  lightbox.open = true
+}
+function closeLightbox() { lightbox.open = false }
+
+function dlFmtAmount(v) {
+  return parseFloat(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+function dlFmtDateTime(v) {
+  if (!v) return '—'
+  return new Date(v).toLocaleString('th-TH', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+async function loadPurchaseHistory(page = 1) {
+  const code = activity.value?.ar_code
+  if (!code) return
+  loadingPurchase.value = true
+  const p = {
+    date_from:  purchaseFilter.date_from  || undefined,
+    date_to:    purchaseFilter.date_to    || undefined,
+    doc_no:     purchaseFilter.doc_no     || undefined,
+    sale_code:  purchaseFilter.sale_code  || undefined,
+    quote_no:   purchaseFilter.quote_no   || undefined,
+    page, limit: purchasePag.limit,
+  }
+  const res = await api.get(`/sales/customer/${code}`, { params: p })
+    .then(r => r.data).catch(() => ({ data: [], pagination: {} }))
+  purchaseHistory.value = res.data || []
+  if (res.pagination) Object.assign(purchasePag, res.pagination)
+  purchasePag.page = page
+  loadingPurchase.value = false
+}
+
+async function toggleExpandDoc(doc_no) {
+  if (expandedDoc.value === doc_no) {
+    expandedDoc.value = null; expandedLines.value = []; return
+  }
+  expandedDoc.value   = doc_no
+  expandedLines.value = []
+  loadingLines.value  = true
+  const res = await api.get(`/sales/transactions/${doc_no}`)
+    .then(r => r.data).catch(() => null)
+  expandedLines.value = res?.lines || []
+  loadingLines.value  = false
+}
+
+let purchaseTimer = null
+function purchaseDebounce() {
+  clearTimeout(purchaseTimer)
+  purchaseTimer = setTimeout(() => loadPurchaseHistory(1), 350)
+}
+
+function phFmtAmount(v) {
+  return parseFloat(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+function phVatLabel(v) {
+  return { 0: 'แยก VAT', 1: 'รวม VAT', 2: 'อัตราศูนย์', 4: 'ไม่กระทบ' }[parseInt(v)] || String(v)
+}
+
+async function loadCreditDetail() {
+  const code = activity.value?.ar_code
+  if (!code) return
+  loadingCreditDetail.value = true
+  const res = await api.get(`/customers/${code}/credit-detail`)
+    .then(r => r.data).catch(() => null)
+  creditDetail.value = res?.success ? res : null
+  loadingCreditDetail.value = false
+}
+
+function creditFmt(v) {
+  return parseFloat(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+function creditFmtDate(d) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })
+}
+
+watch(customerActiveTab, t => {
+  const code = activity.value?.ar_code
+  if (!code) return
+  if (t === 'delivery_history' && !deliveryTimeline.value.length) loadDeliveryHistory(1)
+  if (t === 'purchase_history' && !purchaseHistory.value.length)  loadPurchaseHistory(1)
+  if (t === 'credit_detail'   && !creditDetail.value)             loadCreditDetail()
 })
 
 // ── Formatters ────────────────────────────────────────────────

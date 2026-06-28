@@ -334,7 +334,9 @@
                 <template v-if="a.ar_code">
                   <p class="text-slate-700 text-sm">{{ a.customer_name || a.ar_code }}</p>
                   <p v-if="a.customer_name" class="text-xs text-slate-400">{{ a.ar_code }}</p>
-                  <p v-if="a.customer_amper" class="text-xs text-blue-500 mt-0.5">[{{ a.customer_amper }}]</p>
+                  <div class="flex flex-wrap gap-1 mt-0.5">
+                    <span v-if="a.logistic_area_name" class="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">{{ a.logistic_area }}{{ a.logistic_area_name ? ' · ' + a.logistic_area_name : '' }}</span>
+                  </div>
                 </template>
                 <span v-else class="text-slate-300">—</span>
               </td>
