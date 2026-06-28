@@ -64,7 +64,7 @@
           <!-- Shop Banner Image -->
           <div v-if="isEdit" class="mb-5 group relative">
             <!-- มีรูป -->
-            <div v-if="shopImageUrl" class="relative w-full h-48 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+            <div v-if="shopImageUrl" class="relative w-full h-full rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
               <img :src="shopImageUrl" class="w-full h-full object-cover" />
               <!-- Overlay on hover -->
               <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
@@ -1673,10 +1673,17 @@ async function onShopImageChange(e) {
   e.target.value = ''
 }
 
-async function deleteShopImage() {
-  if (!confirm('ลบรูปร้านค้า?')) return
-  await api.delete(`/customers/${props.code}/shop-image`)
-  shopImageUrl.value = null
+function deleteShopImage() {
+  openConfirm({
+    title: 'ลบรูปร้านค้า',
+    message: 'ต้องการลบรูปร้านค้านี้ใช่หรือไม่? ไม่สามารถกู้คืนได้',
+    danger: true,
+    confirmLabel: 'ลบรูป',
+    onConfirm: async () => {
+      await api.delete(`/customers/${props.code}/shop-image`)
+      shopImageUrl.value = null
+    }
+  })
 }
 
 async function loadDeliveryHistory(page = 1) {
