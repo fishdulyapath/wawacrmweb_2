@@ -194,6 +194,7 @@
           <div class="flex items-center gap-2 text-xs text-slate-400 flex-wrap">
             <span v-if="a.ar_code" class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-mono">{{ a.ar_code }}</span>
             <span v-if="a.customer_name">{{ a.customer_name }}</span>
+            <span v-if="a.customer_amper" class="text-blue-500">[{{ a.customer_amper }}]</span>
             <div class="ml-auto flex items-center gap-1 flex-wrap justify-end">
               <template v-if="a.owners?.length">
                 <span v-for="o in a.owners.slice(0,3)" :key="o.user_id"
@@ -211,6 +212,14 @@
           <div v-if="a.activity_type === 'call' && (a.call_direction || a.call_result)" class="mt-1.5 flex gap-2 text-xs">
             <span class="text-slate-400">{{ a.call_direction === 'outbound' ? '↗ โทรออก' : '↙ รับสาย' }}</span>
             <span v-if="a.call_result" :class="callResultClass(a.call_result)">· {{ callResultLabel(a.call_result) }}</span>
+          </div>
+
+          <!-- Row 4b: visit info -->
+          <div v-if="a.activity_type === 'visit'" class="mt-1.5 flex flex-wrap gap-1.5 text-xs">
+            <span v-if="a.visit_met === true"  class="bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">✅ ได้พบ</span>
+            <span v-if="a.visit_met === false" class="bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-full">❌ ไม่ได้พบ</span>
+            <span v-if="a.visit_order === true" class="bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full">🛒 ได้ออเดอร์</span>
+            <span v-if="a.visit_order_amount" class="text-slate-500 self-center">฿{{ Number(a.visit_order_amount).toLocaleString() }}</span>
           </div>
 
           <!-- Row 5: actions -->
@@ -311,6 +320,12 @@
                         · {{ callResultLabel(a.call_result) }}
                       </span>
                     </div>
+                    <div v-if="a.activity_type === 'visit'" class="mt-1 flex flex-wrap gap-1.5 text-xs">
+                      <span v-if="a.visit_met === true"  class="bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-full">✅ ได้พบ</span>
+                      <span v-if="a.visit_met === false" class="bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded-full">❌ ไม่ได้พบ</span>
+                      <span v-if="a.visit_order === true" class="bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-full">🛒 ได้ออเดอร์</span>
+                      <span v-if="a.visit_order_amount" class="text-slate-500">฿{{ Number(a.visit_order_amount).toLocaleString() }}</span>
+                    </div>
                   </div>
                 </div>
               </td>
@@ -319,6 +334,7 @@
                 <template v-if="a.ar_code">
                   <p class="text-slate-700 text-sm">{{ a.customer_name || a.ar_code }}</p>
                   <p v-if="a.customer_name" class="text-xs text-slate-400">{{ a.ar_code }}</p>
+                  <p v-if="a.customer_amper" class="text-xs text-blue-500 mt-0.5">[{{ a.customer_amper }}]</p>
                 </template>
                 <span v-else class="text-slate-300">—</span>
               </td>
@@ -542,10 +558,11 @@ const quickFilters = [
 ]
 
 const typeOptions = [
-  { value: 'task',     label: 'งาน',      icon: '✅', activeClass: 'bg-blue-50 text-blue-700 border-blue-300'   },
-  { value: 'call',     label: 'โทร',      icon: '📞', activeClass: 'bg-purple-50 text-purple-700 border-purple-300' },
-  { value: 'meeting',  label: 'ประชุม',   icon: '👥', activeClass: 'bg-orange-50 text-orange-700 border-orange-300' },
-  { value: 'transfer', label: 'โอนเงิน',  icon: '💸', activeClass: 'bg-green-50 text-green-700 border-green-300'  },
+  { value: 'task',     label: 'งาน',         icon: '✅', activeClass: 'bg-blue-50 text-blue-700 border-blue-300'   },
+  { value: 'call',     label: 'โทร',         icon: '📞', activeClass: 'bg-purple-50 text-purple-700 border-purple-300' },
+  { value: 'meeting',  label: 'ประชุม',      icon: '👥', activeClass: 'bg-orange-50 text-orange-700 border-orange-300' },
+  { value: 'transfer', label: 'โอนเงิน',     icon: '💸', activeClass: 'bg-green-50 text-green-700 border-green-300'  },
+  { value: 'visit',    label: 'เยี่ยมลูกค้า', icon: '🤝', activeClass: 'bg-teal-50 text-teal-700 border-teal-300'    },
 ]
 
 const hasFilter = computed(() =>
@@ -636,12 +653,12 @@ function rowClass(a) {
   return 'hover:bg-slate-50'
 }
 function isOverdue(a) {
-  const d = a.activity_type === 'meeting' ? a.start_datetime : a.due_date
+  const d = (a.activity_type === 'meeting' || a.activity_type === 'visit') ? a.start_datetime : a.due_date
   if (!d || a.status !== 'open') return false
   return new Date(d) < new Date(new Date().toDateString())
 }
 function isDueToday(a) {
-  const d = a.activity_type === 'meeting' ? a.start_datetime : a.due_date
+  const d = (a.activity_type === 'meeting' || a.activity_type === 'visit') ? a.start_datetime : a.due_date
   if (!d) return false
   return new Date(d).toDateString() === new Date().toDateString()
 }
@@ -703,9 +720,9 @@ function dueDateClass(d, status) {
 }
 function priorityLabel(p) { return p === 'high' ? 'สูง' : p === 'low' ? 'ต่ำ' : 'ปกติ' }
 function priorityBadgeClass(p) { return p === 'high' ? 'bg-red-50 text-red-600 border-red-200' : p === 'low' ? 'bg-slate-50 text-slate-400 border-slate-200' : 'bg-amber-50 text-amber-600 border-amber-200' }
-function typeIcon(t)  { return t === 'task' ? '✅' : t === 'call' ? '📞' : t === 'transfer' ? '💸' : '👥' }
-function typeLabel(t) { return t === 'task' ? 'งาน' : t === 'call' ? 'โทร' : t === 'meeting' ? 'นัด' : t === 'transfer' ? 'โอนเงิน' : t }
-function typeClass(t) { return t === 'task' ? 'badge-blue' : t === 'call' ? 'badge-purple' : t === 'transfer' ? 'badge-green' : 'badge-orange' }
+function typeIcon(t)  { return t === 'task' ? '✅' : t === 'call' ? '📞' : t === 'transfer' ? '💸' : t === 'visit' ? '🤝' : '👥' }
+function typeLabel(t) { return t === 'task' ? 'งาน' : t === 'call' ? 'โทร' : t === 'meeting' ? 'นัด' : t === 'transfer' ? 'โอนเงิน' : t === 'visit' ? 'เยี่ยม' : t }
+function typeClass(t) { return t === 'task' ? 'badge-blue' : t === 'call' ? 'badge-purple' : t === 'transfer' ? 'badge-green' : t === 'visit' ? 'badge-teal' : 'badge-orange' }
 function statusLabel(s) { return s === 'open' ? 'เปิด' : s === 'done' ? 'เสร็จ' : 'ยกเลิก' }
 function statusClass(s) { return s === 'open' ? 'badge-yellow' : s === 'done' ? 'badge-green' : 'badge-red' }
 function callResultLabel(r) {
@@ -756,7 +773,7 @@ function syncReportFilter(query) {
     call_result: query.call_result ? String(query.call_result) : '',
     status: query.status ? String(query.status) : '',
   }
-  const nextType = ['task', 'call', 'meeting'].includes(query.type) ? [String(query.type)] : []
+  const nextType = ['task', 'call', 'meeting', 'transfer', 'visit'].includes(query.type) ? [String(query.type)] : []
   const nextQuick = query.queue === 'unassigned'
     ? 'unassigned'
     : query.status === 'done'
@@ -807,6 +824,7 @@ onMounted(() => {
 .badge-yellow { @apply bg-yellow-100 text-yellow-700; }
 .badge-green  { @apply bg-green-100 text-green-700; }
 .badge-red    { @apply bg-red-100 text-red-600; }
+.badge-teal   { @apply bg-teal-100 text-teal-700; }
 .scrollbar-hide { scrollbar-width: none; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 </style>

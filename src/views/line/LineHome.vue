@@ -213,7 +213,7 @@ function taskColor(t) {
 }
 
 function typeLabel(t) {
-  return t.activity_type === 'task' ? 'งาน' : t.activity_type === 'call' ? 'โทร' : 'นัดประชุม'
+  return t.activity_type === 'task' ? 'งาน' : t.activity_type === 'call' ? 'โทร' : t.activity_type === 'visit' ? 'เยี่ยม' : 'นัดประชุม'
 }
 
 function formatDate(d) {

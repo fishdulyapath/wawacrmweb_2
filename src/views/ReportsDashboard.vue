@@ -997,7 +997,7 @@ function doneRateVal(u) {
 }
 
 // ── Formatters ────────────────────────────────────────────────
-function typeLabel(t)   { return { task: 'งาน', call: 'โทรศัพท์', meeting: 'ประชุม' }[t] || t }
+function typeLabel(t)   { return { task: 'งาน', call: 'โทรศัพท์', meeting: 'ประชุม', transfer: 'โอนเงิน', visit: 'เยี่ยมลูกค้า' }[t] || t }
 function statusLabel(s) { return { open: 'เปิด', done: 'เสร็จ', cancelled: 'ยกเลิก', snoozed: 'เลื่อน' }[s] || s }
 function callResultLabel(r) { return { answered: 'รับสาย', no_answer: 'ไม่รับ', busy: 'สายไม่ว่าง', left_voicemail: 'ฝากข้อความ' }[r] || r }
 function callResultIcon(r)  { return { answered: '✅', no_answer: '📵', busy: '🔴', left_voicemail: '📨' }[r] || '📞' }

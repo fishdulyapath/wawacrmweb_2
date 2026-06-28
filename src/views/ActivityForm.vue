@@ -135,7 +135,7 @@
     <form @submit.prevent="save" @keydown.enter.prevent class="bg-white rounded-xl border border-slate-200 p-6 space-y-5">
 
       <!-- ประเภท -->
-      <div class="grid grid-cols-4 gap-2">
+      <div class="grid grid-cols-5 gap-2">
         <button v-for="t in typeOptions" :key="t.value" type="button"
           @click="form.activity_type = t.value"
           :class="form.activity_type === t.value
@@ -331,8 +331,8 @@
       </div>
 
       <!-- ── CALL: วันเวลาโทร ───────────────────── -->
-      <div v-if="form.activity_type === 'call'">
-        <label class="label">วันและเวลาโทร <span class="text-red-500">*</span></label>
+      <div v-if="form.activity_type === 'call' || form.activity_type === 'visit'">
+        <label class="label">{{ form.activity_type === 'visit' ? 'วันและเวลาเข้าเยี่ยม' : 'วันและเวลาโทร' }} <span class="text-red-500">*</span></label>
         <DateTimeInput v-model="form.start_datetime" class="input" required />
         <div class="flex gap-2 mt-2">
           <button v-for="s in dateShortcuts" :key="s.label" type="button"
@@ -992,10 +992,11 @@ function custBlur() {
 
 // ── Form ──────────────────────────────────────────────────────
 const typeOptions = [
-  { value: 'task',     label: 'งาน',      icon: '✅' },
-  { value: 'call',     label: 'โทรศัพท์',  icon: '📞' },
-  { value: 'meeting',  label: 'ประชุม',    icon: '👥' },
-  { value: 'transfer', label: 'โอนเงิน',   icon: '💸' },
+  { value: 'task',     label: 'งาน',        icon: '✅' },
+  { value: 'call',     label: 'โทรศัพท์',    icon: '📞' },
+  { value: 'meeting',  label: 'ประชุม',      icon: '👥' },
+  { value: 'transfer', label: 'โอนเงิน',     icon: '💸' },
+  { value: 'visit',    label: 'เยี่ยมลูกค้า', icon: '🤝' },
 ]
 
 const form = reactive({
@@ -1017,6 +1018,10 @@ const form = reactive({
   call_result:    '',
   call_phone:     '',
   duration_sec:   null,
+  // visit-specific
+  visit_met:           null,
+  visit_order:         null,
+  visit_order_amount:  '',
 })
 
 // ป้องกัน watch reset ขณะโหลดข้อมูล edit
@@ -1048,6 +1053,11 @@ async function loadActivity() {
     if (form.due_date)       form.due_date       = bkkDateSlice(form.due_date)
     if (form.start_datetime) form.start_datetime = bkkDateTimeSlice(form.start_datetime)
     if (form.end_datetime)   form.end_datetime   = bkkDateTimeSlice(form.end_datetime)
+    // visit fields: null → proper defaults
+    if (data.visit_met          === undefined) form.visit_met          = null
+    if (data.visit_order        === undefined) form.visit_order        = null
+    if (data.visit_order_amount === undefined || data.visit_order_amount === null) form.visit_order_amount = ''
+    else form.visit_order_amount = data.visit_order_amount
 
     // โหลด owners จาก owners[] array (multi-owner format ใหม่)
     if (data.owners?.length) {
@@ -1107,8 +1117,8 @@ async function save() {
     errorMsg.value = 'กรุณาระบุวันที่ครบกำหนด'
     return
   }
-  if ((form.activity_type === 'call' || form.activity_type === 'meeting') && !form.start_datetime) {
-    errorMsg.value = form.activity_type === 'call' ? 'กรุณาระบุวันและเวลาโทร' : 'กรุณาระบุวันและเวลาเริ่ม'
+  if ((form.activity_type === 'call' || form.activity_type === 'meeting' || form.activity_type === 'visit') && !form.start_datetime) {
+    errorMsg.value = form.activity_type === 'call' ? 'กรุณาระบุวันและเวลาโทร' : form.activity_type === 'visit' ? 'กรุณาระบุวันและเวลาเข้าเยี่ยม' : 'กรุณาระบุวันและเวลาเริ่ม'
     return
   }
   if (selectedCustomers.value.some(isInactiveCustomer) || addedGroupCusts.value.some(isInactiveCustomer)) {
@@ -1177,6 +1187,8 @@ async function save() {
     if (!base.description)    base.description    = null
     if (!base.outcome)        base.outcome        = null
     if (!base.meeting_url)    base.meeting_url    = null
+    // visit fields ไม่ส่งตอนสร้าง — กรอกตอนส่งงาน (CloseActivityModal)
+    base.visit_met = null; base.visit_order = null; base.visit_order_amount = null
 
     // คำนวณ owners list (ผู้รับผิดชอบเท่านั้น — ไม่รวม meeting invitees)
     const ownerIds = new Set()

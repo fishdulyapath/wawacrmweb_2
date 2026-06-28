@@ -383,9 +383,9 @@ function formatTime(dt) {
 }
 function priorityLabel(p)      { return p === 'high' ? 'สูง' : p === 'low' ? 'ต่ำ' : 'ปกติ' }
 function priorityBadgeClass(p) { return p === 'high' ? 'bg-red-50 text-red-600 border-red-200' : p === 'low' ? 'bg-slate-50 text-slate-400 border-slate-200' : 'bg-amber-50 text-amber-600 border-amber-200' }
-function typeIcon(t)           { return t === 'task' ? '✅' : t === 'call' ? '📞' : '👥' }
-function typeLabel(t)          { return t === 'task' ? 'งาน' : t === 'call' ? 'โทร' : t === 'meeting' ? 'นัด' : t }
-function typeClass(t)          { return t === 'task' ? 'badge-blue' : t === 'call' ? 'badge-purple' : 'badge-orange' }
+function typeIcon(t)           { return t === 'task' ? '✅' : t === 'call' ? '📞' : t === 'transfer' ? '💸' : t === 'visit' ? '🤝' : '👥' }
+function typeLabel(t)          { return t === 'task' ? 'งาน' : t === 'call' ? 'โทร' : t === 'meeting' ? 'นัด' : t === 'transfer' ? 'โอนเงิน' : t === 'visit' ? 'เยี่ยม' : t }
+function typeClass(t)          { return t === 'task' ? 'badge-blue' : t === 'call' ? 'badge-purple' : t === 'transfer' ? 'badge-green' : t === 'visit' ? 'badge-teal' : 'badge-orange' }
 
 function groupStatusLabel(s) {
   if (s === 'done') return '✅ เสร็จทั้งหมด'
@@ -435,6 +435,7 @@ onMounted(() => loadDetail())
 .badge-orange { @apply bg-orange-100 text-orange-700; }
 .badge-yellow { @apply bg-yellow-100 text-yellow-700; }
 .badge-green  { @apply bg-green-100 text-green-700; }
+.badge-teal   { @apply bg-teal-100 text-teal-700; }
 .badge-red    { @apply bg-red-100 text-red-600; }
 
 .modal-fade-enter-active { transition: opacity 0.2s ease; }

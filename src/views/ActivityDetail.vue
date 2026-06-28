@@ -125,6 +125,7 @@
             <p class="text-sm font-semibold text-slate-800">
               <span class="font-mono text-slate-500 mr-1">{{ activity.ar_code }}</span>{{ activity.customer_name }}
             </p>
+            <p v-if="activity.customer_amper" class="text-xs text-blue-500 mt-0.5">[{{ activity.customer_amper }}]</p>
             <!-- ผู้ติดต่อ -->
             <div v-if="contactors.length" class="mt-2 space-y-2">
               <p class="text-xs text-slate-400 font-medium">ผู้ติดต่อ</p>
@@ -270,6 +271,40 @@
                   class="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium">
                   🎙 ฟังบันทึกการโทร
                 </a>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Visit fields -->
+        <template v-if="activity.activity_type === 'visit'">
+          <div class="px-5 py-4 flex items-start gap-3">
+            <span class="text-lg mt-0.5 shrink-0">🤝</span>
+            <div class="flex-1">
+              <p class="text-xs text-slate-400 font-medium mb-2">ผลการเข้าเยี่ยม</p>
+              <div class="flex flex-wrap gap-2">
+                <span v-if="activity.visit_met === true"
+                  class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700 border border-green-200">
+                  ✅ ได้พบลูกค้า
+                </span>
+                <span v-else-if="activity.visit_met === false"
+                  class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-50 text-red-600 border border-red-200">
+                  ❌ ไม่ได้พบลูกค้า
+                </span>
+                <template v-if="activity.visit_met === true">
+                  <span v-if="activity.visit_order === true"
+                    class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                    🛒 ได้ออเดอร์
+                  </span>
+                  <span v-else-if="activity.visit_order === false"
+                    class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                    — ไม่ได้ออเดอร์
+                  </span>
+                  <span v-if="activity.visit_order_amount"
+                    class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                    ฿{{ Number(activity.visit_order_amount).toLocaleString() }}
+                  </span>
+                </template>
               </div>
             </div>
           </div>
@@ -471,14 +506,15 @@ function retrySkippedMessage(retry) {
   return 'บันทึกแล้ว: ไม่ได้สร้างงานโทรซ้ำ'
 }
 
-function typeLabel(t) { return { task: 'งาน', call: 'โทรศัพท์', meeting: 'ประชุม', transfer: 'โอนเงิน' }[t] || t }
-function typeIcon(t)  { return { task: '✅', call: '📞', meeting: '👥', transfer: '💸' }[t] || '' }
+function typeLabel(t) { return { task: 'งาน', call: 'โทรศัพท์', meeting: 'ประชุม', transfer: 'โอนเงิน', visit: 'เยี่ยมลูกค้า' }[t] || t }
+function typeIcon(t)  { return { task: '✅', call: '📞', meeting: '👥', transfer: '💸', visit: '🤝' }[t] || '' }
 function typeClass(t) {
   return {
     task:     'bg-blue-50 border-blue-200 text-blue-700',
     call:     'bg-orange-50 border-orange-200 text-orange-700',
     meeting:  'bg-purple-50 border-purple-200 text-purple-700',
     transfer: 'bg-green-50 border-green-200 text-green-700',
+    visit:    'bg-teal-50 border-teal-200 text-teal-700',
   }[t] || 'bg-slate-50 border-slate-200 text-slate-600'
 }
 

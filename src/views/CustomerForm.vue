@@ -764,6 +764,12 @@
                             {{ act.call_direction ? ' • ' : '' }}{{ callResultLabel(act.call_result) }}
                           </span>
                         </p>
+                        <div v-if="act.activity_type === 'visit'" class="flex flex-wrap gap-1 mt-0.5">
+                          <span v-if="act.visit_met === true"  class="bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-full text-[10px]">✅ ได้พบ</span>
+                          <span v-if="act.visit_met === false" class="bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded-full text-[10px]">❌ ไม่ได้พบ</span>
+                          <span v-if="act.visit_order === true" class="bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-full text-[10px]">🛒 ออเดอร์</span>
+                          <span v-if="act.visit_order_amount" class="text-[10px] text-slate-500 self-center">฿{{ Number(act.visit_order_amount).toLocaleString() }}</span>
+                        </div>
                       </div>
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0">
@@ -2121,12 +2127,16 @@ function loadMoreActivities() {
 function actTypeLabel(t) {
   if (t === 'task') return 'งาน'
   if (t === 'call') return 'โทร'
+  if (t === 'transfer') return 'โอนเงิน'
+  if (t === 'visit') return 'เยี่ยมลูกค้า'
   return 'นัดประชุม'
 }
 
 function actTypeIcon(t) {
   if (t === 'task') return '📋'
   if (t === 'call') return '📞'
+  if (t === 'transfer') return '💸'
+  if (t === 'visit') return '🤝'
   return '📅'
 }
 

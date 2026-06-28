@@ -17,7 +17,7 @@
           <!-- Header -->
           <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
             <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
-                 :class="activity?.activity_type === 'call' ? 'bg-purple-50' : activity?.activity_type === 'meeting' ? 'bg-orange-50' : 'bg-blue-50'">
+                 :class="activity?.activity_type === 'call' ? 'bg-purple-50' : activity?.activity_type === 'meeting' ? 'bg-orange-50' : activity?.activity_type === 'visit' ? 'bg-green-50' : 'bg-blue-50'">
               {{ typeIcon(activity?.activity_type) }}
             </div>
             <div class="flex-1 min-w-0">
@@ -180,6 +180,53 @@
               </div>
             </template>
 
+            <!-- VISIT fields -->
+            <template v-if="activity?.activity_type === 'visit'">
+              <div>
+                <label class="modal-label">🤝 สถานะการพบลูกค้า <span class="text-red-500">*</span></label>
+                <div class="flex gap-3">
+                  <button type="button"
+                    @click="form.visit_met = true"
+                    :class="form.visit_met === true ? 'border-green-500 bg-green-100 text-green-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'"
+                    class="flex-1 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors">
+                    ✅ ได้พบลูกค้า
+                  </button>
+                  <button type="button"
+                    @click="form.visit_met = false; form.visit_order = null; form.visit_order_amount = ''"
+                    :class="form.visit_met === false ? 'border-red-400 bg-red-50 text-red-600' : 'border-slate-200 text-slate-500 hover:border-slate-300'"
+                    class="flex-1 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors">
+                    ❌ ไม่ได้พบ
+                  </button>
+                </div>
+              </div>
+
+              <template v-if="form.visit_met === true">
+                <div>
+                  <label class="modal-label">🛒 ออเดอร์</label>
+                  <div class="flex gap-3">
+                    <button type="button"
+                      @click="form.visit_order = true"
+                      :class="form.visit_order === true ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'"
+                      class="flex-1 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors">
+                      🛒 ได้ออเดอร์
+                    </button>
+                    <button type="button"
+                      @click="form.visit_order = false; form.visit_order_amount = ''"
+                      :class="form.visit_order === false ? 'border-slate-400 bg-slate-100 text-slate-600' : 'border-slate-200 text-slate-500 hover:border-slate-300'"
+                      class="flex-1 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors">
+                      — ไม่ได้ออเดอร์
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="form.visit_order === true">
+                  <label class="modal-label">💰 ยอดบิล (บาท)</label>
+                  <input v-model="form.visit_order_amount" type="number" min="0" step="0.01"
+                    class="modal-input" placeholder="0.00" />
+                </div>
+              </template>
+            </template>
+
             <!-- MEETING fields -->
             <template v-if="activity?.activity_type === 'meeting'">
               <div>
@@ -199,13 +246,15 @@
 
             <!-- Outcome (ทุก type) -->
             <div>
-              <label class="modal-label">📝 ผลลัพธ์ / สิ่งที่ทำ</label>
+              <label class="modal-label">📝 {{ activity?.activity_type === 'visit' ? 'รายละเอียดการเข้าพบ' : 'ผลลัพธ์ / สิ่งที่ทำ' }}</label>
               <textarea v-model="form.outcome" class="modal-input min-h-[80px] resize-none" rows="3"
                 :placeholder="activity?.activity_type === 'call'
                   ? 'เช่น ลูกค้าสนใจ นัดส่งใบเสนอราคาวันพุธ...'
                   : activity?.activity_type === 'meeting'
                     ? 'เช่น ตกลงราคาแล้ว รอลูกค้าอนุมัติ...'
-                    : 'เช่น ดำเนินการเสร็จแล้ว...'">
+                    : activity?.activity_type === 'visit'
+                      ? 'เช่น ลูกค้ารับฟังสินค้าใหม่ สนใจรุ่น A...'
+                      : 'เช่น ดำเนินการเสร็จแล้ว...'">
               </textarea>
             </div>
 
@@ -262,6 +311,7 @@ const form = reactive({
   duration_sec: 0, meeting_result: '',
   cdr_uuid: '', cdr_recording_url: '', cdr_start_stamp: '', cdr_end_stamp: '',
   skip_retry_today: false,
+  visit_met: null, visit_order: null, visit_order_amount: '',
 })
 
 const phones      = ref([])
@@ -278,6 +328,7 @@ const confirmDisabled = computed(() => {
   if (saving.value) return true
   if (props.activity?.activity_type === 'call') return !form.call_result
   if (props.activity?.activity_type === 'meeting') return !form.meeting_result
+  if (props.activity?.activity_type === 'visit') return form.visit_met === null
   return false
 })
 
@@ -285,6 +336,7 @@ const confirmHint = computed(() => {
   if (saving.value) return ''
   if (props.activity?.activity_type === 'call' && !form.call_result) return 'เลือกผลการโทรก่อนส่งงาน'
   if (props.activity?.activity_type === 'meeting' && !form.meeting_result) return 'เลือกผลการประชุมก่อนส่งงาน'
+  if (props.activity?.activity_type === 'visit' && form.visit_met === null) return 'เลือกสถานะการพบลูกค้าก่อนส่งงาน'
   return ''
 })
 
@@ -296,6 +348,7 @@ const confirmLabel = computed(() => {
     if (form.meeting_result === 'completed') return 'บันทึกผลประชุม'
     return 'บันทึกผลประชุม'
   }
+  if (props.activity?.activity_type === 'visit') return 'บันทึกผลการเยี่ยม'
   return 'ส่งงาน'
 })
 
@@ -318,7 +371,7 @@ const meetingStatuses = [
 ]
 
 function typeIcon(t) {
-  return t === 'task' ? '✅' : t === 'call' ? '📞' : '👥'
+  return t === 'task' ? '✅' : t === 'call' ? '📞' : t === 'visit' ? '🤝' : '👥'
 }
 
 // ── Reset form when activity changes ──────────────────────────
@@ -353,6 +406,7 @@ function resetForm() {
   form.call_direction = 'outbound'; form.duration_sec = 0; form.meeting_result = ''
   form.cdr_uuid = ''; form.cdr_recording_url = ''; form.cdr_start_stamp = ''; form.cdr_end_stamp = ''
   form.skip_retry_today = false
+  form.visit_met = null; form.visit_order = null; form.visit_order_amount = ''
   phones.value = []; cdrList.value = []; cdrError.value = ''; selectedCdr.value = null
 }
 
@@ -434,6 +488,12 @@ async function confirmClose() {
     if (act.activity_type === 'meeting' && form.meeting_result) {
       const label = meetingStatuses.find(s => s.key === form.meeting_result)?.label || ''
       payload.outcome = (form.outcome ? form.outcome + '\n' : '') + `ผลการประชุม: ${label}`
+    }
+    if (act.activity_type === 'visit') {
+      payload.visit_met   = form.visit_met
+      payload.visit_order = form.visit_order
+      payload.visit_order_amount = form.visit_order === true && form.visit_order_amount
+        ? parseFloat(form.visit_order_amount) : null
     }
 
     const { data } = await api.patch(`/activities/${act.id}/done`, payload)

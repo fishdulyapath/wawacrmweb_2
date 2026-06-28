@@ -407,12 +407,13 @@ function formatDuration(sec) {
 }
 
 function typeLabel(act) {
-  return act.activity_type === 'task' ? 'งาน' : act.activity_type === 'call' ? 'โทร' : 'นัดประชุม'
+  return act.activity_type === 'task' ? 'งาน' : act.activity_type === 'call' ? 'โทร' : act.activity_type === 'visit' ? 'เยี่ยม' : 'นัดประชุม'
 }
 
 function accentColor(act) {
   if (isOverdue(act)) return '#ef4444'
   if (act.activity_type === 'meeting') return '#8b5cf6'
+  if (act.activity_type === 'visit') return '#0d9488'
   if (act.activity_type === 'call') return '#10b981'
   if (act.priority === 'high') return '#f59e0b'
   return '#3b82f6'
