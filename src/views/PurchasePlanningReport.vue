@@ -221,7 +221,7 @@
       </div> -->
     </section>
 
-    <section class="card overflow-hidden">
+    <section class="card">
       <div v-if="loading && rows.length === 0" class="flex flex-col items-center justify-center py-20 text-slate-400">
         <svg class="mr-2 h-6 w-6 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
@@ -236,7 +236,7 @@
         <button class="btn-secondary mx-auto mt-3" @click="load">ลองใหม่</button>
       </div>
 
-      <div v-else class="overflow-x-auto">
+      <div v-else>
         <div v-if="jobStatus && jobStatus !== 'complete'" class="border-b border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           กำลังคำนวณต่อในพื้นหลัง {{ formatInt(processed) }} / {{ formatInt(total) }} รายการ แถวที่แสดงเป็นผลลัพธ์ที่คำนวณแล้วและเรียงตามแนะนำซื้อ
         </div>
@@ -261,46 +261,47 @@
           </label>
         </div>
 
-        <table class="w-full text-sm" :class="showExtraColumns ? 'min-w-[1640px]' : 'min-w-[1040px]'">
-          <thead class="border-b border-slate-200 bg-slate-50">
+        <div class="overflow-auto" style="max-height: calc(100vh - 200px)">
+        <table class="w-full border-collapse text-sm" :class="showExtraColumns ? 'min-w-[1640px]' : 'min-w-[1040px]'">
+          <thead class="sticky top-0 z-10 border-b-2 border-slate-300 bg-slate-50">
             <tr>
-              <th class="table-head w-12 text-center"></th>
-              <th class="table-head w-60 text-left">สินค้า</th>
-              <th class="table-head min-w-56 text-left">เจ้าหนี้เริ่มต้น</th>
-              <th class="table-head w-24 text-right">พร้อมใช้</th>
-              <th v-if="showExtraColumns" class="table-head w-24 text-right">คงเหลือ</th>
-              <th v-if="showExtraColumns" class="table-head w-24 text-right">ค้างรับ</th>
-              <th v-if="showExtraColumns" class="table-head w-24 text-right">ค้างจอง</th>
-              <th v-if="showExtraColumns" class="table-head w-24 text-right">ค้างส่ง</th>
-              <th v-if="showExtraColumns" class="table-head w-24 text-right">D_avg</th>
-              <th v-if="showExtraColumns" class="table-head w-24 text-right">Min/ROP</th>
-              <th v-if="showExtraColumns" class="table-head w-24 text-right">Max</th>
-              <th v-if="showExtraColumns" class="table-head w-28 text-right">มูลค่าขายสุทธิ</th>
-              <th v-if="showExtraColumns" class="table-head w-28 text-right">ต้นทุนสุทธิ</th>
-              <th v-if="showExtraColumns" class="table-head w-28 text-right">กำไร(ขาดทุน)</th>
-              <th v-if="showExtraColumns" class="table-head w-20 text-right">%กำไร</th>
-              <th class="table-head w-28 text-right">แนะนำซื้อ</th>
-              <th class="table-head w-40 text-left">สถานะ</th>
-              <th v-if="showExtraColumns" class="table-head w-28 text-right">Cover</th>
-              <th class="table-head w-24 text-right">ราคา</th>
+              <th class="table-head w-12 border border-slate-200 text-center"></th>
+              <th class="table-head w-[30rem] border border-slate-200 text-left">สินค้า</th>
+              <th class="table-head min-w-56 border border-slate-200 text-left">เจ้าหนี้เริ่มต้น</th>
+              <th class="table-head w-24 border border-slate-200 text-right">พร้อมใช้</th>
+              <th v-if="showExtraColumns" class="table-head w-24 border border-slate-200 text-right">คงเหลือ</th>
+              <th v-if="showExtraColumns" class="table-head w-24 border border-slate-200 text-right">ค้างรับ</th>
+              <th v-if="showExtraColumns" class="table-head w-24 border border-slate-200 text-right">ค้างจอง</th>
+              <th v-if="showExtraColumns" class="table-head w-24 border border-slate-200 text-right">ค้างส่ง</th>
+              <th v-if="showExtraColumns" class="table-head w-24 border border-slate-200 text-right">D_avg</th>
+              <th v-if="showExtraColumns" class="table-head w-24 border border-slate-200 text-right">Min/ROP</th>
+              <th v-if="showExtraColumns" class="table-head w-24 border border-slate-200 text-right">Max</th>
+              <th v-if="showExtraColumns" class="table-head w-28 border border-slate-200 text-right">มูลค่าขายสุทธิ</th>
+              <th v-if="showExtraColumns" class="table-head w-28 border border-slate-200 text-right">ต้นทุนสุทธิ</th>
+              <th v-if="showExtraColumns" class="table-head w-28 border border-slate-200 text-right">กำไร(ขาดทุน)</th>
+              <th v-if="showExtraColumns" class="table-head w-20 border border-slate-200 text-right">%กำไร</th>
+              <th class="table-head w-28 border border-slate-200 text-right">แนะนำซื้อ</th>
+              <th class="table-head w-40 border border-slate-200 text-left">สถานะ</th>
+              <th v-if="showExtraColumns" class="table-head w-28 border border-slate-200 text-right">Cover</th>
+              <th class="table-head w-24 border border-slate-200 text-right">ราคา</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">
-            <template v-for="row in filteredRows" :key="row.ic_code">
-              <tr class="hover:bg-slate-50">
-                <td class="px-4 py-3 text-center">
+          <tbody>
+            <template v-for="(row, idx) in filteredRows" :key="row.ic_code">
+              <tr :class="idx % 2 === 0 ? 'bg-white hover:bg-blue-50' : 'bg-slate-50 hover:bg-blue-50'">
+                <td class="border border-slate-200 px-4 py-3 text-center">
                   <button class="cart-add-btn" :title="Number(row.suggest_qty || 0) > 0 ? 'ใส่ตะกร้า (ใช้ยอดแนะนำซื้อ)' : 'ใส่ตะกร้า (ไม่มียอดแนะนำซื้อ → ใช้ MOQ/1)'" @click="addToCartFromRow(row)">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                   </button>
                 </td>
-                <td class="px-4 py-3">
+                <td class="border border-slate-200 px-4 py-3">
                   <a :href="detailHref(row)" target="_blank" rel="noopener" class="font-semibold text-blue-600 hover:underline">{{ row.ic_name || '-' }}</a>
                   <div class="mt-1 flex flex-wrap items-center gap-1.5">
                     <span class="code-pill">{{ row.ic_code }}</span>
                     <span class="text-xs text-slate-400">{{ row.unit_code || '-' }}</span>
                   </div>
                 </td>
-                <td class="px-4 py-3">
+                <td class="border border-slate-200 px-4 py-3">
                   <!-- ปุ่มเปิดดูรายละเอียดเจ้าหนี้ (สวยใหม่) -->
                   <div class="flex items-center gap-2">
                     <button
@@ -327,22 +328,22 @@
                     </div>
                   </div>
                 </td>
-                <td class="px-4 py-3 text-right font-semibold tabular-nums">{{ formatQty(row.available_qty) }} <span class="text-xs font-normal text-slate-400">{{ row.unit_code }}</span></td>
-                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.balance_qty) }}</td>
-                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.accrued_in_qty_calc) }}</td>
-                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.book_out_qty) }}</td>
-                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.accrued_out_qty_calc) }}</td>
-                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.d_avg) }}</td>
-                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.min_stock) }}</td>
-                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ formatQty(row.max_stock) }}</td>
-                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums text-slate-600">{{ formatMoney(row.amount_net_3m) }}</td>
-                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums text-slate-600">{{ formatMoney(row.cost_net_3m) }}</td>
-                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums" :class="profitColor(row.profit_lost_amount_3m)">{{ formatMoney(row.profit_lost_amount_3m) }}</td>
-                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums" :class="profitPctColor(row.profit_lost_amount_3m, row.amount_net_3m)">{{ formatPct(row.profit_lost_amount_3m, row.amount_net_3m) }}%</td>
-                <td class="px-4 py-3 text-right font-semibold tabular-nums text-blue-700">{{ formatQty(row.suggest_qty) }} <span class="text-xs font-normal text-slate-400">{{ row.unit_code }}</span></td>
-                <td class="px-4 py-3"><span :class="statusClass(row.stock_status)">{{ statusLabel(row.stock_status) }}</span></td>
-                <td v-if="showExtraColumns" class="px-4 py-3 text-right tabular-nums">{{ row.stock_cover_days === null ? '-' : `${formatQty(row.stock_cover_days)} วัน` }}</td>
-                <td class="px-4 py-3 text-right tabular-nums">{{ formatMoney(selectedSupplierPrice(row)) }}</td>
+                <td class="border border-slate-200 px-4 py-3 text-right font-semibold tabular-nums">{{ formatQty(row.available_qty) }} <span class="text-xs font-normal text-slate-400">{{ row.unit_code }}</span></td>
+                <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.balance_qty) }}</td>
+                <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.accrued_in_qty_calc) }}</td>
+                <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.book_out_qty) }}</td>
+                <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.accrued_out_qty_calc) }}</td>
+                <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.d_avg) }}</td>
+                <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.min_stock) }}</td>
+                <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.max_stock) }}</td>
+                <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums text-slate-600">{{ formatMoney(row.amount_net_3m) }}</td>
+                <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums text-slate-600">{{ formatMoney(row.cost_net_3m) }}</td>
+                <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums" :class="profitColor(row.profit_lost_amount_3m)">{{ formatMoney(row.profit_lost_amount_3m) }}</td>
+                <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums" :class="profitPctColor(row.profit_lost_amount_3m, row.amount_net_3m)">{{ formatPct(row.profit_lost_amount_3m, row.amount_net_3m) }}%</td>
+                <td class="border border-slate-200 px-4 py-3 text-right font-semibold tabular-nums text-blue-700">{{ formatQty(row.suggest_qty) }} <span class="text-xs font-normal text-slate-400">{{ row.unit_code }}</span></td>
+                <td class="border border-slate-200 px-4 py-3"><span :class="statusClass(row.stock_status)">{{ statusLabel(row.stock_status) }}</span></td>
+                <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ row.stock_cover_days === null ? '-' : `${formatQty(row.stock_cover_days)} วัน` }}</td>
+                <td class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatMoney(selectedSupplierPrice(row)) }}</td>
               </tr>
 
               <tr v-if="expanded[row.ic_code]" class="bg-slate-50/70">
@@ -404,6 +405,7 @@
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
 
       <div v-if="!loading && !error && total > 0" class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">

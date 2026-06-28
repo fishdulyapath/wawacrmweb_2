@@ -287,7 +287,7 @@
       </header>
 
       <!-- Page content -->
-      <main class="flex-1 overflow-auto pb-20 lg:pb-0">
+      <main class="flex-1 overflow-y-auto pb-20 lg:pb-0">
         <RouterView />
       </main>
 
