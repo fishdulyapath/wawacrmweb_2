@@ -1095,9 +1095,10 @@
                               <div class="text-[10px] text-slate-400 mb-1">Check-in</div>
                               <img v-if="deliveryImgCache[row.image_check_in] && deliveryImgCache[row.image_check_in] !== 'loading'"
                                 :src="deliveryImgCache[row.image_check_in]"
-                                class="h-24 w-24 object-cover rounded-lg border border-slate-200 cursor-pointer" />
+                                class="h-24 w-24 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                                @click="openLightbox(row.image_check_in, 'Check-in')" />
                               <div v-else class="h-24 w-24 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center text-xs text-slate-400 cursor-pointer"
-                                @click="loadDeliveryImg(row.image_check_in)">
+                                @click="openLightbox(row.image_check_in, 'Check-in')">
                                 <span>โหลดรูป</span>
                               </div>
                             </div>
@@ -1106,9 +1107,10 @@
                               <div class="text-[10px] text-slate-400 mb-1">รูป {{ idx + 1 }}<span v-if="img.note"> · {{ img.note }}</span></div>
                               <img v-if="deliveryImgCache[img.image_path] && deliveryImgCache[img.image_path] !== 'loading'"
                                 :src="deliveryImgCache[img.image_path]"
-                                class="h-24 w-24 object-cover rounded-lg border border-slate-200 cursor-pointer" />
+                                class="h-24 w-24 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                                @click="openLightbox(img.image_path, `รูป ${idx + 1}${img.note ? ' · ' + img.note : ''}`)" />
                               <div v-else class="h-24 w-24 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center text-xs text-slate-400 cursor-pointer"
-                                @click="loadDeliveryImg(img.image_path)">
+                                @click="openLightbox(img.image_path, `รูป ${idx + 1}${img.note ? ' · ' + img.note : ''}`)">
                                 <span>โหลดรูป</span>
                               </div>
                             </div>
@@ -1359,6 +1361,20 @@
         </div>
     </Teleport>
 
+    <!-- Lightbox -->
+    <Teleport to="body">
+      <div v-if="lightbox.open"
+        class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80"
+        @click.self="closeLightbox">
+        <div class="relative max-w-[90vw] max-h-[90vh] flex flex-col items-center">
+          <button @click="closeLightbox"
+            class="absolute -top-10 right-0 text-white/80 hover:text-white text-3xl leading-none">&times;</button>
+          <img :src="lightbox.src" class="max-w-full max-h-[80vh] rounded-lg shadow-2xl object-contain" />
+          <div v-if="lightbox.label" class="mt-3 text-sm text-white/70">{{ lightbox.label }}</div>
+        </div>
+      </div>
+    </Teleport>
+
   </div>
 </template>
 
@@ -1570,6 +1586,7 @@ const loadingDelivery  = ref(false)
 const deliveryFilter   = reactive({ bill: '', date_from: '', date_to: '' })
 const expandedDelivery = ref(null)
 const deliveryImgCache = reactive({})
+const lightbox = reactive({ open: false, src: null, label: '' })
 
 // Credit detail state
 const creditDetail        = ref(null)
@@ -1733,6 +1750,18 @@ async function loadDeliveryImg(path) {
     .then(r => r.data).catch(() => null)
   deliveryImgCache[path] = blob ? URL.createObjectURL(blob) : null
 }
+
+async function openLightbox(path, label) {
+  if (!path) return
+  if (!deliveryImgCache[path] || deliveryImgCache[path] === 'loading') {
+    await loadDeliveryImg(path)
+  }
+  if (!deliveryImgCache[path]) return
+  lightbox.src = deliveryImgCache[path]
+  lightbox.label = label || ''
+  lightbox.open = true
+}
+function closeLightbox() { lightbox.open = false }
 
 function dlFmtAmount(v) {
   return parseFloat(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
