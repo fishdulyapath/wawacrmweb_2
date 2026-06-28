@@ -979,7 +979,7 @@
                 </tbody>
                 <tbody v-for="row in deliveryTimeline" :key="row.list_id" class="border-b border-slate-100">
                   <!-- Main row -->
-                  <tr class="hover:bg-slate-50 cursor-pointer" @click="expandedDelivery = expandedDelivery === row.list_id ? null : row.list_id">
+                  <tr class="hover:bg-slate-50 cursor-pointer" @click="toggleDeliveryRow(row)">
                     <td class="px-4 py-3 text-center">
                       <svg class="w-3.5 h-3.5 text-slate-400 transition-transform inline-block"
                         :class="expandedDelivery === row.list_id ? 'rotate-90' : ''"
@@ -1631,6 +1631,17 @@ let deliveryTimer = null
 function deliveryDebounce() {
   clearTimeout(deliveryTimer)
   deliveryTimer = setTimeout(() => loadDeliveryHistory(1), 350)
+}
+
+function toggleDeliveryRow(row) {
+  if (expandedDelivery.value === row.list_id) {
+    expandedDelivery.value = null
+    return
+  }
+  expandedDelivery.value = row.list_id
+  // โหลดรูปทันทีเมื่อ expand
+  if (row.image_check_in) loadDeliveryImg(row.image_check_in)
+  ;(row.check_out_images || []).forEach(img => loadDeliveryImg(img.image_path))
 }
 
 async function loadDeliveryImg(path) {
