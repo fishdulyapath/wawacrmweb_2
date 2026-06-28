@@ -923,6 +923,176 @@
         </div>
 
         <!-- ══════════════════════════════
+             TAB: ประวัติการขนส่ง
+        ══════════════════════════════ -->
+        <div v-show="activeTab === 'delivery_history'" class="space-y-4">
+
+          <div v-if="!isEdit" class="card p-8 text-center text-slate-400 text-sm">
+            กรุณาบันทึกข้อมูลลูกค้าก่อน จึงจะดูประวัติการขนส่งได้
+          </div>
+
+          <template v-else>
+            <!-- Filter row -->
+            <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+              <input v-model="deliveryFilter.bill" @input="deliveryDebounce"
+                class="input-field w-full text-sm sm:w-48" placeholder="ค้นหาเลขบิล / ร้าน / เที่ยวรถ..." />
+              <div class="flex items-center gap-1.5 w-full sm:w-auto">
+                <span class="text-xs text-slate-500">จาก</span>
+                <DateInput v-model="deliveryFilter.date_from" @change="loadDeliveryHistory(1)"
+                  class="input-field text-sm" />
+              </div>
+              <div class="flex items-center gap-1.5 w-full sm:w-auto">
+                <span class="text-xs text-slate-500">ถึง</span>
+                <DateInput v-model="deliveryFilter.date_to" @change="loadDeliveryHistory(1)"
+                  class="input-field text-sm" />
+              </div>
+            </div>
+
+            <!-- Loading -->
+            <div v-if="loadingDelivery" class="text-center text-slate-400 py-8 text-sm">
+              <svg class="animate-spin w-5 h-5 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              กำลังโหลด...
+            </div>
+
+            <!-- Table -->
+            <div v-else class="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+              <table class="w-full text-sm min-w-[700px]">
+                <thead class="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th class="w-8 px-4 py-3"></th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">วันที่</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">เที่ยวรถ</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">คนขับ / รถ</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">เลขบิล</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">ยอด (บาท)</th>
+                    <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500">สถานะ</th>
+                    <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500">ปัญหา</th>
+                  </tr>
+                </thead>
+                <tbody v-if="!deliveryTimeline.length">
+                  <tr>
+                    <td colspan="8" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูลการขนส่ง</td>
+                  </tr>
+                </tbody>
+                <tbody v-for="row in deliveryTimeline" :key="row.list_id" class="border-b border-slate-100">
+                  <!-- Main row -->
+                  <tr class="hover:bg-slate-50 cursor-pointer" @click="expandedDelivery = expandedDelivery === row.list_id ? null : row.list_id">
+                    <td class="px-4 py-3 text-center">
+                      <svg class="w-3.5 h-3.5 text-slate-400 transition-transform inline-block"
+                        :class="expandedDelivery === row.list_id ? 'rotate-90' : ''"
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                      </svg>
+                    </td>
+                    <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                      {{ row.trip_date ? new Date(row.trip_date).toLocaleDateString('th-TH', { day:'2-digit', month:'short', year:'2-digit' }) : '—' }}
+                    </td>
+                    <td class="px-4 py-3 font-mono text-xs text-slate-700">{{ row.car_release_code || '—' }}</td>
+                    <td class="px-4 py-3 text-xs text-slate-600">
+                      <div>{{ row.driver_name || '—' }}</div>
+                      <div class="text-slate-400">{{ row.license_plate || row.car_name || '' }}</div>
+                    </td>
+                    <td class="px-4 py-3 font-mono text-xs text-slate-700">{{ row.data_store_no || '—' }}</td>
+                    <td class="px-4 py-3 text-right font-semibold text-slate-800">{{ dlFmtAmount(row.amount) }}</td>
+                    <td class="px-4 py-3 text-center">
+                      <span v-if="row.bypass" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-orange-100 text-orange-600">ข้าม</span>
+                      <span v-else-if="row.off_site" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-yellow-100 text-yellow-700">นอกสถานที่</span>
+                      <span v-else-if="!row.check_out_id" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-600">ไม่มี checkout</span>
+                      <span v-else class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700">{{ row.visit_name || 'ส่งสำเร็จ' }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      <span v-if="row.problem_count > 0"
+                        class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-red-50 text-red-600 border border-red-200">
+                        ⚠ {{ row.problem_count }}
+                      </span>
+                      <span v-else class="text-slate-300 text-xs">—</span>
+                    </td>
+                  </tr>
+                  <!-- Expanded detail -->
+                  <tr v-if="expandedDelivery === row.list_id">
+                    <td colspan="8" class="bg-slate-50/70 px-6 py-4">
+                      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        <!-- Left: timestamps + note -->
+                        <div class="space-y-3">
+                          <div class="text-xs text-slate-500 font-semibold uppercase tracking-wide">ข้อมูลการส่ง</div>
+                          <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                            <div class="text-slate-500">Check-in</div>
+                            <div class="text-slate-700">{{ dlFmtDateTime(row.date_time_check_in) }}</div>
+                            <div class="text-slate-500">Check-out</div>
+                            <div class="text-slate-700">{{ dlFmtDateTime(row.date_time_check_out) }}</div>
+                            <div class="text-slate-500">ชำระ</div>
+                            <div class="text-slate-700">{{ row.payment_name || '—' }}</div>
+                            <div v-if="row.visit_note" class="text-slate-500">หมายเหตุ</div>
+                            <div v-if="row.visit_note" class="text-slate-700">{{ row.visit_note }}</div>
+                          </div>
+                          <!-- Problems -->
+                          <div v-if="row.problems && row.problems.length" class="space-y-1">
+                            <div class="text-xs text-red-600 font-semibold">ปัญหาที่พบ</div>
+                            <div v-for="p in row.problems" :key="p.problem_id"
+                              class="text-xs text-slate-600 bg-red-50 border border-red-100 rounded px-2 py-1">
+                              <span class="font-medium text-red-700">{{ p.problem_type }}</span>
+                              <span v-if="p.description"> — {{ p.description }}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <!-- Right: images -->
+                        <div class="space-y-3">
+                          <div class="text-xs text-slate-500 font-semibold uppercase tracking-wide">รูปภาพ</div>
+                          <div class="flex flex-wrap gap-2">
+                            <!-- Check-in image -->
+                            <div v-if="row.image_check_in">
+                              <div class="text-[10px] text-slate-400 mb-1">Check-in</div>
+                              <img v-if="deliveryImgCache[row.image_check_in] && deliveryImgCache[row.image_check_in] !== 'loading'"
+                                :src="deliveryImgCache[row.image_check_in]"
+                                class="h-24 w-24 object-cover rounded-lg border border-slate-200 cursor-pointer" />
+                              <div v-else class="h-24 w-24 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center text-xs text-slate-400 cursor-pointer"
+                                @click="loadDeliveryImg(row.image_check_in)">
+                                <span>โหลดรูป</span>
+                              </div>
+                            </div>
+                            <!-- Check-out images -->
+                            <div v-for="(img, idx) in (row.check_out_images || [])" :key="img.image_check_out_id">
+                              <div class="text-[10px] text-slate-400 mb-1">รูป {{ idx + 1 }}<span v-if="img.note"> · {{ img.note }}</span></div>
+                              <img v-if="deliveryImgCache[img.image_path] && deliveryImgCache[img.image_path] !== 'loading'"
+                                :src="deliveryImgCache[img.image_path]"
+                                class="h-24 w-24 object-cover rounded-lg border border-slate-200 cursor-pointer" />
+                              <div v-else class="h-24 w-24 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center text-xs text-slate-400 cursor-pointer"
+                                @click="loadDeliveryImg(img.image_path)">
+                                <span>โหลดรูป</span>
+                              </div>
+                            </div>
+                            <div v-if="!row.image_check_in && !(row.check_out_images && row.check_out_images.length)"
+                              class="text-xs text-slate-400">ไม่มีรูปภาพ</div>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- Pagination -->
+              <div v-if="deliveryPag.pages > 1"
+                class="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-500">
+                <span>ทั้งหมด {{ deliveryPag.total }} รายการ</span>
+                <div class="flex gap-1.5">
+                  <button @click="loadDeliveryHistory(deliveryPag.page - 1)"
+                    :disabled="deliveryPag.page <= 1"
+                    class="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">←</button>
+                  <span class="px-2 py-1">{{ deliveryPag.page }} / {{ deliveryPag.pages }}</span>
+                  <button @click="loadDeliveryHistory(deliveryPag.page + 1)"
+                    :disabled="deliveryPag.page >= deliveryPag.pages"
+                    class="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">→</button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- ══════════════════════════════
              TAB: หนี้คงค้าง
         ══════════════════════════════ -->
         <div v-show="activeTab === 'credit_detail'" class="space-y-4">
@@ -1340,6 +1510,14 @@ const expandedDoc     = ref(null)
 const expandedLines   = ref([])
 const loadingLines    = ref(false)
 
+// Delivery history state
+const deliveryTimeline = ref([])
+const deliveryPag      = reactive({ total: 0, page: 1, pages: 1, limit: 20 })
+const loadingDelivery  = ref(false)
+const deliveryFilter   = reactive({ bill: '', date_from: '', date_to: '' })
+const expandedDelivery = ref(null)
+const deliveryImgCache = reactive({})
+
 // Credit detail state
 const creditDetail        = ref(null)
 const loadingCreditDetail = ref(false)
@@ -1352,7 +1530,8 @@ const tabs = [
   { key: 'crm',        label: 'CRM Info' },
   { key: 'notes',      label: 'บันทึก' },
   { key: 'activities',       label: 'กิจกรรม' },
-  { key: 'purchase_history', label: 'ประวัติการซื้อ' },
+  { key: 'purchase_history',  label: 'ประวัติการซื้อ' },
+  { key: 'delivery_history', label: 'ประวัติการขนส่ง' },
   { key: 'credit_detail',    label: 'หนี้คงค้าง' }
 ]
 
@@ -1431,6 +1610,46 @@ function phVatLabel(v) {
   return { 0: 'แยก VAT', 1: 'รวม VAT', 2: 'อัตราศูนย์', 4: 'ไม่กระทบ' }[parseInt(v)] || String(v)
 }
 
+async function loadDeliveryHistory(page = 1) {
+  if (!isEdit.value) return
+  loadingDelivery.value = true
+  const p = {
+    from:  deliveryFilter.date_from || undefined,
+    to:    deliveryFilter.date_to   || undefined,
+    bill:  deliveryFilter.bill      || undefined,
+    page, limit: deliveryPag.limit,
+  }
+  const res = await api.get(`/fleet/customer/${props.code}/timeline`, { params: p })
+    .then(r => r.data).catch(() => ({ timeline: [], pagination: {} }))
+  deliveryTimeline.value = res.timeline || []
+  if (res.pagination) Object.assign(deliveryPag, res.pagination)
+  deliveryPag.page = page
+  loadingDelivery.value = false
+}
+
+let deliveryTimer = null
+function deliveryDebounce() {
+  clearTimeout(deliveryTimer)
+  deliveryTimer = setTimeout(() => loadDeliveryHistory(1), 350)
+}
+
+async function loadDeliveryImg(path) {
+  if (!path || deliveryImgCache[path] !== undefined) return
+  deliveryImgCache[path] = 'loading'
+  const blob = await api.get('/fleet/image', { params: { path }, responseType: 'blob' })
+    .then(r => r.data).catch(() => null)
+  deliveryImgCache[path] = blob ? URL.createObjectURL(blob) : null
+}
+
+function dlFmtAmount(v) {
+  return parseFloat(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function dlFmtDateTime(v) {
+  if (!v) return '—'
+  return new Date(v).toLocaleString('th-TH', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
 async function loadCreditDetail() {
   if (!isEdit.value) return
   loadingCreditDetail.value = true
@@ -1452,6 +1671,9 @@ function creditFmtDate(d) {
 watch(activeTab, t => {
   if (t === 'purchase_history' && isEdit.value && !purchaseHistory.value.length) {
     loadPurchaseHistory(1)
+  }
+  if (t === 'delivery_history' && isEdit.value && !deliveryTimeline.value.length) {
+    loadDeliveryHistory(1)
   }
   if (t === 'credit_detail' && isEdit.value && !creditDetail.value) {
     loadCreditDetail()
