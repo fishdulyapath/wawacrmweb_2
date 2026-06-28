@@ -167,7 +167,7 @@
             {{ isListening && speechTarget === 'description' ? 'กำลังฟัง...' : '🎤' }}
           </button>
         </div>
-        <textarea v-model="form.description" class="input min-h-[80px]" rows="3"></textarea>
+        <textarea v-model="form.description" class="input min-h-[80px]" rows="3" @keydown.enter.stop></textarea>
         <p v-if="speechError && speechTarget === 'description'" class="text-xs text-red-500 mt-1">{{ speechError }}</p>
       </div>
 
@@ -313,7 +313,7 @@
           </button>
         </div>
         <textarea v-model="form.outcome" class="input min-h-[70px]" rows="2"
-          placeholder="เช่น ลูกค้าสนใจ นัดส่งเอกสารวันพุธ"></textarea>
+          placeholder="เช่น ลูกค้าสนใจ นัดส่งเอกสารวันพุธ" @keydown.enter.stop></textarea>
         <p v-if="speechError && speechTarget === 'outcome'" class="text-xs text-red-500 mt-1">{{ speechError }}</p>
       </div>
 

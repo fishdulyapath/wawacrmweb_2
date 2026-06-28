@@ -60,6 +60,48 @@
              TAB: ข้อมูลหลัก
         ══════════════════════════════ -->
         <div v-show="activeTab === 'main'" class="card p-4 sm:p-6">
+
+          <!-- Shop Banner Image -->
+          <div v-if="isEdit" class="mb-5 group relative">
+            <!-- มีรูป -->
+            <div v-if="shopImageUrl" class="relative w-full h-48 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+              <img :src="shopImageUrl" class="w-full h-full object-cover" />
+              <!-- Overlay on hover -->
+              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                <button type="button" @click="triggerShopImagePick"
+                  class="px-3 py-1.5 bg-white rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 shadow">
+                  เปลี่ยนรูป
+                </button>
+                <button type="button" @click="deleteShopImage"
+                  class="px-3 py-1.5 bg-red-500 rounded-lg text-xs font-medium text-white hover:bg-red-600 shadow">
+                  ลบรูป
+                </button>
+              </div>
+              <!-- Loading overlay -->
+              <div v-if="shopImageUploading" class="absolute inset-0 bg-white/70 flex items-center justify-center">
+                <svg class="animate-spin w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
+              </div>
+            </div>
+            <!-- ไม่มีรูป → placeholder -->
+            <button v-else type="button" @click="triggerShopImagePick"
+              class="w-full h-32 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-blue-400 hover:text-blue-500 transition-colors bg-slate-50">
+              <svg v-if="!shopImageUploading" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              <svg v-else class="animate-spin w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              <span class="text-xs font-medium">{{ shopImageUploading ? 'กำลังอัปโหลด...' : 'เพิ่มรูปร้านค้า' }}</span>
+            </button>
+            <!-- Hidden file input -->
+            <input ref="shopImageInput" type="file" accept="image/*" class="hidden" @change="onShopImageChange" />
+          </div>
+
           <h2 class="font-semibold text-slate-700 mb-4">ข้อมูลลูกค้าหลัก</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -1501,6 +1543,11 @@ const followupIntervalHelp = computed(() => {
     : `ยังไม่ได้ตั้งรอบเฉพาะ ใช้ค่ากลาง ${defaultFollowupIntervalDays.value} วัน`
 })
 
+// Shop image state
+const shopImageUrl       = ref(null)
+const shopImageUploading = ref(false)
+const shopImageInput     = ref(null)
+
 // Purchase history state
 const purchaseHistory = ref([])
 const purchasePag     = reactive({ total: 0, page: 1, pages: 1, limit: 10 })
@@ -1608,6 +1655,28 @@ function phFmtAmount(v) {
 }
 function phVatLabel(v) {
   return { 0: 'แยก VAT', 1: 'รวม VAT', 2: 'อัตราศูนย์', 4: 'ไม่กระทบ' }[parseInt(v)] || String(v)
+}
+
+function triggerShopImagePick() { shopImageInput.value?.click() }
+
+async function onShopImageChange(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  shopImageUploading.value = true
+  const fd = new FormData()
+  fd.append('image', file)
+  const res = await api.post(`/customers/${props.code}/shop-image`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }).then(r => r.data).catch(() => null)
+  if (res?.shop_image) shopImageUrl.value = `/uploads/${res.shop_image}?t=${Date.now()}`
+  shopImageUploading.value = false
+  e.target.value = ''
+}
+
+async function deleteShopImage() {
+  if (!confirm('ลบรูปร้านค้า?')) return
+  await api.delete(`/customers/${props.code}/shop-image`)
+  shopImageUrl.value = null
 }
 
 async function loadDeliveryHistory(page = 1) {
@@ -1760,6 +1829,7 @@ async function loadCustomer() {
     followupForm.followup_pause_reason = data.crm?.followup_pause_reason || ''
     followupForm.next_followup = dateOnly(data.crm?.next_followup) || form.crm.next_followup
     followupForm.followup_interval_days = data.crm?.followup_interval_days || ''
+    shopImageUrl.value = data.crm?.shop_image ? `/uploads/${data.crm.shop_image}` : null
   } catch (e) {
     showToast('error', e.message)
   } finally {
