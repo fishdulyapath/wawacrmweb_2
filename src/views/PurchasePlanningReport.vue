@@ -241,9 +241,21 @@
           กำลังคำนวณต่อในพื้นหลัง {{ formatInt(processed) }} / {{ formatInt(total) }} รายการ แถวที่แสดงเป็นผลลัพธ์ที่คำนวณแล้วและเรียงตามแนะนำซื้อ
         </div>
 
-        <!-- Toggle คอลัมน์เพิ่มเติม (desktop เท่านั้น) -->
-        <div class="hidden items-center justify-end gap-2 border-b border-slate-100 bg-slate-50/60 px-4 py-2 lg:flex">
-          <label class="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+        <!-- Filter สถานะสต็อก + Toggle คอลัมน์เพิ่มเติม -->
+        <div class="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-500">สถานะสต็อก:</span>
+            <div class="flex flex-wrap gap-1">
+              <button
+                v-for="opt in stockStatusOptions"
+                :key="opt.value"
+                class="rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors"
+                :class="filterStockStatus === opt.value ? opt.activeClass : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-100'"
+                @click="filterStockStatus = opt.value"
+              >{{ opt.label }}</button>
+            </div>
+          </div>
+          <label class="hidden cursor-pointer items-center gap-2 text-xs text-slate-600 lg:flex">
             <input v-model="showExtraColumns" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
             แสดงคอลัมน์เพิ่มเติม (คงเหลือ/ค้างxxx/D_avg/Min/Max/Cover)
           </label>
@@ -274,7 +286,7 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <template v-for="row in rows" :key="row.ic_code">
+            <template v-for="row in filteredRows" :key="row.ic_code">
               <tr class="hover:bg-slate-50">
                 <td class="px-4 py-3 text-center">
                   <button class="cart-add-btn" :title="Number(row.suggest_qty || 0) > 0 ? 'ใส่ตะกร้า (ใช้ยอดแนะนำซื้อ)' : 'ใส่ตะกร้า (ไม่มียอดแนะนำซื้อ → ใช้ MOQ/1)'" @click="addToCartFromRow(row)">
@@ -387,7 +399,7 @@
               </tr>
             </template>
 
-            <tr v-if="rows.length === 0">
+            <tr v-if="filteredRows.length === 0">
               <td :colspan="showExtraColumns ? 19 : 7" class="py-16 text-center text-slate-400">ไม่พบข้อมูลตามเงื่อนไข</td>
             </tr>
           </tbody>
@@ -395,7 +407,7 @@
       </div>
 
       <div v-if="!loading && !error && total > 0" class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-        <p class="text-center text-sm text-slate-500 lg:text-left">แสดง {{ formatInt(rows.length) }} จาก {{ formatInt(displayTotal) }} รายการ เรียงตามจำนวนแนะนำซื้อจากมากไปน้อย</p>
+        <p class="text-center text-sm text-slate-500 lg:text-left">แสดง {{ formatInt(filteredRows.length) }} จาก {{ formatInt(displayTotal) }} รายการ เรียงตามจำนวนแนะนำซื้อจากมากไปน้อย</p>
         <div class="flex justify-center gap-1">
           <button class="pager-btn" :disabled="jobStatus !== 'complete' || !hasMore || loadingMore" @click="loadMore">
             {{ jobStatus !== 'complete' ? 'รอคำนวณครบ' : loadingMore ? 'กำลังโหลด...' : 'โหลดเพิ่ม' }}
@@ -533,6 +545,15 @@ const hasMore = ref(false)
 const selected = reactive({})
 const expanded = reactive({})
 const showExtraColumns = ref(true) // toggle คอลัมน์เพิ่มเติม (ค้างรับ/ค้างจอง/ค้างส่ง/D_avg/Min/Max/Cover) — default เปิด
+const filterStockStatus = ref('')
+const stockStatusOptions = [
+  { value: '', label: 'ทั้งหมด', activeClass: 'border-slate-700 bg-slate-700 text-white' },
+  { value: 'low', label: 'ต่ำกว่าเกณฑ์', activeClass: 'border-red-500 bg-red-500 text-white' },
+  { value: 'normal', label: 'ปกติ', activeClass: 'border-green-500 bg-green-500 text-white' },
+  { value: 'high', label: 'สูงกว่าเกณฑ์', activeClass: 'border-amber-500 bg-amber-500 text-white' },
+  { value: 'insufficient_sales_days', label: 'ข้อมูลขายไม่พอ', activeClass: 'border-blue-500 bg-blue-500 text-white' },
+  { value: 'inactive', label: 'ไม่เคลื่อนไหว', activeClass: 'border-slate-400 bg-slate-400 text-white' },
+]
 const suppliersByItem = reactive({})
 const supplierLoading = reactive({})
 const supplierErrors = reactive({})
@@ -591,6 +612,11 @@ const statusSegments = computed(() => {
     return { ...meta, count, percent: Math.max(count ? 3 : 0, Math.round((count / totalRows) * 100)) }
   })
 })
+const filteredRows = computed(() =>
+  filterStockStatus.value
+    ? rows.value.filter((r) => r.stock_status === filterStockStatus.value)
+    : rows.value
+)
 const topSuggestRows = computed(() => [...rows.value]
   .filter((row) => Number(row.suggest_qty || 0) > 0)
   .sort((a, b) => Number(b.suggest_qty || 0) - Number(a.suggest_qty || 0))
@@ -729,6 +755,7 @@ function resetFilter() {
   filter.days = 30
   filter.as_of_date = today
   filter.warehouse = 'MMA01'
+  filterStockStatus.value = ''
   load()
 }
 
