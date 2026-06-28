@@ -792,6 +792,8 @@
             <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
               <input v-model="purchaseFilter.doc_no" @input="purchaseDebounce"
                 class="input-field w-full text-sm sm:w-36" placeholder="เลขที่เอกสาร..." />
+              <input v-model="purchaseFilter.quote_no" @input="purchaseDebounce"
+                class="input-field w-full text-sm sm:w-36" placeholder="ใบเสนอราคา..." />
               <input v-model="purchaseFilter.sale_code" @input="purchaseDebounce"
                 class="input-field w-full text-sm sm:w-32" placeholder="รหัสพนักงาน..." />
               <div class="flex items-center gap-1.5 w-full sm:w-auto">
@@ -823,6 +825,7 @@
                     <th class="w-8 px-4 py-3"></th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">วันที่</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">เลขที่เอกสาร</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">ใบเสนอราคา</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">พนักงาน</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">ยอดรวม (บาท)</th>
                     <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500">VAT</th>
@@ -830,7 +833,7 @@
                 </thead>
                 <tbody v-if="!purchaseHistory.length">
                   <tr>
-                    <td colspan="6" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูลการซื้อ</td>
+                    <td colspan="7" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูลการซื้อ</td>
                   </tr>
                 </tbody>
                 <tbody v-for="row in purchaseHistory" :key="row.doc_no" class="border-b border-slate-100">
@@ -847,6 +850,13 @@
                         {{ new Date(row.doc_date).toLocaleDateString('th-TH', { day:'2-digit', month:'short', year:'2-digit' }) }}
                       </td>
                       <td class="px-4 py-3 font-mono text-xs text-slate-700">{{ row.doc_no }}</td>
+                      <td class="px-4 py-3 font-mono text-xs">
+                        <span v-if="row.quote_no"
+                          class="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                          {{ row.quote_no }}
+                        </span>
+                        <span v-else class="text-slate-300">—</span>
+                      </td>
                       <td class="px-4 py-3 text-sm text-slate-600">{{ row.sale_name || row.sale_code || '—' }}</td>
                       <td class="px-4 py-3 text-right font-semibold text-slate-800">{{ phFmtAmount(row.total_amount) }}</td>
                       <td class="px-4 py-3 text-center">
@@ -857,7 +867,7 @@
                     </tr>
                     <!-- Expanded line items -->
                     <tr v-if="expandedDoc === row.doc_no">
-                      <td colspan="6" class="bg-slate-50/70 px-6 py-3">
+                      <td colspan="7" class="bg-slate-50/70 px-6 py-3">
                         <div v-if="loadingLines" class="text-xs text-slate-400 py-2 text-center">
                           กำลังโหลดรายการสินค้า...
                         </div>
@@ -1325,7 +1335,7 @@ const followupIntervalHelp = computed(() => {
 const purchaseHistory = ref([])
 const purchasePag     = reactive({ total: 0, page: 1, pages: 1, limit: 10 })
 const loadingPurchase = ref(false)
-const purchaseFilter  = reactive({ doc_no: '', sale_code: '', date_from: '', date_to: '' })
+const purchaseFilter  = reactive({ doc_no: '', sale_code: '', quote_no: '', date_from: '', date_to: '' })
 const expandedDoc     = ref(null)
 const expandedLines   = ref([])
 const loadingLines    = ref(false)
@@ -1384,6 +1394,7 @@ async function loadPurchaseHistory(page = 1) {
     date_to:    purchaseFilter.date_to    || undefined,
     doc_no:     purchaseFilter.doc_no     || undefined,
     sale_code:  purchaseFilter.sale_code  || undefined,
+    quote_no:   purchaseFilter.quote_no   || undefined,
     page, limit: purchasePag.limit,
   }
   const res = await api.get(`/sales/customer/${props.code}`, { params: p })
