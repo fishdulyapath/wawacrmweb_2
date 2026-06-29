@@ -18,10 +18,14 @@
     </div>
 
     <section class="card mb-4 p-4">
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
         <div class="xl:col-span-2">
           <label class="label-text" for="planning-report-search">ค้นหาสินค้า</label>
           <input id="planning-report-search" v-model="filter.search" class="input-field" placeholder="รหัสสินค้า ชื่อสินค้า หรือ barcode" @keyup.enter="load" />
+        </div>
+        <div class="xl:col-span-2">
+          <label class="label-text" for="planning-report-supplier">ผู้จัดจำหน่าย</label>
+          <input id="planning-report-supplier" v-model="filter.supplier_search" class="input-field" placeholder="รหัสหรือชื่อเจ้าหนี้" @keyup.enter="load" />
         </div>
         <div>
           <label class="label-text" for="planning-report-days">D_avg</label>
@@ -290,7 +294,13 @@
             <template v-for="(row, idx) in filteredRows" :key="row.ic_code">
               <tr :class="idx % 2 === 0 ? 'bg-white hover:bg-blue-50' : 'bg-slate-50 hover:bg-blue-50'">
                 <td class="border border-slate-200 px-4 py-3 text-center">
-                  <button class="cart-add-btn" :title="Number(row.suggest_qty || 0) > 0 ? 'ใส่ตะกร้า (ใช้ยอดแนะนำซื้อ)' : 'ใส่ตะกร้า (ไม่มียอดแนะนำซื้อ → ใช้ MOQ/1)'" @click="addToCartFromRow(row)">
+                  <button
+                    class="cart-add-btn"
+                    :class="{ 'cart-add-btn--in-cart': rowInCart(row) }"
+                    :aria-pressed="rowInCart(row)"
+                    :title="rowInCart(row) ? 'อยู่ในตะกร้าแล้ว' : (Number(row.suggest_qty || 0) > 0 ? 'ใส่ตะกร้า (ใช้ยอดแนะนำซื้อ)' : 'ใส่ตะกร้า (ไม่มียอดแนะนำซื้อ → ใช้ MOQ/1)')"
+                    @click="addToCartFromRow(row)"
+                  >
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                   </button>
                 </td>
@@ -322,7 +332,7 @@
                         <span class="font-medium truncate" :class="hasTax(row) ? 'text-red-600' : 'text-slate-800'" :title="hasTax(row) ? 'เจ้าหนี้นี้มีภาษี' : ''">{{ selectedSupplierName(row) }}</span>
                         <span v-if="Number(row.is_preferred) === 1" class="preferred-badge" title="เจ้าหนี้หลัก">หลัก</span>
                         <span v-if="hasTax(row)" class="rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold text-red-600" title="มีภาษี">VAT</span>
-                        <span v-if="pendingPRCountByAp(selectedSupplierCode(row)) > 0" class="inline-flex items-center gap-0.5 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm" title="ใบเสนอซื้อ (PR) ที่ยังไม่ถูกดึงไปทำใบซื้อ">📄 PR {{ pendingPRCountByAp(selectedSupplierCode(row)) }}</span>
+                        <span v-if="pendingPRCount(row.ic_code, selectedSupplierCode(row)) > 0" class="inline-flex items-center gap-0.5 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm" title="สินค้านี้มีใบเสนอซื้อ (PR) กับเจ้าหนี้นี้แล้ว และยังไม่ถูกดึงไปทำใบซื้อ">PR {{ pendingPRCount(row.ic_code, selectedSupplierCode(row)) }}</span>
                       </div>
                       <div class="text-xs text-slate-400">{{ selectedSupplierCode(row) || '-' }}</div>
                     </div>
@@ -333,7 +343,17 @@
                 <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.accrued_in_qty_calc) }}</td>
                 <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.book_out_qty) }}</td>
                 <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.accrued_out_qty_calc) }}</td>
-                <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.d_avg) }}</td>
+                <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">
+                  <button
+                    type="button"
+                    class="davg-link"
+                    :title="`ดูสูตร D_avg (${davgMethodLabel(row)})`"
+                    @click="openDavgDialog(row)"
+                  >
+                    <span :style="davgMethodColor(row)">{{ formatQty(row.d_avg) }}</span>
+                 
+                  </button>
+                </td>
                 <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.min_stock) }}</td>
                 <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.max_stock) }}</td>
                 <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums text-slate-600">{{ formatMoney(row.amount_net_3m) }}</td>
@@ -372,7 +392,13 @@
                         </tr>
                         <tr v-for="supplier in supplierRows(row)" :key="`${row.ic_code}-${supplier.ap_code}`" class="hover:bg-slate-50">
                           <td class="px-3 py-2 text-center">
-                            <button class="cart-add-btn" title="ใส่ตะกร้าจากเจ้าหนี้นี้" @click="addToCartFromSupplier(row, supplier)">
+                            <button
+                              class="cart-add-btn"
+                              :class="{ 'cart-add-btn--in-cart': supplierInCart(row, supplier) }"
+                              :aria-pressed="supplierInCart(row, supplier)"
+                              :title="supplierInCart(row, supplier) ? 'อยู่ในตะกร้าแล้ว' : 'ใส่ตะกร้าจากเจ้าหนี้นี้'"
+                              @click="addToCartFromSupplier(row, supplier)"
+                            >
                               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                             </button>
                           </td>
@@ -380,7 +406,7 @@
                             <div class="flex flex-wrap items-center gap-1.5">
                               <span class="font-medium" :class="String(supplier.tax_type) === '1' ? 'text-red-600' : 'text-slate-800'">{{ supplier.ap_name || '-' }}</span>
                               <span v-if="String(supplier.tax_type) === '1'" class="rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold text-red-600" title="มีภาษี">VAT</span>
-                              <span v-if="pendingPRCountByAp(supplier.ap_code) > 0" class="inline-flex items-center gap-0.5 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm" title="ใบเสนอซื้อ (PR) ที่ยังไม่ถูกดึงไปทำใบซื้อ">📄 PR {{ pendingPRCountByAp(supplier.ap_code) }}</span>
+                              <span v-if="pendingPRCount(row.ic_code, supplier.ap_code) > 0" class="inline-flex items-center gap-0.5 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm" title="สินค้านี้มีใบเสนอซื้อ (PR) กับเจ้าหนี้นี้แล้ว และยังไม่ถูกดึงไปทำใบซื้อ">PR {{ pendingPRCount(row.ic_code, supplier.ap_code) }}</span>
                             </div>
                             <div class="text-xs text-slate-400">{{ supplier.ap_code }}</div>
                           </td>
@@ -411,8 +437,8 @@
       <div v-if="!loading && !error && total > 0" class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
         <p class="text-center text-sm text-slate-500 lg:text-left">แสดง {{ formatInt(filteredRows.length) }} จาก {{ formatInt(displayTotal) }} รายการ เรียงตามจำนวนแนะนำซื้อจากมากไปน้อย</p>
         <div class="flex justify-center gap-1">
-          <button class="pager-btn" :disabled="jobStatus !== 'complete' || !hasMore || loadingMore" @click="loadMore">
-            {{ jobStatus !== 'complete' ? 'รอคำนวณครบ' : loadingMore ? 'กำลังโหลด...' : 'โหลดเพิ่ม' }}
+          <button class="pager-btn" :disabled="!canLoadMore" @click="loadMore">
+            {{ loadMoreLabel }}
           </button>
         </div>
       </div>
@@ -429,6 +455,156 @@
       @confirm="noticeDialog.open = false"
       @cancel="noticeDialog.open = false"
     />
+
+    <Transition name="modal">
+      <div
+        v-if="davgDialogRow"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
+        @click.self="closeDavgDialog"
+      >
+        <div class="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-xl">
+          <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+            <div class="min-w-0">
+              <h2 class="text-base font-semibold text-slate-800">สูตรคำนวณ D_avg</h2>
+              <p class="mt-1 truncate text-sm text-slate-500">
+                {{ davgDialogRow.ic_code }} · {{ davgDialogRow.ic_name || '-' }}
+              </p>
+            </div>
+            <button
+              type="button"
+              class="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50"
+              title="ปิด"
+              @click="closeDavgDialog"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="max-h-[calc(90vh-72px)] overflow-y-auto px-5 py-4">
+            <div class="grid gap-3 sm:grid-cols-3">
+              <div class="davg-card">
+                <p class="davg-card-label">D_avg ที่ใช้จริง</p>
+                <p class="davg-card-value text-blue-700">{{ formatQty(davgDialogRow.d_avg) }}</p>
+                <p class="davg-card-note">{{ davgDialogRow.unit_code || '-' }} / วัน</p>
+              </div>
+              <div class="davg-card">
+                <p class="davg-card-label">ประเภทสูตร</p>
+                <p class="davg-card-value text-slate-800">{{ davgMethodLabel(davgDialogRow) }}</p>
+                <p class="davg-card-note">{{ davgFormulaReason(davgDialogRow) }}</p>
+              </div>
+              <div class="davg-card">
+                <p class="davg-card-label">Sales Frequency</p>
+                <p class="davg-card-value text-emerald-700">{{ formatPercentValue(davgDialogRow.sales_frequency) }}%</p>
+                <p class="davg-card-note">{{ formatInt(davgDialogRow.sales_days) }} / {{ formatInt(davgDialogRow.active_stock_days) }} วัน</p>
+              </div>
+            </div>
+
+            <div class="mt-4 grid gap-4 lg:grid-cols-2">
+              <section class="rounded-lg border border-slate-200 p-4">
+                <h3 class="mb-3 text-sm font-semibold text-slate-700">วิธีเลือกสูตร Hybrid</h3>
+                <div class="space-y-2 text-sm text-slate-600">
+                  <div class="flex justify-between gap-4">
+                    <span>เกณฑ์ Median</span>
+                    <strong class="text-slate-800">Frequency ≥ 60%</strong>
+                  </div>
+                  <div class="flex justify-between gap-4">
+                    <span>เกณฑ์ Mean</span>
+                    <strong class="text-slate-800">Frequency &lt; 60%</strong>
+                  </div>
+                  <div class="flex justify-between gap-4">
+                    <span>Median D_avg</span>
+                    <strong class="tabular-nums text-slate-800">{{ formatQty(davgDialogRow.median_d_avg) }}</strong>
+                  </div>
+                  <div class="flex justify-between gap-4">
+                    <span>Mean D_avg</span>
+                    <strong class="tabular-nums text-slate-800">{{ formatQty(davgDialogRow.mean_d_avg) }}</strong>
+                  </div>
+                  <div class="flex justify-between gap-4">
+                    <span>ยอดขายรวมในช่วงคำนวณ</span>
+                    <strong class="tabular-nums text-slate-800">{{ formatQty(davgDialogRow.total_sales_qty) }}</strong>
+                  </div>
+                </div>
+                <p class="mt-3 rounded bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-500">
+                  {{ davgFormulaNote(davgDialogRow) }}
+                </p>
+              </section>
+
+              <section class="rounded-lg border border-slate-200 p-4">
+                <h3 class="mb-3 text-sm font-semibold text-slate-700">ตัวเลขสต๊อกที่ใช้คำนวณ</h3>
+                <div class="space-y-2 text-sm text-slate-600">
+                  <div class="flex justify-between gap-4">
+                    <span>คงเหลือ</span>
+                    <strong class="tabular-nums text-slate-800">{{ formatQty(davgDialogRow.balance_qty) }}</strong>
+                  </div>
+                  <div class="flex justify-between gap-4">
+                    <span>ค้างรับ</span>
+                    <strong class="tabular-nums text-emerald-700">+ {{ formatQty(davgDialogRow.accrued_in_qty_calc) }}</strong>
+                  </div>
+                  <div class="flex justify-between gap-4">
+                    <span>ค้างจอง</span>
+                    <strong class="tabular-nums text-red-600">- {{ formatQty(davgDialogRow.book_out_qty) }}</strong>
+                  </div>
+                  <div class="flex justify-between gap-4">
+                    <span>ค้างส่ง</span>
+                    <strong class="tabular-nums text-red-600">- {{ formatQty(davgDialogRow.accrued_out_qty_calc) }}</strong>
+                  </div>
+                  <div class="border-t border-slate-100 pt-2">
+                    <div class="flex justify-between gap-4">
+                      <span class="font-medium text-slate-700">พร้อมใช้</span>
+                      <strong class="tabular-nums text-blue-700">{{ formatQty(davgDialogRow.available_qty) }}</strong>
+                    </div>
+                  </div>
+                </div>
+                <p class="mt-3 rounded bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-500">
+                  พร้อมใช้ = คงเหลือ + ค้างรับ - ค้างจอง - ค้างส่ง
+                </p>
+              </section>
+            </div>
+
+            <section class="mt-4 rounded-lg border border-slate-200 p-4">
+              <h3 class="mb-3 text-sm font-semibold text-slate-700">Min / Max / แนะนำซื้อ</h3>
+              <div class="grid gap-3 sm:grid-cols-4">
+                <div class="davg-mini-stat">
+                  <span>Lead</span>
+                  <strong>{{ formatQty(davgDialogRow.lead_time_days) }} วัน</strong>
+                </div>
+                <div class="davg-mini-stat">
+                  <span>Late</span>
+                  <strong>{{ formatQty(davgDialogRow.late_buffer_days) }} วัน</strong>
+                </div>
+                <div class="davg-mini-stat">
+                  <span>Wholesale</span>
+                  <strong>{{ formatQty(davgDialogRow.wholesale_buffer_days) }} วัน</strong>
+                </div>
+                <div class="davg-mini-stat">
+                  <span>Cycle</span>
+                  <strong>{{ formatQty(davgDialogRow.order_cycle_days) }} วัน</strong>
+                </div>
+              </div>
+              <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                <div class="davg-result">
+                  <span>Min / ROP</span>
+                  <strong>{{ formatQty(davgDialogRow.min_stock) }}</strong>
+                </div>
+                <div class="davg-result">
+                  <span>Max</span>
+                  <strong>{{ formatQty(davgDialogRow.max_stock) }}</strong>
+                </div>
+                <div class="davg-result">
+                  <span>แนะนำซื้อ</span>
+                  <strong>{{ formatQty(davgDialogRow.suggest_qty) }}</strong>
+                </div>
+              </div>
+              <p class="mt-3 text-xs leading-relaxed text-slate-500">
+                Min = Ceiling(D_avg × (Lead + Late + Wholesale)), Max = Ceiling(D_avg × (Lead + Late + Wholesale + Cycle)), แนะนำซื้อ = Max - พร้อมใช้ และเทียบ MOQ
+              </p>
+            </section>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
     <!-- Toast feedback สั้นเมื่อเพิ่มลงตะกร้า -->
     <Transition name="toast">
@@ -451,7 +627,7 @@ const props = defineProps({
 })
 
 const auth = useAuthStore()
-const { cartCount, addToCart } = usePlanningCart()
+const { cart, cartCount, addToCart } = usePlanningCart()
 const toastMsg = ref('')
 let toastTimer = null
 const canTriggerAlert = computed(() => {
@@ -499,6 +675,71 @@ function showToast(msg) {
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => { toastMsg.value = '' }, 2500)
 }
+
+function cartHas(icCode, apCode) {
+  const itemCode = String(icCode || '').trim()
+  const supplierCode = String(apCode || '').trim()
+  if (!itemCode || !supplierCode) return false
+  return cart.some((item) =>
+    String(item.ic_code || '').trim() === itemCode &&
+    String(item.ap_code || '').trim() === supplierCode,
+  )
+}
+
+function rowInCart(row) {
+  return cartHas(row.ic_code, selectedSupplierCode(row))
+}
+
+function supplierInCart(row, supplier) {
+  return cartHas(row.ic_code, supplier.ap_code)
+}
+
+const davgDialogRow = ref(null)
+
+function openDavgDialog(row) {
+  davgDialogRow.value = row
+}
+
+function closeDavgDialog() {
+  davgDialogRow.value = null
+}
+
+function davgMethodLabel(row) {
+  const method = String(row?.d_avg_method || '').toLowerCase()
+  if (method === 'median') return 'Median'
+  if (method === 'mean') return 'Mean'
+  return 'ไม่มีข้อมูลขาย'
+}
+
+function davgMethodColor(row) {
+  const method = String(row?.d_avg_method || '').toLowerCase()
+  if (method === 'median') return 'color: #2563eb; font-weight: 600;'
+  if (method === 'mean') return 'color: #f59e0b; font-weight: 600;'
+  return 'color: #6b7280; font-weight: 600;'
+}
+
+
+function davgFormulaReason(row) {
+  const method = String(row?.d_avg_method || '').toLowerCase()
+  const freq = formatPercentValue(row?.sales_frequency)
+  if (method === 'median') return `Frequency ${freq}% >= 60%`
+  if (method === 'mean') return `Frequency ${freq}% < 60%`
+  return 'ไม่มีวันที่มีสต๊อกหรือไม่มีวันที่ขาย'
+}
+
+function davgFormulaNote(row) {
+  const method = String(row?.d_avg_method || '').toLowerCase()
+  const activeDays = Number(row?.active_stock_days || 0)
+  const salesDays = Number(row?.sales_days || 0)
+  if (method === 'median') {
+    return `ใช้ Median เพราะสินค้ามีความถี่ขาย ${formatPercentValue(row?.sales_frequency)}% จาก ${formatInt(salesDays)} วันที่มีขาย / ${formatInt(activeDays)} วันที่มีสต๊อก จึงตัดยอดขายโดดออกได้ดี`
+  }
+  if (method === 'mean') {
+    return `ใช้ Mean เพราะความถี่ขายต่ำกว่า 60% โดยคำนวณจากยอดขายรวม ${formatQty(row?.total_sales_qty)} / ${formatInt(activeDays)} วันที่มีสต๊อก และมีขั้นต่ำ 0.1 สำหรับสินค้าขายช้า`
+  }
+  return 'ยังไม่มีข้อมูลพอสำหรับคำนวณ D_avg ระบบจึงไม่สร้าง Min/Max จากสูตรนี้'
+}
+
 const triggering = ref(false)
 const triggerResult = ref('')
 
@@ -521,6 +762,7 @@ async function triggerAlert() {
 const today = new Date().toISOString().slice(0, 10)
 const filter = reactive({
   search: '',
+  supplier_search: '',
   days: 30,
   as_of_date: today,
   warehouse: 'MMA01',
@@ -533,12 +775,17 @@ const loadingMore = ref(false)
 const error = ref('')
 const summary = ref({})
 // ใบเสนอซื้อ (PR) ที่ยังไม่ถูกดึงไปทำซื้อ (trans_flag=2, doc_success=0)
-const pendingPR = ref({ total: 0, byAp: {} })
+function emptyPendingPR() {
+  return { total: 0, byAp: {}, byItemAp: {} }
+}
+const pendingPR = ref(emptyPendingPR())
 
-// นับ PR รอทำซื้อของเจ้าหนี้ตามรหัส (จาก pending_pr.byAp)
-function pendingPRCountByAp(apCode) {
-  if (!apCode) return 0
-  return Number(pendingPR.value.byAp?.[apCode] || 0)
+// นับ PR รอทำซื้อของคู่สินค้า+เจ้าหนี้เท่านั้น
+function pendingPRCount(icCode, apCode) {
+  const itemCode = String(icCode || '').trim()
+  const supplierCode = String(apCode || '').trim()
+  if (!itemCode || !supplierCode) return 0
+  return Number(pendingPR.value.byItemAp?.[itemCode]?.[supplierCode] || 0)
 }
 const jobId = ref('')
 const jobStatus = ref('')
@@ -575,6 +822,11 @@ const pageSubtitle = computed(() => alertOnly.value
   : '1 แถวต่อสินค้า เลือกเจ้าหนี้เริ่มต้นจากราคาซื้อล่าสุดที่ถูกที่สุด และกดขยายเพื่อดูเจ้าหนี้รายอื่น')
 const displayTotal = computed(() => alertOnly.value ? Number(summary.value.total || rows.value.length || 0) : total.value)
 const isBusy = computed(() => loading.value || loadingMore.value)
+const isReportComplete = computed(() => {
+  const totalRows = Number(total.value || 0)
+  return jobStatus.value === 'complete' && (totalRows === 0 || Number(processed.value || 0) >= totalRows)
+})
+const canLoadMore = computed(() => isReportComplete.value && hasMore.value && !loading.value && !loadingMore.value)
 const selectedCount = computed(() => Object.values(selected).filter(Boolean).length)
 const showProgress = computed(() => loading.value || jobStatus.value === 'running' || jobStatus.value === 'queued' || processed.value > 0)
 const progressPercent = computed(() => {
@@ -586,6 +838,12 @@ const progressStatusText = computed(() => {
   if (jobStatus.value === 'complete') return `โหลดครบแล้ว ${formatInt(processed.value || total.value)} / ${formatInt(total.value)} รายการ`
   if (jobStatus.value === 'failed') return 'โหลดรายงานไม่สำเร็จ'
   return `ประมวลผลแล้ว ${formatInt(processed.value)} / ${formatInt(total.value)} รายการ`
+})
+const loadMoreLabel = computed(() => {
+  if (!isReportComplete.value) return 'รอคำนวณครบ'
+  if (loadingMore.value) return 'กำลังโหลด...'
+  if (!hasMore.value) return 'โหลดครบแล้ว'
+  return 'โหลดเพิ่ม'
 })
 const summaryCards = computed(() => [
   { key: 'total', label: alertOnly.value ? 'รายการแจ้งเตือน' : 'สินค้าทั้งหมด', value: formatInt(summary.value.total), note: summaryNote.value, class: 'text-slate-800' },
@@ -654,6 +912,7 @@ const amountAxisTicks = computed(() => {
 function requestParams() {
   return {
     search: filter.search || undefined,
+    supplier_search: filter.supplier_search || undefined,
     days: filter.days,
     as_of_date: filter.as_of_date,
     warehouse: filter.warehouse,
@@ -675,7 +934,7 @@ async function load() {
   error.value = ''
   rows.value = []
   summary.value = {}
-  pendingPR.value = { total: 0, byAp: {} }
+  pendingPR.value = emptyPendingPR()
   total.value = 0
   processed.value = 0
   hasMore.value = false
@@ -714,7 +973,7 @@ async function pollReportJob(seq) {
     if (data.status === 'complete') {
       rows.value = data.data || []
       summary.value = data.summary || {}
-      pendingPR.value = data.pending_pr || { total: 0, byAp: {} }
+      pendingPR.value = data.pending_pr || emptyPendingPR()
       hasMore.value = Boolean(data.has_more)
       loading.value = false
       return
@@ -735,7 +994,7 @@ async function pollReportJob(seq) {
 }
 
 async function loadMore() {
-  if (!jobId.value || loadingMore.value || !hasMore.value) return
+  if (!jobId.value || !canLoadMore.value) return
   loadingMore.value = true
   try {
     const { data } = await api.get(`/purchase-planning/report-lazy/${encodeURIComponent(jobId.value)}`, {
@@ -754,6 +1013,7 @@ async function loadMore() {
 
 function resetFilter() {
   filter.search = ''
+  filter.supplier_search = ''
   filter.days = 30
   filter.as_of_date = today
   filter.warehouse = 'MMA01'
@@ -788,6 +1048,11 @@ function chooseSupplier(row, supplier) {
   row.suggest_qty = supplier.suggest_qty
   row.min_stock = supplier.min_stock
   row.max_stock = supplier.max_stock
+  row.lead_time_days = supplier.lead_time_days
+  row.late_buffer_days = supplier.late_buffer_days
+  row.wholesale_buffer_days = supplier.wholesale_buffer_days
+  row.order_cycle_days = supplier.order_cycle_days
+  row.min_order_qty = supplier.min_order_qty
 }
 
 function toggleSelected(row, checked) {
@@ -892,6 +1157,10 @@ function formatQty(value) {
   return Number(value || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 })
 }
 
+function formatPercentValue(value) {
+  return (Number(value || 0) * 100).toLocaleString('th-TH', { maximumFractionDigits: 1 })
+}
+
 function formatMoney(value) {
   if (value === null || value === undefined || value === '') return '-'
   return Number(value || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -972,7 +1241,7 @@ watch(() => props.alertOnly, () => load())
   @apply inline-block h-3 w-3 rounded-full;
 }
 .supplier-chart-row {
-  @apply grid grid-cols-[minmax(160px,42%)_minmax(0,1fr)] items-center gap-3;
+  @apply grid grid-cols-[minmax(160px,34%)_minmax(0,1fr)] items-center gap-3;
 }
 .supplier-chart-label {
   @apply truncate text-right text-sm font-medium text-slate-600;
@@ -1028,6 +1297,39 @@ watch(() => props.alertOnly, () => load())
 .icon-btn {
   @apply inline-flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40;
 }
+.davg-link {
+  @apply inline-flex flex-col items-end gap-1 rounded px-2 py-1 text-right font-semibold text-blue-700 transition-colors hover:bg-blue-50 hover:text-blue-800;
+}
+.davg-method-pill {
+  @apply rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-slate-500;
+}
+.davg-card {
+  @apply rounded-lg border border-slate-200 bg-slate-50 px-4 py-3;
+}
+.davg-card-label {
+  @apply text-xs font-semibold uppercase tracking-wide text-slate-400;
+}
+.davg-card-value {
+  @apply mt-1 text-xl font-bold tabular-nums;
+}
+.davg-card-note {
+  @apply mt-0.5 text-xs text-slate-500;
+}
+.davg-mini-stat,
+.davg-result {
+  @apply rounded-lg bg-slate-50 px-3 py-2 text-sm;
+}
+.davg-mini-stat span,
+.davg-result span {
+  @apply block text-xs font-medium text-slate-400;
+}
+.davg-mini-stat strong,
+.davg-result strong {
+  @apply mt-0.5 block tabular-nums text-slate-800;
+}
+.davg-result strong {
+  @apply text-lg text-blue-700;
+}
 
 /* ปุ่มเปิดดูรายละเอียดเจ้าหนี้ (พร้อมจำนวน supplier) */
 .supplier-toggle-btn {
@@ -1054,6 +1356,9 @@ watch(() => props.alertOnly, () => load())
 .cart-add-btn {
   @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-500 transition-all hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-30;
 }
+.cart-add-btn--in-cart {
+  @apply border-red-500 bg-red-50 text-red-600 shadow-sm hover:border-red-600 hover:bg-red-100 hover:text-red-700;
+}
 /* Toast animation */
 .toast-enter-active,
 .toast-leave-active {
@@ -1063,5 +1368,13 @@ watch(() => props.alertOnly, () => load())
 .toast-leave-to {
   opacity: 0;
   transform: translate(-50%, 20px);
+}
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.18s ease;
+}
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
 }
 </style>

@@ -39,7 +39,7 @@
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="คงเหลือ" :value="formatQty(item.balance_qty)" note="stock balance" />
           <MetricCard label="พร้อมใช้" :value="formatQty(item.available_qty)" note="balance + ค้างรับ - ค้างจอง - ค้างส่ง" tone="blue" />
-          <MetricCard label="D_avg" :value="formatQty(item.d_avg)" :note="`${formatInt(item.active_stock_days)} วันมี stock`" />
+          <MetricCard label="D_avg" :value="formatQty(item.d_avg)" :note="dAvgNote" />
           <MetricCard label="Stockout" :value="formatInt(item.stockout_days)" note="วัน stock เป็น 0" tone="amber" />
           <MetricCard label="Min/ROP" :value="formatQty(item.min_stock)" :note="`Lead ${formatInt(item.lead_time_days)} + Late ${formatInt(item.late_buffer_days)} + Wholesale ${formatInt(item.wholesale_buffer_days)}`" />
           <MetricCard label="Max" :value="formatQty(item.max_stock)" :note="`Cycle ${formatInt(item.order_cycle_days)} วัน`" />
@@ -93,7 +93,7 @@
         <div class="card p-4 xl:col-span-2">
           <div class="mb-3 flex items-center justify-between">
             <h2 class="section-title">กราฟขาย/ซื้อ/เครดิตโน้ต 90 วัน</h2>
-            <span :class="statusClass(item.stock_status)">{{ statusLabel(item.stock_status) }}</span>
+            <span :class="statusClass(item.stock_status)"> {{ statusLabel(item.stock_status) }}</span>
           </div>
           <div class="relative">
             <div class="h-56 overflow-hidden">
@@ -106,6 +106,7 @@
                   @mouseleave="hoverBar = null"
                 >
                   <div v-if="Number(row.credit_note_qty) > 0" class="w-full rounded-t bg-amber-500" :style="{ height: barHeight(row.credit_note_qty) }"></div>
+                  <div v-if="Number(row.receive_qty) > 0" class="w-full rounded-t bg-teal-500" :style="{ height: barHeight(row.receive_qty) }"></div>
                   <div v-if="Number(row.purchase_qty) > 0" class="w-full rounded-t bg-green-500" :style="{ height: barHeight(row.purchase_qty) }"></div>
                   <div v-if="Number(row.sale_qty) > 0" class="w-full rounded-t bg-blue-500" :style="{ height: barHeight(row.sale_qty) }"></div>
                   <div v-if="!hasMovement(row)" class="w-full" style="height: 2px; background: #e2e8f0;"></div>
@@ -128,6 +129,10 @@
                 <span class="font-semibold tabular-nums text-slate-800">{{ formatQty(hoverBar.purchase_qty) }}</span>
               </div>
               <div class="flex items-center justify-between gap-4">
+                <span class="flex items-center gap-1.5 text-slate-500"><span class="legend-dot bg-teal-500"></span>รับ</span>
+                <span class="font-semibold tabular-nums text-slate-800">{{ formatQty(hoverBar.receive_qty) }}</span>
+              </div>
+              <div class="flex items-center justify-between gap-4">
                 <span class="flex items-center gap-1.5 text-slate-500"><span class="legend-dot bg-amber-500"></span>เครดิตโน้ต</span>
                 <span class="font-semibold tabular-nums text-slate-800">{{ formatQty(hoverBar.credit_note_qty) }}</span>
               </div>
@@ -136,6 +141,7 @@
           <div class="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
             <span class="legend-dot bg-blue-500"></span> ขาย
             <span class="legend-dot bg-green-500"></span> ซื้อ
+            <span class="legend-dot bg-teal-500"></span> รับ
             <span class="legend-dot bg-amber-500"></span> เครดิตโน้ต
           </div>
         </div>
@@ -315,7 +321,7 @@
       </section>
 
       <!-- ทยอยรับ (trans_flag=310) — 5 ใบล่าสุด -->
-      <section class="mb-4">
+      <section class="mb-4 mt-4">
         <DataPanel title="ทยอยรับ (10 ใบล่าสุด)">
           <table class="detail-table min-w-[760px]">
             <thead>
@@ -426,7 +432,17 @@ const hoverBar = ref(null) // แท่งกราฟที่กำลัง h
 const imageSrc = computed(() => imageFailed.value ? placeholderSvg.value : (item.value.image_url || placeholderSvg.value))
 const placeholderSvg = computed(() => `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="100%" height="100%" fill="#f1f5f9"/><text x="50%" y="50%" text-anchor="middle" fill="#94a3b8" font-family="Arial" font-size="22">No image</text></svg>')}`)
 const barcodeText = computed(() => barcodes.value.map((row) => row.barcode).filter(Boolean).slice(0, 3).join(', ') || '-')
-const maxChartValue = computed(() => Math.max(1, ...movementChart.value.flatMap((row) => [Number(row.sale_qty || 0), Number(row.purchase_qty || 0), Number(row.credit_note_qty || 0)])))
+const dAvgNote = computed(() => {
+  const method = item.value.d_avg_method === 'median' ? 'Median' : item.value.d_avg_method === 'mean' ? 'Mean' : '-'
+  const frequency = `${(Number(item.value.sales_frequency || 0) * 100).toFixed(1)}%`
+  return `${method} · freq ${frequency} · ${formatInt(item.value.sales_days)} / ${formatInt(item.value.active_stock_days)} วันขาย`
+})
+const maxChartValue = computed(() => Math.max(1, ...movementChart.value.flatMap((row) => [
+  Number(row.sale_qty || 0),
+  Number(row.purchase_qty || 0),
+  Number(row.receive_qty || 0),
+  Number(row.credit_note_qty || 0),
+])))
 const chartSample = computed(() => movementChart.value.filter((_, idx) => idx % 3 === 0 || movementChart.value.length <= 45))
 
 async function load() {
@@ -469,7 +485,7 @@ function barHeight(value) {
 }
 
 function hasMovement(row) {
-  return Number(row.sale_qty) > 0 || Number(row.purchase_qty) > 0 || Number(row.credit_note_qty) > 0
+  return Number(row.sale_qty) > 0 || Number(row.purchase_qty) > 0 || Number(row.receive_qty) > 0 || Number(row.credit_note_qty) > 0
 }
 
 function formatTooltipDate(value) {
@@ -544,10 +560,10 @@ function formatDate(value) {
 
 function statusLabel(status) {
   return {
-    low: 'ต่ำกว่าเกณฑ์',
-    normal: 'ปกติ',
-    high: 'สูงกว่าเกณฑ์',
-    inactive: 'ไม่เคลื่อนไหว',
+    low: 'สต๊อกต่ำกว่าเกณฑ์',
+    normal: 'สต๊อกปกติ',
+    high: 'สต๊อกสูงกว่าเกณฑ์',
+    inactive: 'สต๊อกไม่เคลื่อนไหว',
     insufficient_sales_days: 'ข้อมูลขายไม่พอ',
   }[status] || status || '-'
 }

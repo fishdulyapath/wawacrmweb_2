@@ -564,6 +564,11 @@
               <DateInput v-model="form.crm.next_followup" class="input-field"/>
             </div>
 
+            <div>
+              <label class="label-text">วันเยี่ยมถัดไป</label>
+              <DateInput v-model="form.crm.next_visit_followup" class="input-field"/>
+            </div>
+
             <div class="md:col-span-2">
               <label class="label-text">หมายเหตุ CRM</label>
               <textarea v-model="form.crm.crm_remark" class="input-field" rows="3"
@@ -1075,6 +1080,7 @@
                     <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">วันที่</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">เลขที่เอกสาร</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">ใบสั่งขาย</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">ใบเสนอราคา</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">พนักงาน</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">ยอดรวม (บาท)</th>
                     <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500">VAT</th>
@@ -1082,7 +1088,7 @@
                 </thead>
                 <tbody v-if="!purchaseHistory.length">
                   <tr>
-                    <td colspan="7" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูลการซื้อ</td>
+                    <td colspan="8" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูลการซื้อ</td>
                   </tr>
                 </tbody>
                 <tbody v-for="row in purchaseHistory" :key="row.doc_no" class="border-b border-slate-100">
@@ -1106,6 +1112,13 @@
                         </span>
                         <span v-else class="text-slate-300">—</span>
                       </td>
+                      <td class="px-4 py-3 font-mono text-xs">
+                        <span v-if="row.qt_doc"
+                          class="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                          {{ row.qt_doc }}
+                        </span>
+                        <span v-else class="text-slate-300">—</span>
+                      </td>
                       <td class="px-4 py-3 text-sm text-slate-600">{{ row.sale_name || row.sale_code || '—' }}</td>
                       <td class="px-4 py-3 text-right font-semibold text-slate-800">{{ phFmtAmount(row.total_amount) }}</td>
                       <td class="px-4 py-3 text-center">
@@ -1116,7 +1129,7 @@
                     </tr>
                     <!-- Expanded line items -->
                     <tr v-if="expandedDoc === row.doc_no">
-                      <td colspan="7" class="bg-slate-50/70 px-6 py-3">
+                      <td colspan="8" class="bg-slate-50/70 px-6 py-3">
                         <div v-if="loadingLines" class="text-xs text-slate-400 py-2 text-center">
                           กำลังโหลดรายการสินค้า...
                         </div>
@@ -1853,6 +1866,7 @@ const defaultForm = () => ({
     visit_owner_user_id: '',
     visit_owners: [],
     next_followup: '',
+    next_visit_followup: '',
     crm_remark: ''
   }
 })
@@ -2131,6 +2145,7 @@ async function loadCustomer() {
         ? data.crm.visit_owners.map(o => ({ user_id: Number(o.user_id), is_primary: !!o.is_primary }))
         : (data.crm.visit_owner_user_id ? [{ user_id: Number(data.crm.visit_owner_user_id), is_primary: true }] : [])
       form.crm.next_followup  = dateOnly(data.crm.next_followup)
+      form.crm.next_visit_followup = dateOnly(data.crm.next_visit_followup)
       form.crm.crm_remark     = data.crm.crm_remark    || ''
     }
 
@@ -2143,7 +2158,7 @@ async function loadCustomer() {
     followupForm.visit_followup_enabled = data.crm?.visit_followup_enabled === true
     followupForm.visit_followup_pause_until = dateOnly(data.crm?.visit_followup_pause_until)
     followupForm.visit_followup_pause_reason = data.crm?.visit_followup_pause_reason || ''
-    followupForm.next_visit_followup = dateOnly(data.crm?.next_visit_followup) || ''
+    followupForm.next_visit_followup = dateOnly(data.crm?.next_visit_followup) || form.crm.next_visit_followup
     followupForm.visit_followup_interval_days = data.crm?.visit_followup_interval_days || ''
     shopImageUrl.value = data.crm?.shop_image ? `/uploads/${data.crm.shop_image}` : null
   } catch (e) {
@@ -2411,7 +2426,10 @@ function applyFollowupOverride(data = {}) {
   if ('visit_followup_enabled' in data) followupForm.visit_followup_enabled = data.visit_followup_enabled === true
   if ('visit_followup_pause_until' in data) followupForm.visit_followup_pause_until = dateOnly(data.visit_followup_pause_until)
   if ('visit_followup_pause_reason' in data) followupForm.visit_followup_pause_reason = data.visit_followup_pause_reason || ''
-  if ('next_visit_followup' in data) followupForm.next_visit_followup = dateOnly(data.next_visit_followup)
+  if ('next_visit_followup' in data) {
+    followupForm.next_visit_followup = dateOnly(data.next_visit_followup)
+    form.crm.next_visit_followup = followupForm.next_visit_followup
+  }
   if ('visit_followup_interval_days' in data) followupForm.visit_followup_interval_days = data.visit_followup_interval_days || ''
   if (followupSummary.value) {
     followupSummary.value = { ...followupSummary.value }

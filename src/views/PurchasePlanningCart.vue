@@ -329,16 +329,21 @@ async function createPR() {
       ap_code: g.ap_code,
       ap_name: g.ap_name,
       remark: (groupRemarks[g.ap_code] || '').trim(),
-      items: g.items.map((it) => ({
-        item_code: it.ic_code,
-        item_name: it.ic_name,
-        unit_code: it.selected_unit || it.unit_code,
-        // ส่ง qty/price ในหน่วยที่เลือก + ratio ให้ backend แปลงเป็นหน่วยหลักก่อนบันทึก
-        qty: Number(it.qty),
-        price: Number(it.price),
-        unit_ratio: Number(it.unit_ratio || 1),
-        base_unit: it.unit_code,
-      })),
+      items: g.items.map((it) => {
+        const selectedUnit = (it.units || []).find((unit) => unit.unit_code === (it.selected_unit || it.unit_code))
+        return {
+          item_code: it.ic_code,
+          item_name: it.ic_name,
+          unit_code: it.selected_unit || it.unit_code,
+          // ส่ง qty/price ตามหน่วยที่เลือก และส่งค่าแปลงหน่วยให้ backend เก็บในบรรทัดเอกสาร
+          qty: Number(it.qty),
+          price: Number(it.price),
+          unit_ratio: Number(it.unit_ratio || selectedUnit?.ratio || 1),
+          unit_stand_value: Number(selectedUnit?.stand_value || it.unit_ratio || 1),
+          unit_divide_value: Number(selectedUnit?.divide_value || 1),
+          base_unit: it.unit_code,
+        }
+      }),
     }))
 
   if (!groupsToSend.length) return
@@ -385,12 +390,27 @@ async function createPR() {
     })
     prResult.value = data
     if (data.success) {
-      clearCart()
+      removeCreatedGroupsFromCart(groupsToSend, data.pr_docs || [])
     }
   } catch (err) {
     prResult.value = { success: false, error: err.response?.data?.error || err.message || 'เกิดข้อผิดพลาด' }
   } finally {
     creating.value = false
+  }
+}
+
+function removeCreatedGroupsFromCart(groupsToSend, prDocs) {
+  const createdApCodes = new Set((prDocs || []).map((doc) => String(doc.ap_code || '').trim()).filter(Boolean))
+  const groupsToRemove = createdApCodes.size
+    ? groupsToSend.filter((group) => createdApCodes.has(String(group.ap_code || '').trim()))
+    : groupsToSend
+
+  for (const group of groupsToRemove) {
+    for (const item of group.items) {
+      removeFromCart(item.item_code, group.ap_code)
+    }
+    delete selectedGroups[group.ap_code]
+    delete groupRemarks[group.ap_code]
   }
 }
 
@@ -401,8 +421,9 @@ function goReport() {
 // ปิดหน้ายืนยัน แล้วเตรียมทำรายการใหม่
 function closeConfirm() {
   prResult.value = null
-  // รีเซ็ตหมายเหตุกลุ่มเพื่อเริ่มใหม่
+  // รีเซ็ตหมายเหตุ/การเลือกกลุ่ม เพื่อให้รายการที่เหลือพร้อมสร้างต่อ
   for (const k of Object.keys(groupRemarks)) delete groupRemarks[k]
+  for (const k of Object.keys(selectedGroups)) delete selectedGroups[k]
 }
 
 // ── Generic confirm dialog (รองรับ variant: primary/danger/warning) ──
