@@ -150,6 +150,45 @@
               <input v-model="form.country" class="input-field" placeholder="ประเทศ"/>
             </div>
 
+            <div>
+              <label class="label-text">ระดับราคา</label>
+              <select v-model="form.price_level" class="input-field">
+                <option value="">— เลือกระดับราคา —</option>
+                <option v-for="n in 10" :key="n-1" :value="String(n-1)">{{ n-1 }}</option>
+              </select>
+            </div>
+
+            <div class="relative">
+              <label class="label-text">เขตขนส่ง</label>
+              <input
+                v-model="logisticSearch"
+                @focus="logisticOpen = true"
+                @blur="logisticBlur"
+                @input="logisticOpen = true"
+                class="input-field pr-8"
+                placeholder="พิมพ์ชื่อหรือรหัสเขตขนส่ง..."
+                autocomplete="off"
+              />
+              <button v-if="form.logistic_area" type="button"
+                @click="form.logistic_area = ''; logisticSearch = ''"
+                class="absolute right-2 top-[calc(50%+10px)] -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+              <div v-if="logisticOpen && filteredLogisticAreas.length > 0"
+                   class="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                <button v-for="a in filteredLogisticAreas" :key="a.code"
+                  type="button"
+                  @mousedown.prevent="selectLogisticArea(a)"
+                  class="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-3 border-b border-slate-100 last:border-0">
+                  <span class="text-xs font-mono text-slate-500 w-10 flex-shrink-0">{{ a.code }}</span>
+                  <span class="text-sm text-slate-800">{{ a.name_1 }}</span>
+                </button>
+              </div>
+              <p v-if="form.logistic_area" class="text-xs text-blue-600 mt-1">เลือก: {{ form.logistic_area }}</p>
+            </div>
+
             <div class="md:col-span-2">
               <label class="label-text">พิกัด GPS</label>
               <MapPicker
@@ -1516,8 +1555,11 @@ function openConfirm({ title, message, danger = false, confirmLabel = 'ยืน
 
 // ── Province / Amper / Tambon dropdowns ───────────
 const provinces = ref([])
-const ampers    = ref([])
-const tambons   = ref([])
+const ampers        = ref([])
+const tambons       = ref([])
+const logisticAreas = ref([])
+const logisticSearch = ref('')
+const logisticOpen  = ref(false)
 // สำหรับ transport_labels แต่ละแถว (indexed by idx)
 const tAmpers   = ref({})
 const tTambons  = ref({})
@@ -1711,7 +1753,7 @@ const tabs = [
 const defaultForm = () => ({
   code: '', name_1: '', country: '', address: '',
   province: '', amper: '', tambon: '', zip_code: '',
-  remark: '', sale_code: '', latitude: 0, longitude: 0,
+  remark: '', sale_code: '', price_level: '', logistic_area: '', latitude: 0, longitude: 0,
   contactors: [],
   transport_labels: [],
   crm: {
@@ -1730,7 +1772,7 @@ const form = reactive(defaultForm())
 
 // ── Init ──────────────────────────────────
 onMounted(async () => {
-  await Promise.all([loadEmployees(), loadCrmUsers(), loadProvinces()])
+  await Promise.all([loadEmployees(), loadCrmUsers(), loadProvinces(), loadLogisticAreas()])
   if (isEdit.value) {
     await loadCustomer()
     await Promise.all([loadNotes(), loadExistingGeo(), loadActivities()])
@@ -1905,6 +1947,31 @@ watch(activeTab, t => {
   }
 })
 
+async function loadLogisticAreas() {
+  try {
+    const { data } = await api.get('/customers/logistic-areas')
+    logisticAreas.value = data
+  } catch {}
+}
+
+const filteredLogisticAreas = computed(() => {
+  const q = logisticSearch.value.toLowerCase()
+  if (!q) return logisticAreas.value
+  return logisticAreas.value.filter(a =>
+    a.code.toLowerCase().includes(q) || a.name_1.toLowerCase().includes(q)
+  )
+})
+
+function selectLogisticArea(a) {
+  form.logistic_area = a.code
+  logisticSearch.value = `${a.name_1} (${a.code})`
+  logisticOpen.value = false
+}
+
+function logisticBlur() {
+  setTimeout(() => { logisticOpen.value = false }, 150)
+}
+
 async function loadEmployees() {
   try {
     const { data } = await api.get('/employees')
@@ -1935,8 +2002,14 @@ async function loadCustomer() {
     form.zip_code  = c.zip_code  || ''
     form.latitude  = c.latitude  || 0
     form.longitude = c.longitude || 0
-    form.remark    = c.remark    || ''
-    form.sale_code = d?.sale_code || ''
+    form.remark        = c.remark        || ''
+    form.sale_code     = d?.sale_code     || c.sale_code     || ''
+    form.price_level   = d?.price_level   ?? c.price_level   ?? ''
+    form.logistic_area = d?.logistic_area ?? c.logistic_area ?? ''
+    if (form.logistic_area) {
+      const la = logisticAreas.value.find(a => a.code === form.logistic_area)
+      logisticSearch.value = la ? `${la.name_1} (${la.code})` : form.logistic_area
+    }
     if (d?.sale_code) {
       const emp = employees.value.find(e => e.code === d.sale_code)
       empSearch.value = emp ? `${emp.name_1} (${emp.code})` : d.sale_code
