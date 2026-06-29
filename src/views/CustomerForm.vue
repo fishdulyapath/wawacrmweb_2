@@ -120,7 +120,7 @@
               <textarea v-model="form.address" class="input-field" rows="2" placeholder="ที่อยู่..."/>
             </div>
 
-            <div>
+            <div class="relative">
               <label class="label-text">จังหวัด</label>
               <select v-model="form.province" @change="onProvinceChange" class="input-field">
                 <option value="">— เลือกจังหวัด —</option>
@@ -158,24 +158,26 @@
               </select>
             </div>
 
-            <div class="relative">
+            <div>
               <label class="label-text">เขตขนส่ง</label>
-              <input
-                v-model="logisticSearch"
-                @focus="logisticOpen = true"
-                @blur="logisticBlur"
-                @input="logisticOpen = true"
-                class="input-field pr-8"
-                placeholder="พิมพ์ชื่อหรือรหัสเขตขนส่ง..."
-                autocomplete="off"
-              />
-              <button v-if="form.logistic_area" type="button"
-                @click="form.logistic_area = ''; logisticSearch = ''"
-                class="absolute right-2 top-[calc(50%+10px)] -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
+              <div class="relative">
+                <input
+                  v-model="logisticSearch"
+                  @focus="logisticOpen = true"
+                  @blur="logisticBlur"
+                  @input="logisticOpen = true"
+                  class="input-field pr-8"
+                  placeholder="พิมพ์ชื่อหรือรหัสเขตขนส่ง..."
+                  autocomplete="off"
+                />
+                <button v-if="form.logistic_area" type="button"
+                  @click="form.logistic_area = ''; logisticSearch = ''"
+                  class="absolute inset-y-0 right-2 flex items-center text-slate-400 hover:text-slate-600">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
               <div v-if="logisticOpen && filteredLogisticAreas.length > 0"
                    class="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
                 <button v-for="a in filteredLogisticAreas" :key="a.code"
