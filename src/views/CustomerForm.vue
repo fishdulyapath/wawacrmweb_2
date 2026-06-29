@@ -496,6 +496,69 @@
               </p>
             </div>
 
+            <div class="md:col-span-2">
+              <label class="label-text">ผู้รับผิดชอบงานเยี่ยม</label>
+              <div class="space-y-2">
+                <div class="relative">
+                  <input v-model="visitOwnerSearch"
+                         @focus="visitOwnerOpen = true"
+                         @blur="visitOwnerBlur"
+                         class="input-field"
+                         placeholder="ค้นหาชื่อหรือรหัสพนักงานสำหรับงานเยี่ยม..." />
+                  <div v-if="visitOwnerOpen && filteredVisitOwnerOptions.length"
+                       class="absolute z-20 mt-1 w-full max-h-60 overflow-auto bg-white border border-slate-200 rounded-xl shadow-lg">
+                    <button v-for="u in filteredVisitOwnerOptions" :key="u.id" type="button"
+                            @mousedown.prevent="addVisitOwner(u.id)"
+                            class="w-full text-left px-3 py-2.5 hover:bg-green-50 flex items-center justify-between gap-3">
+                      <span class="min-w-0">
+                        <span class="block text-sm font-medium text-slate-800 truncate">{{ u.name }}</span>
+                        <span class="block text-xs text-slate-400 truncate">{{ u.code }}</span>
+                      </span>
+                      <span class="text-xs text-green-600 flex-shrink-0">เพิ่ม</span>
+                    </button>
+                  </div>
+                  <div v-else-if="visitOwnerOpen && visitOwnerSearch && !filteredVisitOwnerOptions.length"
+                       class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg px-3 py-3 text-sm text-slate-400">
+                    ไม่พบพนักงานที่ค้นหา หรือเลือกไว้แล้ว
+                  </div>
+                </div>
+
+                <div v-if="selectedVisitOwnerUsers.length"
+                     class="border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden bg-white">
+                  <div v-for="u in selectedVisitOwnerUsers" :key="u.id"
+                       class="flex items-center gap-3 px-3 py-2.5">
+                    <div class="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">
+                      {{ ownerInitial(u) }}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-slate-800 truncate">{{ u.name }}</p>
+                      <p class="text-xs text-slate-400 truncate">{{ u.code }}</p>
+                    </div>
+                    <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                      <input type="radio"
+                             name="primaryVisitOwner"
+                             :checked="isPrimaryVisitOwner(u.id)"
+                             @change="setPrimaryVisitOwner(u.id)"
+                             class="w-3.5 h-3.5 border-slate-300 text-green-600" />
+                      หลัก
+                    </label>
+                    <button type="button"
+                            @click="removeVisitOwner(u.id)"
+                            class="w-7 h-7 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center"
+                            title="ลบผู้รับผิดชอบงานเยี่ยม">
+                      x
+                    </button>
+                  </div>
+                </div>
+                <div v-else class="border border-dashed border-slate-200 rounded-xl px-3 py-4 text-sm text-slate-400 text-center">
+                  ยังไม่ได้เลือกผู้รับผิดชอบงานเยี่ยม
+                </div>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">
+                ระบบสร้างงานเยี่ยมอัตโนมัติจะใช้รายชื่อนี้ ถ้าไม่ระบุ งานจะเข้าคิวรอผู้รับผิดชอบ
+              </p>
+            </div>
+
             <div>
               <label class="label-text">วันที่ Follow-up ถัดไป</label>
               <DateInput v-model="form.crm.next_followup" class="input-field"/>
@@ -816,7 +879,7 @@
                   พักถึง {{ formatActDate(followupForm.visit_followup_pause_until) }}
                 </span>
                 <span v-if="followupSummary.policy" class="px-2 py-1 rounded bg-white border border-slate-200">
-                  เยี่ยมทุก {{ followupSummary.policy.default_visit_interval_days || 30 }} วัน • เยี่ยมซ้ำ {{ followupSummary.policy.no_met_retry_minutes || 60 }} นาที
+                  เยี่ยมทุก {{ followupSummary.policy.default_visit_interval_days || 30 }} วัน
                 </span>
                 <span v-if="!isManager" class="ml-auto text-slate-400">ดูได้อย่างเดียว</span>
                 <button v-if="isManager && (followupForm.visit_followup_pause_until || !followupForm.visit_followup_enabled)"
@@ -978,8 +1041,8 @@
             <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
               <input v-model="purchaseFilter.doc_no" @input="purchaseDebounce"
                 class="input-field w-full text-sm sm:w-36" placeholder="เลขที่เอกสาร..." />
-              <input v-model="purchaseFilter.quote_no" @input="purchaseDebounce"
-                class="input-field w-full text-sm sm:w-36" placeholder="ใบเสนอราคา..." />
+              <input v-model="purchaseFilter.sale_order_no" @input="purchaseDebounce"
+                class="input-field w-full text-sm sm:w-36" placeholder="ใบสั่งขาย..." />
               <input v-model="purchaseFilter.sale_code" @input="purchaseDebounce"
                 class="input-field w-full text-sm sm:w-32" placeholder="รหัสพนักงาน..." />
               <div class="flex items-center gap-1.5 w-full sm:w-auto">
@@ -1011,7 +1074,7 @@
                     <th class="w-8 px-4 py-3"></th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">วันที่</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">เลขที่เอกสาร</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">ใบเสนอราคา</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">ใบสั่งขาย</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">พนักงาน</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">ยอดรวม (บาท)</th>
                     <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500">VAT</th>
@@ -1636,8 +1699,16 @@ function empBlur() {
 // CRM owner searchable multi-select
 const crmOwnerSearch = ref('')
 const crmOwnerOpen   = ref(false)
+const visitOwnerSearch = ref('')
+const visitOwnerOpen   = ref(false)
 const selectedCrmOwnerUsers = computed(() =>
   form.crm.owners.map(o => {
+    const user = crmUsers.value.find(u => Number(u.id) === Number(o.user_id))
+    return user || { id: o.user_id, code: `#${o.user_id}`, name: `User #${o.user_id}` }
+  })
+)
+const selectedVisitOwnerUsers = computed(() =>
+  form.crm.visit_owners.map(o => {
     const user = crmUsers.value.find(u => Number(u.id) === Number(o.user_id))
     return user || { id: o.user_id, code: `#${o.user_id}`, name: `User #${o.user_id}` }
   })
@@ -1653,8 +1724,22 @@ const filteredCrmOwnerOptions = computed(() => {
     })
     .slice(0, 20)
 })
+const filteredVisitOwnerOptions = computed(() => {
+  const q = visitOwnerSearch.value.trim().toLowerCase()
+  return crmUsers.value
+    .filter(u => !isVisitOwnerSelected(u.id))
+    .filter(u => {
+      if (!q) return true
+      return String(u.name || '').toLowerCase().includes(q) ||
+             String(u.code || '').toLowerCase().includes(q)
+    })
+    .slice(0, 20)
+})
 function crmOwnerBlur() {
   setTimeout(() => { crmOwnerOpen.value = false }, 150)
+}
+function visitOwnerBlur() {
+  setTimeout(() => { visitOwnerOpen.value = false }, 150)
 }
 function ownerInitial(u) {
   return String(u.name || u.code || '?').trim().charAt(0).toUpperCase()
@@ -1765,6 +1850,8 @@ const defaultForm = () => ({
     source: '',
     owner_user_id: '',
     owners: [],
+    visit_owner_user_id: '',
+    visit_owners: [],
     next_followup: '',
     crm_remark: ''
   }
@@ -2039,6 +2126,10 @@ async function loadCustomer() {
       form.crm.owners         = Array.isArray(data.crm.owners)
         ? data.crm.owners.map(o => ({ user_id: Number(o.user_id), is_primary: !!o.is_primary }))
         : (data.crm.owner_user_id ? [{ user_id: Number(data.crm.owner_user_id), is_primary: true }] : [])
+      form.crm.visit_owner_user_id = data.crm.visit_owner_user_id || ''
+      form.crm.visit_owners  = Array.isArray(data.crm.visit_owners)
+        ? data.crm.visit_owners.map(o => ({ user_id: Number(o.user_id), is_primary: !!o.is_primary }))
+        : (data.crm.visit_owner_user_id ? [{ user_id: Number(data.crm.visit_owner_user_id), is_primary: true }] : [])
       form.crm.next_followup  = dateOnly(data.crm.next_followup)
       form.crm.crm_remark     = data.crm.crm_remark    || ''
     }
@@ -2120,6 +2211,44 @@ function setPrimaryCrmOwner(id) {
   if (!isCrmOwnerSelected(userId)) return
   form.crm.owners.forEach(o => { o.is_primary = Number(o.user_id) === userId })
   form.crm.owner_user_id = userId
+}
+
+function isVisitOwnerSelected(id) {
+  return form.crm.visit_owners.some(o => Number(o.user_id) === Number(id))
+}
+
+function isPrimaryVisitOwner(id) {
+  return form.crm.visit_owners.some(o => Number(o.user_id) === Number(id) && o.is_primary)
+}
+
+function syncPrimaryVisitOwner() {
+  const primary = form.crm.visit_owners.find(o => o.is_primary) || form.crm.visit_owners[0]
+  form.crm.visit_owners.forEach(o => { o.is_primary = Number(o.user_id) === Number(primary?.user_id) })
+  form.crm.visit_owner_user_id = primary?.user_id || ''
+}
+
+function addVisitOwner(id) {
+  const userId = Number(id)
+  if (!userId || isVisitOwnerSelected(userId)) return
+  form.crm.visit_owners.push({ user_id: userId, is_primary: form.crm.visit_owners.length === 0 })
+  visitOwnerSearch.value = ''
+  visitOwnerOpen.value = true
+  syncPrimaryVisitOwner()
+}
+
+function removeVisitOwner(id) {
+  const userId = Number(id)
+  const idx = form.crm.visit_owners.findIndex(o => Number(o.user_id) === userId)
+  if (idx < 0) return
+  form.crm.visit_owners.splice(idx, 1)
+  syncPrimaryVisitOwner()
+}
+
+function setPrimaryVisitOwner(id) {
+  const userId = Number(id)
+  if (!isVisitOwnerSelected(userId)) return
+  form.crm.visit_owners.forEach(o => { o.is_primary = Number(o.user_id) === userId })
+  form.crm.visit_owner_user_id = userId
 }
 
 // ── Notes ─────────────────────────────────
@@ -2479,6 +2608,8 @@ async function doSubmit() {
   try {
     const primaryOwner = form.crm.owners.find(o => o.is_primary) || form.crm.owners[0]
     form.crm.owner_user_id = primaryOwner?.user_id || ''
+    const primaryVisitOwner = form.crm.visit_owners.find(o => o.is_primary) || form.crm.visit_owners[0]
+    form.crm.visit_owner_user_id = primaryVisitOwner?.user_id || ''
     const payload = { ...form }
     if (isEdit.value) {
       await api.put(`/customers/${props.code}`, payload)

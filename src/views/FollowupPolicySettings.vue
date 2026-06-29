@@ -1,7 +1,7 @@
 <template>
   <div class="mx-auto max-w-7xl p-4 sm:p-6 space-y-5">
     <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div class="min-w-0">
+      <div>
         <div class="flex flex-wrap items-center gap-2">
           <h1 class="text-xl font-bold text-slate-800">ตั้งค่า Follow-up Policy</h1>
           <span
@@ -13,7 +13,7 @@
           </span>
         </div>
         <p class="mt-1 max-w-3xl text-sm text-slate-500">
-          กำหนดรอบโทรติดตาม การสร้างงานอัตโนมัติ และกติกาโทรซ้ำเมื่อยังติดต่อไม่ได้
+          กำหนดรอบติดตามลูกค้าและการสร้างงานอัตโนมัติของระบบ
         </p>
       </div>
 
@@ -24,10 +24,6 @@
           :disabled="manualRunning || manualVisitRunning || saving || loading || loadError || isDirty"
           class="btn-secondary w-full justify-center disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-4.586-2.623A1 1 0 009 9.414v5.172a1 1 0 001.166.986l4.586-2.623a1 1 0 000-1.736z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
           {{ manualRunning ? 'กำลังสร้าง...' : isDirty ? 'บันทึกก่อน' : 'สร้าง Follow-up โทร' }}
         </button>
         <button
@@ -36,10 +32,6 @@
           :disabled="manualRunning || manualVisitRunning || saving || loading || loadError || isDirty"
           class="btn-secondary w-full justify-center disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-4.586-2.623A1 1 0 009 9.414v5.172a1 1 0 001.166.986l4.586-2.623a1 1 0 000-1.736z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
           {{ manualVisitRunning ? 'กำลังสร้าง...' : isDirty ? 'บันทึกก่อน' : 'สร้างงานเยี่ยม' }}
         </button>
         <button
@@ -48,9 +40,6 @@
           :disabled="saving || loading || loadError || !isDirty"
           class="btn-primary w-full justify-center disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
           {{ saving ? 'กำลังบันทึก...' : isDirty ? 'บันทึกการตั้งค่า' : 'บันทึกแล้ว' }}
         </button>
       </div>
@@ -69,23 +58,11 @@
     </div>
 
     <section v-else-if="loadError" class="card max-w-3xl p-6">
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 class="text-base font-semibold text-slate-800">โหลดการตั้งค่าไม่สำเร็จ</h2>
-          <p class="mt-1 text-sm text-slate-500">
-            ระบบจะไม่แสดงค่าเริ่มต้นให้แก้ไข เพื่อป้องกันการบันทึกทับค่าจริงโดยไม่ตั้งใจ
-          </p>
-          <p class="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {{ message || 'ไม่สามารถเชื่อมต่อข้อมูล Follow-up Policy ได้' }}
-          </p>
-        </div>
-        <button type="button" class="btn-secondary justify-center" @click="load">
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6M20 8A8 8 0 006.3 3.7L4 10m16 4l-2.3 6.3A8 8 0 014 16" />
-          </svg>
-          โหลดใหม่
-        </button>
-      </div>
+      <h2 class="text-base font-semibold text-slate-800">โหลดการตั้งค่าไม่สำเร็จ</h2>
+      <p class="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        {{ message || 'ไม่สามารถเชื่อมต่อข้อมูล Follow-up Policy ได้' }}
+      </p>
+      <button type="button" class="btn-secondary mt-4" @click="load">โหลดใหม่</button>
     </section>
 
     <template v-else>
@@ -119,332 +96,152 @@
 
       <div class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div class="space-y-5">
-        <section class="card overflow-hidden">
-          <div class="border-b border-slate-200 px-5 py-4">
-            <h2 class="font-semibold text-slate-800">งานโทร — กติกาการติดตามลูกค้า</h2>
-            <p class="mt-1 text-sm text-slate-500">ตั้งค่าพฤติกรรมหลักของงานโทรติดตามอัตโนมัติ</p>
-          </div>
-
-          <div class="divide-y divide-slate-100">
-            <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
-              <div>
-                <h3 class="text-sm font-semibold text-slate-800">สถานะนโยบาย</h3>
-                <p class="mt-1 text-sm text-slate-500">ปิดส่วนนี้เมื่อไม่ต้องการให้ระบบช่วยจัดคิวติดตาม</p>
-              </div>
-              <div class="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                <div>
-                  <p class="text-sm font-semibold text-slate-800">
-                    {{ form.enabled ? 'ระบบติดตามลูกค้ากำลังทำงาน' : 'ระบบติดตามลูกค้าถูกปิดอยู่' }}
-                  </p>
-                  <p class="mt-0.5 text-xs text-slate-500">
-                    {{ form.enabled ? 'ค่าด้านล่างจะถูกใช้กับงานอัตโนมัติ' : 'เปิดใช้งานก่อน ระบบจึงจะสร้างงานตาม policy นี้' }}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  class="inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                  :class="form.enabled ? 'bg-blue-600' : 'bg-slate-300'"
-                  :aria-pressed="form.enabled"
-                  aria-label="เปิดหรือปิด Follow-up Policy"
-                  @click="form.enabled = !form.enabled"
-                >
-                  <span
-                    class="block h-5 w-5 rounded-full bg-white shadow transition-transform"
-                    :class="form.enabled ? 'translate-x-5' : 'translate-x-0'"
-                  />
-                </button>
-              </div>
+          <section class="card overflow-hidden">
+            <div class="border-b border-slate-200 px-5 py-4">
+              <h2 class="font-semibold text-slate-800">งานโทร</h2>
+              <p class="mt-1 text-sm text-slate-500">กติกาการติดตามลูกค้าด้วยงานโทรอัตโนมัติ</p>
             </div>
 
-            <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
-              <div>
-                <h3 class="text-sm font-semibold text-slate-800">การสร้างงานอัตโนมัติ</h3>
-                <p class="mt-1 text-sm text-slate-500">สร้างงานเมื่อถึงรอบติดตามและยังไม่มีงาน follow-up เปิดอยู่</p>
-              </div>
-              <div class="space-y-4">
-                <div class="flex items-center justify-between gap-4 rounded-lg border border-slate-200 px-4 py-3">
-                  <div>
-                    <p class="text-sm font-semibold text-slate-800">สร้างงานตามเวลาที่กำหนด</p>
-                    <p class="mt-0.5 text-xs text-slate-500">ถ้าปิดไว้ ระบบจะไม่สร้างงานใหม่อัตโนมัติ</p>
-                  </div>
-                  <button
-                    type="button"
-                    class="inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                    :class="form.auto_create_enabled ? 'bg-blue-600' : 'bg-slate-300'"
-                    :aria-pressed="form.auto_create_enabled"
-                    aria-label="เปิดหรือปิดการสร้างงานอัตโนมัติ"
-                    @click="form.auto_create_enabled = !form.auto_create_enabled"
-                  >
-                    <span
-                      class="block h-5 w-5 rounded-full bg-white shadow transition-transform"
-                      :class="form.auto_create_enabled ? 'translate-x-5' : 'translate-x-0'"
-                    />
-                  </button>
+            <div class="divide-y divide-slate-100">
+              <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
+                <div>
+                  <h3 class="text-sm font-semibold text-slate-800">สถานะนโยบาย</h3>
+                  <p class="mt-1 text-sm text-slate-500">ปิดส่วนนี้เมื่อไม่ต้องการให้ระบบช่วยจัดคิวติดตาม</p>
                 </div>
+                <ToggleRow
+                  :active="form.enabled"
+                  active-text="ระบบติดตามลูกค้ากำลังทำงาน"
+                  inactive-text="ระบบติดตามลูกค้าถูกปิดอยู่"
+                  @toggle="form.enabled = !form.enabled"
+                />
+              </div>
 
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2" :class="!form.auto_create_enabled ? 'opacity-60' : ''">
+              <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
+                <div>
+                  <h3 class="text-sm font-semibold text-slate-800">การสร้างงานอัตโนมัติ</h3>
+                  <p class="mt-1 text-sm text-slate-500">สร้างงานเมื่อถึงรอบติดตามและยังไม่มีงานเปิดอยู่</p>
+                </div>
+                <div class="space-y-4">
+                  <ToggleRow
+                    :active="form.auto_create_enabled"
+                    active-text="สร้างงานตามเวลาที่กำหนด"
+                    inactive-text="ไม่สร้างงานใหม่อัตโนมัติ"
+                    @toggle="form.auto_create_enabled = !form.auto_create_enabled"
+                  />
+                  <div class="grid grid-cols-1 gap-4 md:grid-cols-2" :class="!form.auto_create_enabled ? 'opacity-60' : ''">
+                    <div>
+                      <label class="label-text">โทรติดตามทุกกี่วัน</label>
+                      <div class="flex items-center gap-2">
+                        <input v-model.number="form.default_call_interval_days" type="number" min="1" max="365" class="input-field" :disabled="!form.auto_create_enabled" />
+                        <span class="w-12 text-sm text-slate-500">วัน</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label class="label-text">เวลาสร้างงาน</label>
+                      <input v-model="form.auto_create_time" type="text" inputmode="numeric" maxlength="5" placeholder="HH:mm" class="input-field" :disabled="!form.auto_create_enabled" @blur="normalizeFormTime('auto_create_time', '08:00')" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
+                <div>
+                  <h3 class="text-sm font-semibold text-slate-800">ผู้รับผิดชอบ</h3>
+                  <p class="mt-1 text-sm text-slate-500">กำหนดว่างานโทรที่ระบบสร้างจะมอบหมายให้ใคร</p>
+                </div>
+                <div class="space-y-3">
+                  <RadioCard v-model="form.assignment_mode" value="primary" title="มอบหมายให้ Primary CRM owner" description="เหมาะกับงานประจำ เพราะมีเจ้าของหลักชัดเจนและไม่เกิดงานซ้ำหลายคน" color="blue" />
+                  <RadioCard v-model="form.assignment_mode" value="all" title="ให้ทีม CRM owner ทุกคนเห็นงานร่วมกัน" description="เหมาะกับทีมที่ช่วยกันรับผิดชอบลูกค้ารายเดียวกัน" color="blue" />
+                  <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    ถ้าลูกค้ายังไม่มีทีมผู้ดูแล CRM ระบบจะสร้างงานไว้ในคิวรอระบุผู้รับผิดชอบ
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
+                <div>
+                  <h3 class="text-sm font-semibold text-slate-800">โทรซ้ำเมื่อยังติดต่อไม่ได้</h3>
+                  <p class="mt-1 text-sm text-slate-500">ใช้กับงานโทรที่ผลลัพธ์ยังไม่รับสาย สายไม่ว่าง หรือฝากข้อความ</p>
+                </div>
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
-                    <label class="label-text">โทรติดตามทุกกี่วัน</label>
+                    <label class="label-text">โทรซ้ำสูงสุดต่อวัน</label>
                     <div class="flex items-center gap-2">
-                      <input
-                        v-model.number="form.default_call_interval_days"
-                        type="number"
-                        min="1"
-                        max="365"
-                        class="input-field"
-                        :disabled="!form.auto_create_enabled"
-                      />
-                      <span class="w-12 text-sm text-slate-500">วัน</span>
+                      <input v-model.number="form.no_answer_max_attempts_per_day" type="number" min="1" max="10" class="input-field" />
+                      <span class="w-12 text-sm text-slate-500">ครั้ง</span>
                     </div>
                   </div>
                   <div>
-                    <label class="label-text">เวลาสร้างงาน</label>
-                    <input
-                      v-model="form.auto_create_time"
-                      type="text"
-                      inputmode="numeric"
-                      maxlength="5"
-                      placeholder="HH:mm"
-                      class="input-field"
-                      :disabled="!form.auto_create_enabled"
-                      @blur="normalizeFormTime('auto_create_time', '08:00')"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
-              <div>
-                <h3 class="text-sm font-semibold text-slate-800">ผู้รับผิดชอบ</h3>
-                <p class="mt-1 text-sm text-slate-500">กำหนดว่า job ที่ระบบสร้างจะถูกมอบหมายให้ใคร</p>
-              </div>
-              <div class="space-y-3">
-                <label
-                  class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors"
-                  :class="form.assignment_mode === 'primary' ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white hover:border-slate-300'"
-                >
-                  <input v-model="form.assignment_mode" type="radio" value="primary" class="mt-1" />
-                  <span>
-                    <span class="block text-sm font-semibold text-slate-800">มอบหมายให้ Primary CRM owner</span>
-                    <span class="mt-0.5 block text-xs text-slate-500">เหมาะกับงานประจำ เพราะมีเจ้าของหลักชัดเจนและไม่เกิดงานซ้ำหลายคน</span>
-                  </span>
-                </label>
-                <label
-                  class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors"
-                  :class="form.assignment_mode === 'all' ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white hover:border-slate-300'"
-                >
-                  <input v-model="form.assignment_mode" type="radio" value="all" class="mt-1" />
-                  <span>
-                    <span class="block text-sm font-semibold text-slate-800">ให้ทีม CRM owner ทุกคนเห็นงานร่วมกัน</span>
-                    <span class="mt-0.5 block text-xs text-slate-500">เหมาะกับทีมที่ช่วยกันรับผิดชอบลูกค้ารายเดียวกัน</span>
-                  </span>
-                </label>
-                <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  ถ้าลูกค้ายังไม่มีทีมผู้ดูแล CRM ระบบจะสร้างงานไว้ในคิว “รอระบุผู้รับผิดชอบ”
-                </div>
-              </div>
-            </div>
-
-            <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
-              <div>
-                <h3 class="text-sm font-semibold text-slate-800">โทรซ้ำเมื่อยังติดต่อไม่ได้</h3>
-                <p class="mt-1 text-sm text-slate-500">ใช้เมื่อปิดงานด้วยผลลัพธ์ไม่รับสาย สายไม่ว่าง หรือฝากข้อความ และต้องติดตามซ้ำในวันเดียวกัน</p>
-              </div>
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label class="label-text">โทรซ้ำสูงสุดต่อวัน</label>
-                  <div class="flex items-center gap-2">
-                    <input v-model.number="form.no_answer_max_attempts_per_day" type="number" min="1" max="10" class="input-field" />
-                    <span class="w-12 text-sm text-slate-500">ครั้ง</span>
-                  </div>
-                </div>
-                <div>
-                  <label class="label-text">ระยะห่างการโทรซ้ำ</label>
-                  <div class="flex items-center gap-2">
-                    <input v-model.number="form.no_answer_retry_minutes" type="number" min="5" max="480" class="input-field" />
-                    <span class="w-12 text-sm text-slate-500">นาที</span>
-                  </div>
-                </div>
-                <div>
-                  <label class="label-text">เวลาเริ่มทำงาน</label>
-                  <input
-                    v-model="form.business_start_time"
-                    type="text"
-                    inputmode="numeric"
-                    maxlength="5"
-                    placeholder="HH:mm"
-                    class="input-field"
-                    @blur="normalizeFormTime('business_start_time', '08:30')"
-                  />
-                </div>
-                <div>
-                  <label class="label-text">เวลาสิ้นสุดทำงาน</label>
-                  <input
-                    v-model="form.business_end_time"
-                    type="text"
-                    inputmode="numeric"
-                    maxlength="5"
-                    placeholder="HH:mm"
-                    class="input-field"
-                    @blur="normalizeFormTime('business_end_time', '17:30')"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ── Visit Follow-up section ── -->
-        <section class="card overflow-hidden">
-          <div class="border-b border-slate-200 px-5 py-4">
-            <h2 class="font-semibold text-slate-800">งานเยี่ยม — กติกาการเยี่ยมลูกค้า</h2>
-            <p class="mt-1 text-sm text-slate-500">ตั้งค่าพฤติกรรมหลักของงานเยี่ยมอัตโนมัติ แยกจากงานโทร</p>
-          </div>
-
-          <div class="divide-y divide-slate-100">
-            <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
-              <div>
-                <h3 class="text-sm font-semibold text-slate-800">สถานะนโยบายเยี่ยม</h3>
-                <p class="mt-1 text-sm text-slate-500">ปิดส่วนนี้เมื่อไม่ต้องการให้ระบบช่วยจัดงานเยี่ยม</p>
-              </div>
-              <div class="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                <div>
-                  <p class="text-sm font-semibold text-slate-800">
-                    {{ form.visit_enabled ? 'ระบบงานเยี่ยมกำลังทำงาน' : 'ระบบงานเยี่ยมถูกปิดอยู่' }}
-                  </p>
-                  <p class="mt-0.5 text-xs text-slate-500">
-                    {{ form.visit_enabled ? 'ค่าด้านล่างจะถูกใช้กับงานเยี่ยมอัตโนมัติ' : 'เปิดใช้งานก่อน ระบบจึงจะสร้างงานเยี่ยมตาม policy นี้' }}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  class="inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                  :class="form.visit_enabled ? 'bg-green-600' : 'bg-slate-300'"
-                  :aria-pressed="form.visit_enabled"
-                  @click="form.visit_enabled = !form.visit_enabled"
-                >
-                  <span
-                    class="block h-5 w-5 rounded-full bg-white shadow transition-transform"
-                    :class="form.visit_enabled ? 'translate-x-5' : 'translate-x-0'"
-                  />
-                </button>
-              </div>
-            </div>
-
-            <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
-              <div>
-                <h3 class="text-sm font-semibold text-slate-800">การสร้างงานเยี่ยมอัตโนมัติ</h3>
-                <p class="mt-1 text-sm text-slate-500">สร้างงานเมื่อถึงรอบเยี่ยมและยังไม่มีงานเยี่ยมเปิดอยู่</p>
-              </div>
-              <div class="space-y-4">
-                <div class="flex items-center justify-between gap-4 rounded-lg border border-slate-200 px-4 py-3">
-                  <div>
-                    <p class="text-sm font-semibold text-slate-800">สร้างงานตามเวลาที่กำหนด</p>
-                    <p class="mt-0.5 text-xs text-slate-500">ถ้าปิดไว้ ระบบจะไม่สร้างงานเยี่ยมใหม่อัตโนมัติ</p>
-                  </div>
-                  <button
-                    type="button"
-                    class="inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                    :class="form.visit_auto_create_enabled ? 'bg-green-600' : 'bg-slate-300'"
-                    :aria-pressed="form.visit_auto_create_enabled"
-                    @click="form.visit_auto_create_enabled = !form.visit_auto_create_enabled"
-                  >
-                    <span
-                      class="block h-5 w-5 rounded-full bg-white shadow transition-transform"
-                      :class="form.visit_auto_create_enabled ? 'translate-x-5' : 'translate-x-0'"
-                    />
-                  </button>
-                </div>
-
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2" :class="!form.visit_auto_create_enabled ? 'opacity-60' : ''">
-                  <div>
-                    <label class="label-text">เยี่ยมทุกกี่วัน</label>
+                    <label class="label-text">ระยะห่างการโทรซ้ำ</label>
                     <div class="flex items-center gap-2">
-                      <input
-                        v-model.number="form.default_visit_interval_days"
-                        type="number"
-                        min="1"
-                        max="365"
-                        class="input-field"
-                        :disabled="!form.visit_auto_create_enabled"
-                      />
-                      <span class="w-12 text-sm text-slate-500">วัน</span>
+                      <input v-model.number="form.no_answer_retry_minutes" type="number" min="5" max="480" class="input-field" />
+                      <span class="w-12 text-sm text-slate-500">นาที</span>
                     </div>
                   </div>
                   <div>
-                    <label class="label-text">เวลาสร้างงานเยี่ยม</label>
-                    <input
-                      v-model="form.visit_auto_create_time"
-                      type="text"
-                      inputmode="numeric"
-                      maxlength="5"
-                      placeholder="HH:mm"
-                      class="input-field"
-                      :disabled="!form.visit_auto_create_enabled"
-                      @blur="normalizeFormTime('visit_auto_create_time', '08:00')"
-                    />
+                    <label class="label-text">เริ่มเวลาทำงาน</label>
+                    <input v-model="form.business_start_time" type="text" inputmode="numeric" maxlength="5" placeholder="HH:mm" class="input-field" @blur="normalizeFormTime('business_start_time', '08:30')" />
+                  </div>
+                  <div>
+                    <label class="label-text">สิ้นสุดเวลาทำงาน</label>
+                    <input v-model="form.business_end_time" type="text" inputmode="numeric" maxlength="5" placeholder="HH:mm" class="input-field" @blur="normalizeFormTime('business_end_time', '17:30')" />
                   </div>
                 </div>
               </div>
+            </div>
+          </section>
+
+          <section class="card overflow-hidden">
+            <div class="border-b border-slate-200 px-5 py-4">
+              <h2 class="font-semibold text-slate-800">งานเยี่ยม</h2>
+              <p class="mt-1 text-sm text-slate-500">กติกาการสร้างงานเยี่ยมอัตโนมัติ ผู้รับผิดชอบงานเยี่ยมกำหนดในหน้าแก้ไขลูกค้า</p>
             </div>
 
-            <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
-              <div>
-                <h3 class="text-sm font-semibold text-slate-800">ผู้รับผิดชอบงานเยี่ยม</h3>
-                <p class="mt-1 text-sm text-slate-500">กำหนดว่างานเยี่ยมที่ระบบสร้างจะถูกมอบหมายให้ใคร</p>
+            <div class="divide-y divide-slate-100">
+              <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
+                <div>
+                  <h3 class="text-sm font-semibold text-slate-800">สถานะงานเยี่ยม</h3>
+                  <p class="mt-1 text-sm text-slate-500">เปิดเมื่อต้องการให้ระบบสร้างงานเยี่ยมตามรอบ</p>
+                </div>
+                <ToggleRow
+                  :active="form.visit_enabled"
+                  active-text="ระบบสร้างงานเยี่ยมกำลังทำงาน"
+                  inactive-text="ระบบสร้างงานเยี่ยมถูกปิดอยู่"
+                  color="green"
+                  @toggle="form.visit_enabled = !form.visit_enabled"
+                />
               </div>
-              <div class="space-y-3">
-                <label
-                  class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors"
-                  :class="form.visit_assignment_mode === 'primary' ? 'border-green-300 bg-green-50' : 'border-slate-200 bg-white hover:border-slate-300'"
-                >
-                  <input v-model="form.visit_assignment_mode" type="radio" value="primary" class="mt-1" />
-                  <span>
-                    <span class="block text-sm font-semibold text-slate-800">มอบหมายให้ Primary CRM owner</span>
-                    <span class="mt-0.5 block text-xs text-slate-500">เหมาะกับงานประจำ เพราะมีเจ้าของหลักชัดเจน</span>
-                  </span>
-                </label>
-                <label
-                  class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors"
-                  :class="form.visit_assignment_mode === 'all' ? 'border-green-300 bg-green-50' : 'border-slate-200 bg-white hover:border-slate-300'"
-                >
-                  <input v-model="form.visit_assignment_mode" type="radio" value="all" class="mt-1" />
-                  <span>
-                    <span class="block text-sm font-semibold text-slate-800">ให้ทีม CRM owner ทุกคนเห็นงานร่วมกัน</span>
-                    <span class="mt-0.5 block text-xs text-slate-500">เหมาะกับทีมที่ช่วยกันรับผิดชอบลูกค้ารายเดียวกัน</span>
-                  </span>
-                </label>
-              </div>
-            </div>
 
-            <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
-              <div>
-                <h3 class="text-sm font-semibold text-slate-800">เยี่ยมซ้ำเมื่อไม่พบลูกค้า</h3>
-                <p class="mt-1 text-sm text-slate-500">ใช้เมื่อปิดงานเยี่ยมแล้วบันทึกว่า "ไม่พบลูกค้า" และต้องติดตามซ้ำในวันเดียวกัน</p>
-              </div>
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div class="grid gap-4 px-5 py-5 lg:grid-cols-[240px_minmax(0,1fr)]">
                 <div>
-                  <label class="label-text">เยี่ยมซ้ำสูงสุดต่อวัน</label>
-                  <div class="flex items-center gap-2">
-                    <input v-model.number="form.no_met_max_attempts_per_day" type="number" min="1" max="10" class="input-field" />
-                    <span class="w-12 text-sm text-slate-500">ครั้ง</span>
-                  </div>
+                  <h3 class="text-sm font-semibold text-slate-800">การสร้างงานอัตโนมัติ</h3>
+                  <p class="mt-1 text-sm text-slate-500">สร้างงานเยี่ยมเมื่อถึงรอบและยังไม่มีงานเปิดอยู่</p>
                 </div>
-                <div>
-                  <label class="label-text">ระยะห่างการเยี่ยมซ้ำ</label>
-                  <div class="flex items-center gap-2">
-                    <input v-model.number="form.no_met_retry_minutes" type="number" min="5" max="480" class="input-field" />
-                    <span class="w-12 text-sm text-slate-500">นาที</span>
+                <div class="space-y-4">
+                  <ToggleRow
+                    :active="form.visit_auto_create_enabled"
+                    active-text="สร้างงานเยี่ยมตามเวลาที่กำหนด"
+                    inactive-text="ไม่สร้างงานเยี่ยมใหม่อัตโนมัติ"
+                    color="green"
+                    @toggle="form.visit_auto_create_enabled = !form.visit_auto_create_enabled"
+                  />
+                  <div class="grid grid-cols-1 gap-4 md:grid-cols-2" :class="!form.visit_auto_create_enabled ? 'opacity-60' : ''">
+                    <div>
+                      <label class="label-text">เยี่ยมทุกกี่วัน</label>
+                      <div class="flex items-center gap-2">
+                        <input v-model.number="form.default_visit_interval_days" type="number" min="1" max="365" class="input-field" :disabled="!form.visit_auto_create_enabled" />
+                        <span class="w-12 text-sm text-slate-500">วัน</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label class="label-text">เวลาสร้างงานเยี่ยม</label>
+                      <input v-model="form.visit_auto_create_time" type="text" inputmode="numeric" maxlength="5" placeholder="HH:mm" class="input-field" :disabled="!form.visit_auto_create_enabled" @blur="normalizeFormTime('visit_auto_create_time', '08:00')" />
+                    </div>
                   </div>
-                </div>
-                <div class="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-500">
-                  เวลาทำงาน (business hours) ใช้ร่วมกับงานโทร: {{ form.business_start_time }} – {{ form.business_end_time }}
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
         </div>
 
         <aside class="space-y-4">
@@ -452,18 +249,19 @@
             <h2 class="font-semibold text-slate-800">ผลลัพธ์ตามค่านี้</h2>
             <p class="mt-3 text-sm leading-6 text-slate-600">
               <template v-if="form.enabled && form.auto_create_enabled">
-                เมื่อถึงกำหนดติดตามและยังไม่มีงาน follow-up เปิดอยู่ ระบบจะสร้างงานเวลา
-                <span class="font-semibold text-slate-800">{{ form.auto_create_time }}</span>
-                แล้วเลื่อนรอบถัดไปอีก
-                <span class="font-semibold text-slate-800">{{ form.default_call_interval_days }}</span>
-                วัน
+                งานโทรจะถูกสร้างเวลา <span class="font-semibold text-slate-800">{{ form.auto_create_time }}</span>
+                และเลื่อนรอบถัดไปอีก <span class="font-semibold text-slate-800">{{ form.default_call_interval_days }}</span> วัน
               </template>
-              <template v-else-if="!form.enabled">
-                Policy ยังปิดอยู่ ระบบจะไม่สร้างงาน follow-up อัตโนมัติ
+              <template v-else-if="!form.enabled">Policy งานโทรยังปิดอยู่</template>
+              <template v-else>เปิด policy งานโทรแล้ว แต่การสร้างงานอัตโนมัติถูกปิดไว้</template>
+            </p>
+            <p class="mt-3 text-sm leading-6 text-slate-600">
+              <template v-if="form.visit_enabled && form.visit_auto_create_enabled">
+                งานเยี่ยมจะถูกสร้างเวลา <span class="font-semibold text-slate-800">{{ form.visit_auto_create_time }}</span>
+                และใช้ผู้รับผิดชอบจากหน้าลูกค้าแต่ละราย
               </template>
-              <template v-else>
-                เปิด policy แล้ว แต่การสร้างงานอัตโนมัติถูกปิดไว้
-              </template>
+              <template v-else-if="!form.visit_enabled">Policy งานเยี่ยมยังปิดอยู่</template>
+              <template v-else>เปิด policy งานเยี่ยมแล้ว แต่การสร้างงานอัตโนมัติถูกปิดไว้</template>
             </p>
           </section>
 
@@ -487,8 +285,63 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, onMounted } from 'vue'
+import { computed, reactive, ref, defineComponent, h } from 'vue'
 import api from '../composables/useApi.js'
+
+const ToggleRow = defineComponent({
+  props: {
+    active: Boolean,
+    activeText: { type: String, default: '' },
+    inactiveText: { type: String, default: '' },
+    color: { type: String, default: 'blue' },
+  },
+  emits: ['toggle'],
+  setup(props, { emit }) {
+    return () => h('div', { class: 'flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3' }, [
+      h('p', { class: 'text-sm font-semibold text-slate-800' }, props.active ? props.activeText : props.inactiveText),
+      h('button', {
+        type: 'button',
+        class: `inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${props.active ? (props.color === 'green' ? 'bg-green-600 focus:ring-green-500' : 'bg-blue-600 focus:ring-blue-500') : 'bg-slate-300 focus:ring-slate-400'}`,
+        'aria-pressed': props.active,
+        onClick: () => emit('toggle'),
+      }, [
+        h('span', { class: `block h-5 w-5 rounded-full bg-white shadow transition-transform ${props.active ? 'translate-x-5' : 'translate-x-0'}` }),
+      ]),
+    ])
+  },
+})
+
+const RadioCard = defineComponent({
+  props: {
+    modelValue: String,
+    value: String,
+    title: String,
+    description: String,
+    color: { type: String, default: 'blue' },
+  },
+  emits: ['update:modelValue'],
+  setup(props, { emit }) {
+    return () => {
+      const active = props.modelValue === props.value
+      const activeClass = props.color === 'green' ? 'border-green-300 bg-green-50' : 'border-blue-300 bg-blue-50'
+      return h('label', {
+        class: `flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${active ? activeClass : 'border-slate-200 bg-white hover:border-slate-300'}`,
+      }, [
+        h('input', {
+          type: 'radio',
+          class: 'mt-1',
+          value: props.value,
+          checked: active,
+          onChange: () => emit('update:modelValue', props.value),
+        }),
+        h('span', [
+          h('span', { class: 'block text-sm font-semibold text-slate-800' }, props.title),
+          h('span', { class: 'mt-0.5 block text-xs text-slate-500' }, props.description),
+        ]),
+      ])
+    }
+  },
+})
 
 const loading = ref(false)
 const saving = ref(false)
@@ -520,14 +373,10 @@ const form = reactive({
   no_answer_retry_minutes: 30,
   business_start_time: '08:30',
   business_end_time: '17:30',
-  // visit
   visit_enabled: false,
   visit_auto_create_enabled: true,
   default_visit_interval_days: 30,
   visit_auto_create_time: '08:00',
-  visit_assignment_mode: 'primary',
-  no_met_max_attempts_per_day: 3,
-  no_met_retry_minutes: 60,
 })
 
 const isDirty = computed(() => !!originalSnapshot.value && originalSnapshot.value !== JSON.stringify(buildPayload()))
@@ -544,14 +393,10 @@ function buildPayload() {
     no_answer_retry_minutes: Number(form.no_answer_retry_minutes || 30),
     business_start_time: toHHMM(form.business_start_time, '08:30'),
     business_end_time: toHHMM(form.business_end_time, '17:30'),
-    // visit
     visit_enabled: !!form.visit_enabled,
     visit_auto_create_enabled: !!form.visit_auto_create_enabled,
     default_visit_interval_days: Number(form.default_visit_interval_days || 30),
     visit_auto_create_time: toHHMM(form.visit_auto_create_time, '08:00'),
-    visit_assignment_mode: form.visit_assignment_mode,
-    no_met_max_attempts_per_day: Number(form.no_met_max_attempts_per_day || 3),
-    no_met_retry_minutes: Number(form.no_met_retry_minutes || 60),
   }
 }
 
@@ -566,14 +411,10 @@ function applySettings(data) {
   form.no_answer_retry_minutes = Number(data.no_answer_retry_minutes || 30)
   form.business_start_time = toHHMM(data.business_start_time, '08:30')
   form.business_end_time = toHHMM(data.business_end_time, '17:30')
-  // visit
   form.visit_enabled = !!data.visit_enabled
   form.visit_auto_create_enabled = !!data.visit_auto_create_enabled
   form.default_visit_interval_days = Number(data.default_visit_interval_days || 30)
   form.visit_auto_create_time = toHHMM(data.visit_auto_create_time, '08:00')
-  form.visit_assignment_mode = data.visit_assignment_mode || 'primary'
-  form.no_met_max_attempts_per_day = Number(data.no_met_max_attempts_per_day || 3)
-  form.no_met_retry_minutes = Number(data.no_met_retry_minutes || 60)
   meta.next_auto_create_at = data.next_auto_create_at || null
   meta.last_auto_create_at = data.last_auto_create_at || null
   meta.last_auto_create_checked_at = data.last_auto_create_checked_at || null
@@ -597,9 +438,7 @@ function toHHMM(value, fallback = '08:00') {
   const compact = raw.replace(/[^\d]/g, '')
   if (/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) return raw
   if (compact.length === 3) {
-    const h = compact.slice(0, 1).padStart(2, '0')
-    const m = compact.slice(1, 3)
-    const time = `${h}:${m}`
+    const time = `${compact.slice(0, 1).padStart(2, '0')}:${compact.slice(1, 3)}`
     if (/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return time
   }
   if (compact.length >= 4) {
@@ -628,24 +467,15 @@ function validateForm() {
   if (!Number.isInteger(Number(form.no_answer_retry_minutes)) || form.no_answer_retry_minutes < 5 || form.no_answer_retry_minutes > 480) {
     errors.push('ระยะห่างโทรซ้ำต้องอยู่ระหว่าง 5-480 นาที')
   }
-  if (!isHHMM(form.auto_create_time)) errors.push('เวลาสร้างงานต้องเป็นรูปแบบ 24 ชั่วโมง HH:mm')
-  if (!isHHMM(form.business_start_time) || !isHHMM(form.business_end_time)) {
-    errors.push('เวลาทำงานต้องเป็นรูปแบบ 24 ชั่วโมง HH:mm')
-  }
+  if (!isHHMM(form.auto_create_time)) errors.push('เวลาสร้างงานต้องเป็นรูปแบบ HH:mm')
+  if (!isHHMM(form.business_start_time) || !isHHMM(form.business_end_time)) errors.push('เวลาทำงานต้องเป็นรูปแบบ HH:mm')
   if (!form.business_start_time || !form.business_end_time || form.business_start_time >= form.business_end_time) {
     errors.push('เวลาเริ่มทำงานต้องน้อยกว่าเวลาสิ้นสุดทำงาน')
   }
-  // visit
   if (!Number.isInteger(Number(form.default_visit_interval_days)) || form.default_visit_interval_days < 1 || form.default_visit_interval_days > 365) {
     errors.push('รอบเยี่ยมต้องอยู่ระหว่าง 1-365 วัน')
   }
-  if (!Number.isInteger(Number(form.no_met_max_attempts_per_day)) || form.no_met_max_attempts_per_day < 1 || form.no_met_max_attempts_per_day > 10) {
-    errors.push('จำนวนเยี่ยมซ้ำต่อวันต้องอยู่ระหว่าง 1-10 ครั้ง')
-  }
-  if (!Number.isInteger(Number(form.no_met_retry_minutes)) || form.no_met_retry_minutes < 5 || form.no_met_retry_minutes > 480) {
-    errors.push('ระยะห่างเยี่ยมซ้ำต้องอยู่ระหว่าง 5-480 นาที')
-  }
-  if (!isHHMM(form.visit_auto_create_time)) errors.push('เวลาสร้างงานเยี่ยมต้องเป็นรูปแบบ 24 ชั่วโมง HH:mm')
+  if (!isHHMM(form.visit_auto_create_time)) errors.push('เวลาสร้างงานเยี่ยมต้องเป็นรูปแบบ HH:mm')
   return errors
 }
 
@@ -702,7 +532,7 @@ async function runNow() {
     messageType.value = data.error ? 'error' : 'success'
     message.value = data.error
       ? `สร้าง ${data.created_count || 0} งาน แต่พบปัญหา: ${data.error}`
-      : `สร้าง Follow-up โทร ${data.created_count || 0} งาน จากรายการที่ครบกำหนด ${data.eligible_count || 0} รายการ`
+      : `สร้าง Follow-up โทร ${data.created_count || 0} งาน จากรายการครบกำหนด ${data.eligible_count || 0} รายการ`
   } catch (err) {
     messageType.value = 'error'
     message.value = err.response?.data?.error || err.message
@@ -725,7 +555,7 @@ async function runNowVisit() {
     messageType.value = data.error ? 'error' : 'success'
     message.value = data.error
       ? `สร้าง ${data.created_count || 0} งาน แต่พบปัญหา: ${data.error}`
-      : `สร้างงานเยี่ยม ${data.created_count || 0} งาน จากรายการที่ครบกำหนด ${data.eligible_count || 0} รายการ`
+      : `สร้างงานเยี่ยม ${data.created_count || 0} งาน จากรายการครบกำหนด ${data.eligible_count || 0} รายการ`
   } catch (err) {
     messageType.value = 'error'
     message.value = err.response?.data?.error || err.message
@@ -734,5 +564,5 @@ async function runNowVisit() {
   }
 }
 
-onMounted(load)
+load()
 </script>
