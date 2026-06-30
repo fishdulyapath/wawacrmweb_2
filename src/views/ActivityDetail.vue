@@ -407,13 +407,13 @@
                   <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">คนขับ / รถ</th>
                   <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500">เลขบิล</th>
                   <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">ยอด (บาท)</th>
-                  <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500">สถานะ</th>
+                  <th v-if="!isVisitHistoryTab" class="px-4 py-3 text-center text-xs font-semibold text-slate-500">สถานะ</th>
                   <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500">ปัญหา</th>
                 </tr>
               </thead>
               <tbody v-if="!currentFleetTimeline.length">
                 <tr>
-                  <td colspan="8" class="py-10 text-center text-slate-400 text-sm">{{ fleetHistoryEmptyMessage }}</td>
+                  <td :colspan="isVisitHistoryTab ? 7 : 8" class="py-10 text-center text-slate-400 text-sm">{{ fleetHistoryEmptyMessage }}</td>
                 </tr>
               </tbody>
               <tbody v-for="row in currentFleetTimeline" :key="row.list_id" class="border-b border-slate-100">
@@ -435,7 +435,7 @@
                   </td>
                   <td class="px-4 py-3 font-mono text-xs text-slate-700">{{ row.data_store_no || '—' }}</td>
                   <td class="px-4 py-3 text-right font-semibold text-slate-800">{{ dlFmtAmount(row.amount) }}</td>
-                  <td class="px-4 py-3 text-center">
+                  <td v-if="!isVisitHistoryTab" class="px-4 py-3 text-center">
                     <span v-if="row.bypass" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-orange-100 text-orange-600">ข้าม</span>
                     <span v-else-if="row.off_site" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-yellow-100 text-yellow-700">นอกสถานที่</span>
                     <span v-else-if="!row.check_out_id" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-600">ไม่มี checkout</span>
@@ -450,7 +450,7 @@
                   </td>
                 </tr>
                 <tr v-if="expandedFleetId === row.list_id">
-                  <td colspan="8" class="bg-slate-50/70 px-6 py-4">
+                  <td :colspan="isVisitHistoryTab ? 7 : 8" class="bg-slate-50/70 px-6 py-4">
                     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
                       <div class="space-y-3">
                         <div class="text-xs text-slate-500 font-semibold uppercase tracking-wide">{{ fleetHistoryDetailTitle }}</div>
