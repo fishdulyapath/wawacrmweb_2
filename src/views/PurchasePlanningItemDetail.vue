@@ -220,7 +220,7 @@
                   <div class="font-medium" :class="String(supplier.tax_type) === '1' ? 'text-red-600' : 'text-slate-800'">{{ supplier.ap_name || '-' }}<span v-if="String(supplier.tax_type) === '1'" class="ml-1 rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold align-middle" title="มีภาษี">VAT</span></div>
                   <div class="text-xs text-slate-400">{{ supplier.ap_code }}</div>
                 </td>
-                <td class="text-right tabular-nums">{{ formatMoney(supplier.last_purchase_price) }}</td>
+                <td class="text-right tabular-nums">{{ formatMoney(supplier.last_purchase_price ?? supplier.last_purchase_price_exclude_vat) }}</td>
                 <td class="text-right tabular-nums">{{ formatInt(supplier.lead_time_days) }}</td>
                 <td class="text-right tabular-nums">{{ formatInt(supplier.late_buffer_days) }}</td>
                 <td class="text-right tabular-nums">{{ formatInt(supplier.order_cycle_days) }}</td>
@@ -241,8 +241,8 @@
                 <th>เจ้าหนี้</th>
                 <th class="text-right">จำนวน</th>
                 <th>หน่วย</th>
-                <th class="text-right">ราคา/หน่วย<br /><span class="font-normal text-slate-400">(รวม VAT)</span></th>
-                <th class="text-right">ยอดรวม<br /><span class="font-normal text-slate-400">(รวม VAT)</span></th>
+                <th class="text-right">ราคา/หน่วย<br /><span class="font-normal text-slate-400">(ถอด VAT)</span></th>
+                <th class="text-right">ยอดรวม<br /><span class="font-normal text-slate-400">(ถอด VAT)</span></th>
               </tr>
             </thead>
             <tbody>
@@ -329,6 +329,7 @@
                 <th>วันที่</th>
                 <th>เวลา</th>
                 <th>เอกสาร</th>
+                <th>เจ้าหนี้</th>
                 <th class="text-right">จำนวน</th>
                 <th>หน่วย</th>
                 <th class="text-right">ราคา/หน่วย<br /><span class="font-normal text-slate-400">(ถอด VAT)</span></th>
@@ -339,11 +340,15 @@
                 <td>{{ formatDate(row.doc_date) }}</td>
                 <td class="tabular-nums text-slate-500">{{ row.doc_time || '-' }}</td>
                 <td class="font-mono text-xs">{{ row.doc_no }}</td>
+                <td>
+                  <div class="font-medium" :class="String(row.tax_type) === '1' ? 'text-red-600' : 'text-slate-700'">{{ row.ap_name || '-' }}<span v-if="String(row.tax_type) === '1'" class="ml-1 rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold align-middle" title="มีภาษี">VAT</span></div>
+                  <div class="text-xs text-slate-400">{{ row.ap_code || '-' }}</div>
+                </td>
                 <td class="text-center tabular-nums">{{ formatQty(row.qty) }}</td>
                 <td class="text-xs text-slate-500">{{ row.unit_code || '-' }}</td>
                 <td class="text-right tabular-nums">{{ formatMoney(row.price_exclude_vat) }}</td>
               </tr>
-              <tr v-if="!billReceive.length"><td colspan="6" class="empty-cell">ไม่พบเอกสารทยอยรับ</td></tr>
+              <tr v-if="!billReceive.length"><td colspan="7" class="empty-cell">ไม่พบเอกสารทยอยรับ</td></tr>
             </tbody>
           </table>
         </DataPanel>

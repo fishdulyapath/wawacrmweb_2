@@ -135,7 +135,7 @@
             </p>
             <div class="flex flex-wrap gap-1 mt-0.5">
               <span v-if="activity.price_level != null && activity.price_level !== ''" class="text-[13px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">ราคา {{ activity.price_level }}</span>
-              <span v-if="activity.logistic_area_name" class="text-[13px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">{{ activity.logistic_area }}{{ activity.logistic_area_name ? ' · ' + activity.logistic_area_name : '' }}</span>
+              <span v-if="activity.sale_area_name || activity.sale_area" class="text-[13px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">{{ activity.sale_area }}{{ activity.sale_area_name ? ' · ' + activity.sale_area_name : '' }}</span>
             </div>
             <!-- ผู้ติดต่อ -->
             <div v-if="contactors.length" class="mt-2 space-y-2">
@@ -370,26 +370,26 @@
           </button>
         </div>
 
-        <!-- ── ประวัติการขนส่ง ── -->
-        <div v-show="customerActiveTab === 'delivery_history'" class="space-y-4">
+        <!-- ── ประวัติการขนส่ง / ประวัติการเยี่ยม ── -->
+        <div v-show="customerActiveTab === 'delivery_history' || customerActiveTab === 'visit_history'" class="space-y-4">
           <!-- Filter row -->
           <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-            <input v-model="deliveryFilter.bill" @input="deliveryDebounce"
+            <input v-model="currentFleetFilter.bill" @input="fleetHistoryDebounce"
               class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm w-full sm:w-48 focus:outline-none focus:ring-2 focus:ring-blue-300"
               placeholder="ค้นหาเลขบิล / ร้าน / เที่ยวรถ..." />
             <div class="flex items-center gap-1.5 w-full sm:w-auto">
               <span class="text-xs text-slate-500">จาก</span>
-              <DateInput v-model="deliveryFilter.date_from" @change="loadDeliveryHistory(1)"
+              <DateInput v-model="currentFleetFilter.date_from" @change="loadFleetHistory(1)"
                 class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
             </div>
             <div class="flex items-center gap-1.5 w-full sm:w-auto">
               <span class="text-xs text-slate-500">ถึง</span>
-              <DateInput v-model="deliveryFilter.date_to" @change="loadDeliveryHistory(1)"
+              <DateInput v-model="currentFleetFilter.date_to" @change="loadFleetHistory(1)"
                 class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
             </div>
           </div>
 
-          <div v-if="loadingDelivery" class="text-center text-slate-400 py-8 text-sm">
+          <div v-if="currentFleetLoading" class="text-center text-slate-400 py-8 text-sm">
             <svg class="animate-spin w-5 h-5 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
@@ -411,16 +411,16 @@
                   <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500">ปัญหา</th>
                 </tr>
               </thead>
-              <tbody v-if="!deliveryTimeline.length">
+              <tbody v-if="!currentFleetTimeline.length">
                 <tr>
-                  <td colspan="8" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูลการขนส่ง</td>
+                  <td colspan="8" class="py-10 text-center text-slate-400 text-sm">{{ fleetHistoryEmptyMessage }}</td>
                 </tr>
               </tbody>
-              <tbody v-for="row in deliveryTimeline" :key="row.list_id" class="border-b border-slate-100">
-                <tr class="hover:bg-slate-50 cursor-pointer" @click="toggleDeliveryRow(row)">
+              <tbody v-for="row in currentFleetTimeline" :key="row.list_id" class="border-b border-slate-100">
+                <tr class="hover:bg-slate-50 cursor-pointer" @click="toggleFleetRow(row)">
                   <td class="px-4 py-3 text-center">
                     <svg class="w-3.5 h-3.5 text-slate-400 transition-transform inline-block"
-                      :class="expandedDelivery === row.list_id ? 'rotate-90' : ''"
+                      :class="expandedFleetId === row.list_id ? 'rotate-90' : ''"
                       fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                     </svg>
@@ -439,7 +439,7 @@
                     <span v-if="row.bypass" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-orange-100 text-orange-600">ข้าม</span>
                     <span v-else-if="row.off_site" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-yellow-100 text-yellow-700">นอกสถานที่</span>
                     <span v-else-if="!row.check_out_id" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-600">ไม่มี checkout</span>
-                    <span v-else class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700">{{ row.visit_name || 'ส่งสำเร็จ' }}</span>
+                    <span v-else class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700">{{ row.visit_name || (isVisitHistoryTab ? 'เยี่ยมแล้ว' : 'ส่งสำเร็จ') }}</span>
                   </td>
                   <td class="px-4 py-3 text-center">
                     <span v-if="row.problem_count > 0"
@@ -449,11 +449,11 @@
                     <span v-else class="text-slate-300 text-xs">—</span>
                   </td>
                 </tr>
-                <tr v-if="expandedDelivery === row.list_id">
+                <tr v-if="expandedFleetId === row.list_id">
                   <td colspan="8" class="bg-slate-50/70 px-6 py-4">
                     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
                       <div class="space-y-3">
-                        <div class="text-xs text-slate-500 font-semibold uppercase tracking-wide">ข้อมูลการส่ง</div>
+                        <div class="text-xs text-slate-500 font-semibold uppercase tracking-wide">{{ fleetHistoryDetailTitle }}</div>
                         <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                           <div class="text-slate-500">Check-in</div>
                           <div class="text-slate-700">{{ dlFmtDateTime(row.date_time_check_in) }}</div>
@@ -508,16 +508,16 @@
               </tbody>
             </table>
 
-            <div v-if="deliveryPag.pages > 1"
+            <div v-if="currentFleetPag.pages > 1"
               class="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-500">
-              <span>ทั้งหมด {{ deliveryPag.total }} รายการ</span>
+              <span>ทั้งหมด {{ currentFleetPag.total }} รายการ</span>
               <div class="flex gap-1.5">
-                <button @click="loadDeliveryHistory(deliveryPag.page - 1)"
-                  :disabled="deliveryPag.page <= 1"
+                <button @click="loadFleetHistory(currentFleetPag.page - 1)"
+                  :disabled="currentFleetPag.page <= 1"
                   class="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">←</button>
-                <span class="px-2 py-1">{{ deliveryPag.page }} / {{ deliveryPag.pages }}</span>
-                <button @click="loadDeliveryHistory(deliveryPag.page + 1)"
-                  :disabled="deliveryPag.page >= deliveryPag.pages"
+                <span class="px-2 py-1">{{ currentFleetPag.page }} / {{ currentFleetPag.pages }}</span>
+                <button @click="loadFleetHistory(currentFleetPag.page + 1)"
+                  :disabled="currentFleetPag.page >= currentFleetPag.pages"
                   class="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">→</button>
               </div>
             </div>
@@ -882,6 +882,7 @@ const isFollowing = ref(false)
 const customerActiveTab = ref('delivery_history')
 const customerTabs = [
   { key: 'delivery_history', label: 'ประวัติการขนส่ง' },
+  { key: 'visit_history', label: 'ประวัติการเยี่ยม' },
   { key: 'purchase_history', label: 'ประวัติการซื้อ' },
   { key: 'credit_detail',   label: 'หนี้คงค้าง' },
 ]
@@ -892,6 +893,11 @@ const deliveryPag       = reactive({ total: 0, page: 1, pages: 1, limit: 20 })
 const loadingDelivery   = ref(false)
 const deliveryFilter    = reactive({ bill: '', date_from: '', date_to: '' })
 const expandedDelivery  = ref(null)
+const visitTimeline     = ref([])
+const visitPag          = reactive({ total: 0, page: 1, pages: 1, limit: 20 })
+const loadingVisit      = ref(false)
+const visitFilter       = reactive({ bill: '', date_from: '', date_to: '' })
+const expandedVisit     = ref(null)
 const deliveryImgCache  = reactive({})
 const lightbox          = reactive({ open: false, src: null, label: '' })
 
@@ -946,22 +952,51 @@ onMounted(async () => {
 
 // ── Customer history functions ────────────────────────────────
 
+const isVisitHistoryTab = computed(() => customerActiveTab.value === 'visit_history')
+const currentFleetFilter = computed(() => isVisitHistoryTab.value ? visitFilter : deliveryFilter)
+const currentFleetPag = computed(() => isVisitHistoryTab.value ? visitPag : deliveryPag)
+const currentFleetTimeline = computed(() => isVisitHistoryTab.value ? visitTimeline.value : deliveryTimeline.value)
+const currentFleetLoading = computed(() => isVisitHistoryTab.value ? loadingVisit.value : loadingDelivery.value)
+const expandedFleetId = computed(() => isVisitHistoryTab.value ? expandedVisit.value : expandedDelivery.value)
+const fleetHistoryEmptyMessage = computed(() => isVisitHistoryTab.value ? 'ไม่มีข้อมูลการเยี่ยม' : 'ไม่มีข้อมูลการขนส่ง')
+const fleetHistoryDetailTitle = computed(() => isVisitHistoryTab.value ? 'ข้อมูลการเยี่ยม' : 'ข้อมูลการส่ง')
+
 async function loadDeliveryHistory(page = 1) {
+  return loadFleetHistory(page, 'delivery')
+}
+
+async function loadVisitHistory(page = 1) {
+  return loadFleetHistory(page, 'visit')
+}
+
+async function loadFleetHistory(page = 1, kind = (isVisitHistoryTab.value ? 'visit' : 'delivery')) {
   const code = activity.value?.ar_code
   if (!code) return
-  loadingDelivery.value = true
+  const isVisit = kind === 'visit'
+  const filter = isVisit ? visitFilter : deliveryFilter
+  const pag = isVisit ? visitPag : deliveryPag
+  if (isVisit) loadingVisit.value = true
+  else loadingDelivery.value = true
   const p = {
-    from:  deliveryFilter.date_from || undefined,
-    to:    deliveryFilter.date_to   || undefined,
-    bill:  deliveryFilter.bill      || undefined,
-    page, limit: deliveryPag.limit,
+    from:  filter.date_from || undefined,
+    to:    filter.date_to   || undefined,
+    bill:  filter.bill      || undefined,
+    kind,
+    page, limit: pag.limit,
   }
   const res = await api.get(`/fleet/customer/${code}/timeline`, { params: p })
     .then(r => r.data).catch(() => ({ timeline: [], pagination: {} }))
-  deliveryTimeline.value = res.timeline || []
-  if (res.pagination) Object.assign(deliveryPag, res.pagination)
-  deliveryPag.page = page
-  loadingDelivery.value = false
+  if (isVisit) {
+    visitTimeline.value = res.timeline || []
+    if (res.pagination) Object.assign(visitPag, res.pagination)
+    visitPag.page = page
+    loadingVisit.value = false
+  } else {
+    deliveryTimeline.value = res.timeline || []
+    if (res.pagination) Object.assign(deliveryPag, res.pagination)
+    deliveryPag.page = page
+    loadingDelivery.value = false
+  }
 }
 
 let deliveryTimer = null
@@ -970,12 +1005,32 @@ function deliveryDebounce() {
   deliveryTimer = setTimeout(() => loadDeliveryHistory(1), 350)
 }
 
+let visitTimer = null
+function visitDebounce() {
+  clearTimeout(visitTimer)
+  visitTimer = setTimeout(() => loadVisitHistory(1), 350)
+}
+
+function fleetHistoryDebounce() {
+  if (isVisitHistoryTab.value) visitDebounce()
+  else deliveryDebounce()
+}
+
 function toggleDeliveryRow(row) {
-  if (expandedDelivery.value === row.list_id) {
-    expandedDelivery.value = null
+  toggleFleetRow(row, 'delivery')
+}
+
+function toggleVisitRow(row) {
+  toggleFleetRow(row, 'visit')
+}
+
+function toggleFleetRow(row, kind = (isVisitHistoryTab.value ? 'visit' : 'delivery')) {
+  const target = kind === 'visit' ? expandedVisit : expandedDelivery
+  if (target.value === row.list_id) {
+    target.value = null
     return
   }
-  expandedDelivery.value = row.list_id
+  target.value = row.list_id
   if (row.image_check_in) loadDeliveryImg(row.image_check_in)
   ;(row.check_out_images || []).forEach(img => loadDeliveryImg(img.image_path))
 }
@@ -1076,6 +1131,7 @@ watch(customerActiveTab, t => {
   const code = activity.value?.ar_code
   if (!code) return
   if (t === 'delivery_history' && !deliveryTimeline.value.length) loadDeliveryHistory(1)
+  if (t === 'visit_history' && !visitTimeline.value.length) loadVisitHistory(1)
   if (t === 'purchase_history' && !purchaseHistory.value.length)  loadPurchaseHistory(1)
   if (t === 'credit_detail'   && !creditDetail.value)             loadCreditDetail()
 })

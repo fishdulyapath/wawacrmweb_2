@@ -410,7 +410,7 @@
                             </div>
                             <div class="text-xs text-slate-400">{{ supplier.ap_code }}</div>
                           </td>
-                          <td class="px-3 py-2 text-right tabular-nums">{{ formatMoney(supplier.last_purchase_price) }}</td>
+                          <td class="px-3 py-2 text-right tabular-nums">{{ formatMoney(supplier.last_purchase_price ?? supplier.last_purchase_price_exclude_vat) }}</td>
                           <td class="px-3 py-2 text-right tabular-nums">{{ formatInt(supplier.lead_time_days) }}</td>
                           <td class="px-3 py-2 text-right tabular-nums">{{ formatInt(supplier.late_buffer_days) }}</td>
                           <td class="px-3 py-2 text-right tabular-nums">{{ formatInt(supplier.wholesale_buffer_days) }}</td>
@@ -664,7 +664,7 @@ function addToCartFromSupplier(row, supplier) {
     ap_code: supplier.ap_code,
     ap_name: supplier.ap_name,
     qty,
-    price: Number(supplier.last_purchase_price || 0),
+    price: Number(supplier.last_purchase_price ?? supplier.last_purchase_price_exclude_vat ?? 0),
     suggest_qty: suggest,
   })
   showToast(`เพิ่ม "${row.ic_name || row.ic_code}" จาก "${supplier.ap_name || supplier.ap_code}" ลงตะกร้าแล้ว`)
@@ -1043,7 +1043,7 @@ async function toggleExpand(row) {
 function chooseSupplier(row, supplier) {
   row.selected_supplier_code = supplier.ap_code
   row.selected_supplier_name = supplier.ap_name
-  row.selected_supplier_price = supplier.last_purchase_price
+  row.selected_supplier_price = supplier.last_purchase_price ?? supplier.last_purchase_price_exclude_vat
   row.selected_supplier_tax_type = supplier.tax_type
   row.suggest_qty = supplier.suggest_qty
   row.min_stock = supplier.min_stock
@@ -1083,7 +1083,7 @@ function hasTax(row) {
 }
 
 function selectedSupplierPrice(row) {
-  return row.selected_supplier_price ?? row.last_purchase_price
+  return row.selected_supplier_price ?? row.last_purchase_price ?? row.last_purchase_price_exclude_vat
 }
 
 // MOQ ของเจ้าหนี้ที่เลือกอยู่ (ใช้เป็น qty เริ่มต้นเมื่อ suggest_qty = 0)

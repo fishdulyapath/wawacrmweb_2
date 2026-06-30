@@ -191,6 +191,39 @@
               <p v-if="form.logistic_area" class="text-xs text-blue-600 mt-1">เลือก: {{ form.logistic_area }}</p>
             </div>
 
+            <div>
+              <label class="label-text">เขตการขาย</label>
+              <div class="relative">
+                <input
+                  v-model="saleAreaSearch"
+                  @focus="saleAreaOpen = true"
+                  @blur="saleAreaBlur"
+                  @input="saleAreaOpen = true"
+                  class="input-field pr-8"
+                  placeholder="พิมพ์ชื่อหรือรหัสเขตการขาย..."
+                  autocomplete="off"
+                />
+                <button v-if="form.area_code" type="button"
+                  @click="form.area_code = ''; saleAreaSearch = ''"
+                  class="absolute inset-y-0 right-2 flex items-center text-slate-400 hover:text-slate-600">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+              <div v-if="saleAreaOpen && filteredSaleAreas.length > 0"
+                   class="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                <button v-for="a in filteredSaleAreas" :key="a.code"
+                  type="button"
+                  @mousedown.prevent="selectSaleArea(a)"
+                  class="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-3 border-b border-slate-100 last:border-0">
+                  <span class="text-xs font-mono text-slate-500 w-10 flex-shrink-0">{{ a.code }}</span>
+                  <span class="text-sm text-slate-800">{{ a.name_1 }}</span>
+                </button>
+              </div>
+              <p v-if="form.area_code" class="text-xs text-blue-600 mt-1">เลือก: {{ form.area_code }}</p>
+            </div>
+
             <div class="md:col-span-2">
               <label class="label-text">พิกัด GPS</label>
               <MapPicker
@@ -1185,33 +1218,33 @@
         </div>
 
         <!-- ══════════════════════════════
-             TAB: ประวัติการขนส่ง
+             TAB: ประวัติการขนส่ง / ประวัติการเยี่ยม
         ══════════════════════════════ -->
-        <div v-show="activeTab === 'delivery_history'" class="space-y-4">
+        <div v-show="activeTab === 'delivery_history' || activeTab === 'visit_history'" class="space-y-4">
 
           <div v-if="!isEdit" class="card p-8 text-center text-slate-400 text-sm">
-            กรุณาบันทึกข้อมูลลูกค้าก่อน จึงจะดูประวัติการขนส่งได้
+            {{ fleetHistorySaveMessage }}
           </div>
 
           <template v-else>
             <!-- Filter row -->
             <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-              <input v-model="deliveryFilter.bill" @input="deliveryDebounce"
+              <input v-model="currentFleetFilter.bill" @input="fleetHistoryDebounce"
                 class="input-field w-full text-sm sm:w-48" placeholder="ค้นหาเลขบิล / ร้าน / เที่ยวรถ..." />
               <div class="flex items-center gap-1.5 w-full sm:w-auto">
                 <span class="text-xs text-slate-500">จาก</span>
-                <DateInput v-model="deliveryFilter.date_from" @change="loadDeliveryHistory(1)"
+                <DateInput v-model="currentFleetFilter.date_from" @change="loadFleetHistory(1)"
                   class="input-field text-sm" />
               </div>
               <div class="flex items-center gap-1.5 w-full sm:w-auto">
                 <span class="text-xs text-slate-500">ถึง</span>
-                <DateInput v-model="deliveryFilter.date_to" @change="loadDeliveryHistory(1)"
+                <DateInput v-model="currentFleetFilter.date_to" @change="loadFleetHistory(1)"
                   class="input-field text-sm" />
               </div>
             </div>
 
             <!-- Loading -->
-            <div v-if="loadingDelivery" class="text-center text-slate-400 py-8 text-sm">
+            <div v-if="currentFleetLoading" class="text-center text-slate-400 py-8 text-sm">
               <svg class="animate-spin w-5 h-5 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
@@ -1234,17 +1267,17 @@
                     <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500">ปัญหา</th>
                   </tr>
                 </thead>
-                <tbody v-if="!deliveryTimeline.length">
+                <tbody v-if="!currentFleetTimeline.length">
                   <tr>
-                    <td colspan="8" class="py-10 text-center text-slate-400 text-sm">ไม่มีข้อมูลการขนส่ง</td>
+                    <td colspan="8" class="py-10 text-center text-slate-400 text-sm">{{ fleetHistoryEmptyMessage }}</td>
                   </tr>
                 </tbody>
-                <tbody v-for="row in deliveryTimeline" :key="row.list_id" class="border-b border-slate-100">
+                <tbody v-for="row in currentFleetTimeline" :key="row.list_id" class="border-b border-slate-100">
                   <!-- Main row -->
-                  <tr class="hover:bg-slate-50 cursor-pointer" @click="toggleDeliveryRow(row)">
+                  <tr class="hover:bg-slate-50 cursor-pointer" @click="toggleFleetRow(row)">
                     <td class="px-4 py-3 text-center">
                       <svg class="w-3.5 h-3.5 text-slate-400 transition-transform inline-block"
-                        :class="expandedDelivery === row.list_id ? 'rotate-90' : ''"
+                        :class="expandedFleetId === row.list_id ? 'rotate-90' : ''"
                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                       </svg>
@@ -1263,7 +1296,7 @@
                       <span v-if="row.bypass" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-orange-100 text-orange-600">ข้าม</span>
                       <span v-else-if="row.off_site" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-yellow-100 text-yellow-700">นอกสถานที่</span>
                       <span v-else-if="!row.check_out_id" class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-600">ไม่มี checkout</span>
-                      <span v-else class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700">{{ row.visit_name || 'ส่งสำเร็จ' }}</span>
+                      <span v-else class="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700">{{ row.visit_name || (isVisitHistoryTab ? 'เยี่ยมแล้ว' : 'ส่งสำเร็จ') }}</span>
                     </td>
                     <td class="px-4 py-3 text-center">
                       <span v-if="row.problem_count > 0"
@@ -1274,12 +1307,12 @@
                     </td>
                   </tr>
                   <!-- Expanded detail -->
-                  <tr v-if="expandedDelivery === row.list_id">
+                  <tr v-if="expandedFleetId === row.list_id">
                     <td colspan="8" class="bg-slate-50/70 px-6 py-4">
                       <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
                         <!-- Left: timestamps + note -->
                         <div class="space-y-3">
-                          <div class="text-xs text-slate-500 font-semibold uppercase tracking-wide">ข้อมูลการส่ง</div>
+                          <div class="text-xs text-slate-500 font-semibold uppercase tracking-wide">{{ fleetHistoryDetailTitle }}</div>
                           <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                             <div class="text-slate-500">Check-in</div>
                             <div class="text-slate-700">{{ dlFmtDateTime(row.date_time_check_in) }}</div>
@@ -1339,16 +1372,16 @@
               </table>
 
               <!-- Pagination -->
-              <div v-if="deliveryPag.pages > 1"
+              <div v-if="currentFleetPag.pages > 1"
                 class="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-500">
-                <span>ทั้งหมด {{ deliveryPag.total }} รายการ</span>
+                <span>ทั้งหมด {{ currentFleetPag.total }} รายการ</span>
                 <div class="flex gap-1.5">
-                  <button @click="loadDeliveryHistory(deliveryPag.page - 1)"
-                    :disabled="deliveryPag.page <= 1"
+                  <button @click="loadFleetHistory(currentFleetPag.page - 1)"
+                    :disabled="currentFleetPag.page <= 1"
                     class="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">←</button>
-                  <span class="px-2 py-1">{{ deliveryPag.page }} / {{ deliveryPag.pages }}</span>
-                  <button @click="loadDeliveryHistory(deliveryPag.page + 1)"
-                    :disabled="deliveryPag.page >= deliveryPag.pages"
+                  <span class="px-2 py-1">{{ currentFleetPag.page }} / {{ currentFleetPag.pages }}</span>
+                  <button @click="loadFleetHistory(currentFleetPag.page + 1)"
+                    :disabled="currentFleetPag.page >= currentFleetPag.pages"
                     class="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">→</button>
                 </div>
               </div>
@@ -1610,7 +1643,7 @@ const router = useRouter()
 const route  = useRoute()
 
 // ── State ─────────────────────────────────
-const validTabs = ['main', 'contactors', 'transport', 'crm', 'notes', 'activities', 'purchase_history', 'credit_detail']
+const validTabs = ['main', 'contactors', 'transport', 'crm', 'notes', 'activities', 'purchase_history', 'delivery_history', 'visit_history', 'credit_detail']
 const activeTab  = ref(validTabs.includes(route.query.tab) ? route.query.tab : 'main')
 const loadingInit = ref(false)
 const saving      = ref(false)
@@ -1638,6 +1671,9 @@ const tambons       = ref([])
 const logisticAreas = ref([])
 const logisticSearch = ref('')
 const logisticOpen  = ref(false)
+const saleAreas = ref([])
+const saleAreaSearch = ref('')
+const saleAreaOpen = ref(false)
 // สำหรับ transport_labels แต่ละแถว (indexed by idx)
 const tAmpers   = ref({})
 const tTambons  = ref({})
@@ -1830,6 +1866,11 @@ const deliveryPag      = reactive({ total: 0, page: 1, pages: 1, limit: 20 })
 const loadingDelivery  = ref(false)
 const deliveryFilter   = reactive({ bill: '', date_from: '', date_to: '' })
 const expandedDelivery = ref(null)
+const visitTimeline = ref([])
+const visitPag      = reactive({ total: 0, page: 1, pages: 1, limit: 20 })
+const loadingVisit  = ref(false)
+const visitFilter   = reactive({ bill: '', date_from: '', date_to: '' })
+const expandedVisit = ref(null)
 const deliveryImgCache = reactive({})
 const lightbox = reactive({ open: false, src: null, label: '' })
 
@@ -1847,13 +1888,14 @@ const tabs = [
   { key: 'activities',       label: 'กิจกรรม' },
   { key: 'purchase_history',  label: 'ประวัติการซื้อ' },
   { key: 'delivery_history', label: 'ประวัติการขนส่ง' },
+  { key: 'visit_history',    label: 'ประวัติการเยี่ยม' },
   { key: 'credit_detail',    label: 'หนี้คงค้าง' }
 ]
 
 const defaultForm = () => ({
   code: '', name_1: '', country: '', address: '',
   province: '', amper: '', tambon: '', zip_code: '',
-  remark: '', sale_code: '', price_level: '', logistic_area: '', latitude: 0, longitude: 0,
+  remark: '', sale_code: '', price_level: '', logistic_area: '', area_code: '', latitude: 0, longitude: 0,
   contactors: [],
   transport_labels: [],
   crm: {
@@ -1875,7 +1917,7 @@ const form = reactive(defaultForm())
 
 // ── Init ──────────────────────────────────
 onMounted(async () => {
-  await Promise.all([loadEmployees(), loadCrmUsers(), loadProvinces(), loadLogisticAreas()])
+  await Promise.all([loadEmployees(), loadCrmUsers(), loadProvinces(), loadLogisticAreas(), loadSaleAreas()])
   if (isEdit.value) {
     await loadCustomer()
     await Promise.all([loadNotes(), loadExistingGeo(), loadActivities()])
@@ -1957,21 +1999,51 @@ function deleteShopImage() {
   })
 }
 
+const isVisitHistoryTab = computed(() => activeTab.value === 'visit_history')
+const currentFleetFilter = computed(() => isVisitHistoryTab.value ? visitFilter : deliveryFilter)
+const currentFleetPag = computed(() => isVisitHistoryTab.value ? visitPag : deliveryPag)
+const currentFleetTimeline = computed(() => isVisitHistoryTab.value ? visitTimeline.value : deliveryTimeline.value)
+const currentFleetLoading = computed(() => isVisitHistoryTab.value ? loadingVisit.value : loadingDelivery.value)
+const expandedFleetId = computed(() => isVisitHistoryTab.value ? expandedVisit.value : expandedDelivery.value)
+const fleetHistorySaveMessage = computed(() => `กรุณาบันทึกข้อมูลลูกค้าก่อน จึงจะดู${isVisitHistoryTab.value ? 'ประวัติการเยี่ยม' : 'ประวัติการขนส่ง'}ได้`)
+const fleetHistoryEmptyMessage = computed(() => isVisitHistoryTab.value ? 'ไม่มีข้อมูลการเยี่ยม' : 'ไม่มีข้อมูลการขนส่ง')
+const fleetHistoryDetailTitle = computed(() => isVisitHistoryTab.value ? 'ข้อมูลการเยี่ยม' : 'ข้อมูลการส่ง')
+
 async function loadDeliveryHistory(page = 1) {
+  return loadFleetHistory(page, 'delivery')
+}
+
+async function loadVisitHistory(page = 1) {
+  return loadFleetHistory(page, 'visit')
+}
+
+async function loadFleetHistory(page = 1, kind = (isVisitHistoryTab.value ? 'visit' : 'delivery')) {
   if (!isEdit.value) return
-  loadingDelivery.value = true
+  const isVisit = kind === 'visit'
+  const filter = isVisit ? visitFilter : deliveryFilter
+  const pag = isVisit ? visitPag : deliveryPag
+  if (isVisit) loadingVisit.value = true
+  else loadingDelivery.value = true
   const p = {
-    from:  deliveryFilter.date_from || undefined,
-    to:    deliveryFilter.date_to   || undefined,
-    bill:  deliveryFilter.bill      || undefined,
-    page, limit: deliveryPag.limit,
+    from:  filter.date_from || undefined,
+    to:    filter.date_to   || undefined,
+    bill:  filter.bill      || undefined,
+    kind,
+    page, limit: pag.limit,
   }
   const res = await api.get(`/fleet/customer/${props.code}/timeline`, { params: p })
     .then(r => r.data).catch(() => ({ timeline: [], pagination: {} }))
-  deliveryTimeline.value = res.timeline || []
-  if (res.pagination) Object.assign(deliveryPag, res.pagination)
-  deliveryPag.page = page
-  loadingDelivery.value = false
+  if (isVisit) {
+    visitTimeline.value = res.timeline || []
+    if (res.pagination) Object.assign(visitPag, res.pagination)
+    visitPag.page = page
+    loadingVisit.value = false
+  } else {
+    deliveryTimeline.value = res.timeline || []
+    if (res.pagination) Object.assign(deliveryPag, res.pagination)
+    deliveryPag.page = page
+    loadingDelivery.value = false
+  }
 }
 
 let deliveryTimer = null
@@ -1980,12 +2052,32 @@ function deliveryDebounce() {
   deliveryTimer = setTimeout(() => loadDeliveryHistory(1), 350)
 }
 
+let visitTimer = null
+function visitDebounce() {
+  clearTimeout(visitTimer)
+  visitTimer = setTimeout(() => loadVisitHistory(1), 350)
+}
+
+function fleetHistoryDebounce() {
+  if (isVisitHistoryTab.value) visitDebounce()
+  else deliveryDebounce()
+}
+
 function toggleDeliveryRow(row) {
-  if (expandedDelivery.value === row.list_id) {
-    expandedDelivery.value = null
+  toggleFleetRow(row, 'delivery')
+}
+
+function toggleVisitRow(row) {
+  toggleFleetRow(row, 'visit')
+}
+
+function toggleFleetRow(row, kind = (isVisitHistoryTab.value ? 'visit' : 'delivery')) {
+  const target = kind === 'visit' ? expandedVisit : expandedDelivery
+  if (target.value === row.list_id) {
+    target.value = null
     return
   }
-  expandedDelivery.value = row.list_id
+  target.value = row.list_id
   // โหลดรูปทันทีเมื่อ expand
   if (row.image_check_in) loadDeliveryImg(row.image_check_in)
   ;(row.check_out_images || []).forEach(img => loadDeliveryImg(img.image_path))
@@ -2045,6 +2137,9 @@ watch(activeTab, t => {
   if (t === 'delivery_history' && isEdit.value && !deliveryTimeline.value.length) {
     loadDeliveryHistory(1)
   }
+  if (t === 'visit_history' && isEdit.value && !visitTimeline.value.length) {
+    loadVisitHistory(1)
+  }
   if (t === 'credit_detail' && isEdit.value && !creditDetail.value) {
     loadCreditDetail()
   }
@@ -2057,10 +2152,25 @@ async function loadLogisticAreas() {
   } catch {}
 }
 
+async function loadSaleAreas() {
+  try {
+    const { data } = await api.get('/customers/sale-areas')
+    saleAreas.value = data
+  } catch {}
+}
+
 const filteredLogisticAreas = computed(() => {
   const q = logisticSearch.value.toLowerCase()
   if (!q) return logisticAreas.value
   return logisticAreas.value.filter(a =>
+    a.code.toLowerCase().includes(q) || a.name_1.toLowerCase().includes(q)
+  )
+})
+
+const filteredSaleAreas = computed(() => {
+  const q = saleAreaSearch.value.toLowerCase()
+  if (!q) return saleAreas.value
+  return saleAreas.value.filter(a =>
     a.code.toLowerCase().includes(q) || a.name_1.toLowerCase().includes(q)
   )
 })
@@ -2071,8 +2181,18 @@ function selectLogisticArea(a) {
   logisticOpen.value = false
 }
 
+function selectSaleArea(a) {
+  form.area_code = a.code
+  saleAreaSearch.value = `${a.name_1} (${a.code})`
+  saleAreaOpen.value = false
+}
+
 function logisticBlur() {
   setTimeout(() => { logisticOpen.value = false }, 150)
+}
+
+function saleAreaBlur() {
+  setTimeout(() => { saleAreaOpen.value = false }, 150)
 }
 
 async function loadEmployees() {
@@ -2109,9 +2229,14 @@ async function loadCustomer() {
     form.sale_code     = d?.sale_code     || c.sale_code     || ''
     form.price_level   = d?.price_level   ?? c.price_level   ?? ''
     form.logistic_area = d?.logistic_area ?? c.logistic_area ?? ''
+    form.area_code     = d?.area_code     ?? c.area_code     ?? ''
     if (form.logistic_area) {
       const la = logisticAreas.value.find(a => a.code === form.logistic_area)
       logisticSearch.value = la ? `${la.name_1} (${la.code})` : form.logistic_area
+    }
+    if (form.area_code) {
+      const area = saleAreas.value.find(a => a.code === form.area_code)
+      saleAreaSearch.value = area ? `${area.name_1} (${area.code})` : form.area_code
     }
     if (d?.sale_code) {
       const emp = employees.value.find(e => e.code === d.sale_code)

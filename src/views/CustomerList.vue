@@ -127,7 +127,6 @@
                   {{ c.code }}
                 </span>
                 <p class="mt-2 font-semibold text-slate-800 leading-tight">{{ c.name_1 }}</p>
-                <p v-if="c.address" class="mt-1 text-xs text-slate-400 leading-snug">{{ c.address }}</p>
               </div>
               <span :class="statusBadge(c.crm?.crm_status)">
                 {{ statusLabel(c.crm?.crm_status) }}
@@ -135,14 +134,6 @@
             </div>
 
             <div class="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">ที่อยู่</p>
-                <p class="mt-1 text-slate-700">
-                  {{ c.amper_name && c.province_name
-                      ? `${c.amper_name} (${c.province_name})`
-                      : c.province_name || c.province || '—' }}
-                </p>
-              </div>
               <div>
                 <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">ประเภท</p>
                 <p class="mt-1 text-slate-700">{{ c.crm?.customer_type || 'B2C' }}</p>
@@ -152,6 +143,16 @@
                 <p class="mt-1" :class="followupDateClass(c.crm?.next_followup)">
                   {{ formatDate(c.crm?.next_followup) }}
                 </p>
+              </div>
+              <div>
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Follow Up เยี่ยม</p>
+                <p class="mt-1" :class="followupDateClass(c.crm?.next_visit_followup)">
+                  {{ formatDate(c.crm?.next_visit_followup) }}
+                </p>
+              </div>
+              <div>
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">เยี่ยมล่าสุด</p>
+                <p class="mt-1 text-slate-700 text-sm">{{ formatDate(c.crm?.last_visited) }}</p>
               </div>
               <div>
                 <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">ซื้อล่าสุด</p>
@@ -208,7 +209,7 @@
 
         <!-- Desktop -->
         <div class="hidden lg:block overflow-x-auto">
-          <table class="w-full min-w-[1440px] text-sm">
+          <table class="w-full min-w-[1500px] text-sm">
             <thead class="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th @click="toggleSort('code')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28 cursor-pointer select-none hover:bg-slate-100">
@@ -217,12 +218,15 @@
                 <th @click="toggleSort('name_1')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide cursor-pointer select-none hover:bg-slate-100">
                   ชื่อลูกค้า <span class="ml-1 text-slate-400">{{ sortIndicator('name_1') }}</span>
                 </th>
-                <th @click="toggleSort('province')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-44 cursor-pointer select-none hover:bg-slate-100">
-                  ที่อยู่ <span class="ml-1 text-slate-400">{{ sortIndicator('province') }}</span>
-                </th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">พนักงานผู้ดูแล</th>
                 <th @click="toggleSort('next_followup')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32 cursor-pointer select-none hover:bg-slate-100">
                   Follow Up <span class="ml-1 text-slate-400">{{ sortIndicator('next_followup') }}</span>
+                </th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-36">
+                  Follow Up เยี่ยม
+                </th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">
+                  เยี่ยมล่าสุด
                 </th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">ประเภท</th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">สถานะ</th>
@@ -235,7 +239,7 @@
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-if="customers.length === 0">
-                <td colspan="10" class="py-16 text-center text-slate-400">
+                <td colspan="11" class="py-16 text-center text-slate-400">
                   <svg class="mx-auto w-10 h-10 text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
@@ -252,12 +256,6 @@
                 </td>
                 <td class="px-4 py-3">
                   <p class="font-medium text-slate-800">{{ c.name_1 }}</p>
-                  <p v-if="c.address" class="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{{ c.address }}</p>
-                </td>
-                <td class="px-4 py-3 text-slate-600 text-sm">
-                  {{ c.amper_name && c.province_name
-                      ? `${c.amper_name} (${c.province_name})`
-                      : c.province_name || c.province || '—' }}
                 </td>
                 <td class="px-4 py-3">
                   <template v-if="crmOwnerNames(c) || c.sale_name">
@@ -279,6 +277,14 @@
                   <span :class="followupDateClass(c.crm?.next_followup)">
                     {{ formatDate(c.crm?.next_followup) }}
                   </span>
+                </td>
+                <td class="px-4 py-3">
+                  <span :class="followupDateClass(c.crm?.next_visit_followup)">
+                    {{ formatDate(c.crm?.next_visit_followup) }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-slate-600 text-sm">
+                  {{ formatDate(c.crm?.last_visited) }}
                 </td>
                 <td class="px-4 py-3">
                   <span class="text-xs font-medium text-slate-600">

@@ -127,6 +127,17 @@
             class="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
 
+        <select
+          v-model="reportFilter.sale_area"
+          class="min-w-[180px] border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          @change="loadActivities(1)"
+        >
+          <option value="">เขตการขายทั้งหมด</option>
+          <option v-for="area in saleAreas" :key="area.code" :value="area.code">
+            {{ area.code }} — {{ area.name_1 }}
+          </option>
+        </select>
+
         <button v-if="hasFilter" @click="clearFilter"
           class="text-sm text-slate-400 hover:text-slate-600 flex items-center gap-1 whitespace-nowrap">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -335,7 +346,7 @@
                   <p class="text-slate-700 text-sm">{{ a.customer_name || a.ar_code }}</p>
                   <p v-if="a.customer_name" class="text-xs text-slate-400">{{ a.ar_code }}</p>
                   <div class="flex flex-wrap gap-1 mt-0.5">
-                    <span v-if="a.logistic_area_name" class="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">{{ a.logistic_area }}{{ a.logistic_area_name ? ' · ' + a.logistic_area_name : '' }}</span>
+                    <span v-if="a.sale_area_name || a.sale_area" class="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">{{ a.sale_area }}{{ a.sale_area_name ? ' · ' + a.sale_area_name : '' }}</span>
                   </div>
                 </template>
                 <span v-else class="text-slate-300">—</span>
@@ -461,8 +472,9 @@ const typeFilter  = ref([])
 const searchInput = ref('')
 const sortBy  = ref('updated_at')
 const sortDir = ref('desc')
-const reportFilter = reactive({ owner_id: '', date_from: '', date_to: '', call_result: '', status: '' })
+const reportFilter = reactive({ owner_id: '', date_from: '', date_to: '', call_result: '', status: '', sale_area: '' })
 const users         = ref([])
+const saleAreas     = ref([])
 const ownerSearch   = ref('')
 const ownerDropdown = ref(false)
 const selectedUser  = ref(null)
@@ -584,7 +596,7 @@ function toggleType(val) {
 function clearFilter() {
   quickFilter.value = ''; typeFilter.value = []; searchInput.value = ''
   ownerSearch.value = ''; selectedUser.value = null
-  Object.assign(reportFilter, { owner_id: '', date_from: '', date_to: '', call_result: '', status: '' })
+  Object.assign(reportFilter, { owner_id: '', date_from: '', date_to: '', call_result: '', status: '', sale_area: '' })
   Promise.all([loadActivities(1), loadStats()])
 }
 function onSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadActivities(1), 300) }
@@ -615,6 +627,7 @@ async function loadActivities(page = 1) {
     if (reportFilter.date_from) params.date_from = reportFilter.date_from
     if (reportFilter.date_to) params.date_to = reportFilter.date_to
     if (reportFilter.call_result) params.call_result = reportFilter.call_result
+    if (reportFilter.sale_area) params.sale_area = reportFilter.sale_area
     if (searchInput.value.trim()) params.search = searchInput.value.trim()
     params.sort_by  = sortBy.value
     params.sort_dir = sortDir.value
@@ -783,6 +796,7 @@ function syncReportFilter(query) {
     date_to: query.date_to ? String(query.date_to) : '',
     call_result: query.call_result ? String(query.call_result) : '',
     status: query.status ? String(query.status) : '',
+    sale_area: query.sale_area ? String(query.sale_area) : '',
   }
   const nextType = ['task', 'call', 'meeting', 'transfer', 'visit'].includes(query.type) ? [String(query.type)] : []
   const nextQuick = query.queue === 'unassigned'
@@ -805,7 +819,7 @@ function syncReportFilter(query) {
 
 function clearReportFilterState() {
   const changed = Object.values(reportFilter).some(Boolean)
-  Object.assign(reportFilter, { owner_id: '', date_from: '', date_to: '', call_result: '', status: '' })
+  Object.assign(reportFilter, { owner_id: '', date_from: '', date_to: '', call_result: '', status: '', sale_area: '' })
   return changed
 }
 
@@ -819,7 +833,8 @@ watch(() => route.query, (query) => {
 })
 
 onMounted(() => {
-    api.get('/employees/crm-users').then(r => { users.value = r.data || [] }).catch(() => {})
+  api.get('/employees/crm-users').then(r => { users.value = r.data || [] }).catch(() => {})
+  api.get('/customers/sale-areas').then(r => { saleAreas.value = r.data || [] }).catch(() => {})
   if (route.query.report) syncReportFilter(route.query)
   else syncQueueFilter(route.query.queue)
   loadStats()
