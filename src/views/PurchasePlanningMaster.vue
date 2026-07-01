@@ -648,6 +648,7 @@ async function onImportFile(event) {
     formData.append('commit', '0')
     const { data } = await api.post(currentConfig.value.importUrl, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 180000,
     })
     importResult.value = data
   } catch (err) {
@@ -666,6 +667,7 @@ async function confirmImport() {
     formData.append('commit', '1')
     const { data } = await api.post(currentConfig.value.importUrl, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 180000,
     })
     importResult.value = data
     if (data.success) {

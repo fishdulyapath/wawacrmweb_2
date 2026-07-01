@@ -26,12 +26,12 @@
     />
 
     <!-- Header -->
-    <div class="flex items-center justify-between mb-4">
-      <div>
+    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div class="min-w-0">
         <h1 class="text-lg lg:text-xl font-bold text-slate-800">กิจกรรม</h1>
         <p class="text-xs lg:text-sm text-slate-500 mt-0.5">จัดการงาน, การโทร และการประชุม</p>
         <!-- Owner search -->
-        <div class="relative mt-2" style="min-width: 350px;">
+        <div class="relative mt-2 w-full max-w-full sm:w-[350px]">
           <input
             v-model="ownerSearch"
             type="text"
@@ -60,7 +60,7 @@
         </div>
       </div>
       <RouterLink v-if="canCreate" to="/activities/new"
-        class="hidden lg:inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+        class="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:self-start">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
@@ -206,6 +206,7 @@
             <span v-if="a.ar_code" class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-mono">{{ a.ar_code }}</span>
             <span v-if="a.customer_name">{{ a.customer_name }}</span>
             <span v-if="a.customer_amper" class="text-blue-500">[{{ a.customer_amper }}]</span>
+            <span v-if="a.sale_area_name || a.sale_area" class="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">{{ a.sale_area }}{{ a.sale_area_name ? ' · ' + a.sale_area_name : '' }}</span>
             <div class="ml-auto flex items-center gap-1 flex-wrap justify-end">
               <template v-if="a.owners?.length">
                 <span v-for="o in a.owners.slice(0,3)" :key="o.user_id"
