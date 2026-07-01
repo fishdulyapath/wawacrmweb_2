@@ -255,7 +255,7 @@
                 :key="opt.value"
                 class="rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors"
                 :class="filterStockStatus === opt.value ? opt.activeClass : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-100'"
-                @click="filterStockStatus = opt.value"
+                @click="setStockStatus(opt.value)"
               >{{ opt.label }}</button>
             </div>
           </div>
@@ -769,6 +769,7 @@ const filter = reactive({
 })
 const rows = ref([])
 const total = ref(0)
+const tableTotal = ref(0)
 const limit = ref(30)
 const loading = ref(false)
 const loadingMore = ref(false)
@@ -820,7 +821,10 @@ const pageTitle = computed(() => alertOnly.value ? 'แจ้งเตือน�
 const pageSubtitle = computed(() => alertOnly.value
   ? 'แสดงสินค้าที่พร้อมใช้ต่ำกว่าหรือเท่ากับจุดสั่งซื้อ กดชื่อสินค้าเพื่อดูรายละเอียด'
   : '1 แถวต่อสินค้า เลือกเจ้าหนี้เริ่มต้นจากราคาซื้อล่าสุดที่ถูกที่สุด และกดขยายเพื่อดูเจ้าหนี้รายอื่น')
-const displayTotal = computed(() => alertOnly.value ? Number(summary.value.total || rows.value.length || 0) : total.value)
+const displayTotal = computed(() => {
+  if (filterStockStatus.value) return Number(tableTotal.value || summary.value[filterStockStatus.value] || 0)
+  return alertOnly.value ? Number(summary.value.total || rows.value.length || 0) : Number(tableTotal.value || total.value || 0)
+})
 const isBusy = computed(() => loading.value || loadingMore.value)
 const isReportComplete = computed(() => {
   const totalRows = Number(total.value || 0)
@@ -936,6 +940,7 @@ async function load() {
   summary.value = {}
   pendingPR.value = emptyPendingPR()
   total.value = 0
+  tableTotal.value = 0
   processed.value = 0
   hasMore.value = false
   jobId.value = ''
@@ -963,7 +968,7 @@ async function pollReportJob(seq) {
   if (!jobId.value || seq !== loadSeq) return
   try {
     const { data } = await api.get(`/purchase-planning/report-lazy/${encodeURIComponent(jobId.value)}`, {
-      params: { offset: 0, limit: limit.value },
+      params: { offset: 0, limit: limit.value, stock_status: filterStockStatus.value || undefined },
     })
     if (seq !== loadSeq) return
     jobStatus.value = data.status
@@ -974,6 +979,7 @@ async function pollReportJob(seq) {
       rows.value = data.data || []
       summary.value = data.summary || {}
       pendingPR.value = data.pending_pr || emptyPendingPR()
+      tableTotal.value = Number(data.filtered_total ?? data.total ?? rows.value.length ?? 0)
       hasMore.value = Boolean(data.has_more)
       loading.value = false
       return
@@ -983,6 +989,7 @@ async function pollReportJob(seq) {
     if ((data.data || []).length) {
       rows.value = data.data || []
     }
+    tableTotal.value = Number(data.filtered_total ?? rows.value.length ?? 0)
     summary.value = data.partial_summary || {}
     if (data.pending_pr) pendingPR.value = data.pending_pr
     pollTimer = setTimeout(() => pollReportJob(seq), 1200)
@@ -998,10 +1005,11 @@ async function loadMore() {
   loadingMore.value = true
   try {
     const { data } = await api.get(`/purchase-planning/report-lazy/${encodeURIComponent(jobId.value)}`, {
-      params: { offset: rows.value.length, limit: limit.value },
+      params: { offset: rows.value.length, limit: limit.value, stock_status: filterStockStatus.value || undefined },
     })
     rows.value = [...rows.value, ...(data.data || [])]
     total.value = data.total || total.value
+    tableTotal.value = Number(data.filtered_total ?? tableTotal.value ?? rows.value.length ?? 0)
     summary.value = data.summary || summary.value
     hasMore.value = Boolean(data.has_more)
   } catch (err) {
@@ -1009,6 +1017,16 @@ async function loadMore() {
   } finally {
     loadingMore.value = false
   }
+}
+
+async function setStockStatus(value) {
+  if (filterStockStatus.value === value) return
+  filterStockStatus.value = value
+  if (!jobId.value) return
+  clearPollTimer()
+  rows.value = []
+  hasMore.value = false
+  await pollReportJob(loadSeq)
 }
 
 function resetFilter() {
