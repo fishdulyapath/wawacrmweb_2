@@ -86,7 +86,7 @@ function addToCart(item) {
       : Number(item.qty || 0) * addRatio
     existing.base_qty = roundQuantity(ensureBaseQty(existing) + addBaseQty)
     existing.qty = ceilQuantity(Number(existing.base_qty || 0) / existingRatio)
-    existing.price = 0
+    if (item.price !== undefined && item.price !== null) existing.price = Number(item.price) || 0
   } else {
     const initialRatio = Number(item.unit_ratio || 1) || 1
     const baseQty = roundQuantity(
@@ -102,7 +102,7 @@ function addToCart(item) {
       ap_name: String(item.ap_name || '').trim(),
       qty: ceilQuantity(baseQty / initialRatio),
       base_qty: baseQty,
-      price: 0,
+      price: Number(item.price || 0),
       suggest_qty: Number(item.suggest_qty || item.qty || 0),
       // หน่วยนับที่รองรับ + หน่วยที่เลือก + ratio (จะถูก set ทีหลังผ่าน setUnits)
       units: Array.isArray(item.units) ? item.units : [{ unit_code: String(item.unit_code || ''), ratio: 1, is_base: true }],
@@ -129,7 +129,6 @@ function setUnits(ic_code, ap_code, units) {
   const selectedUnit = item.units.find((u) => u.unit_code === item.selected_unit) || item.units[0]
   item.unit_ratio = Number(selectedUnit?.ratio) || 1
   item.qty = ceilQuantity(Number(item.base_qty || 0) / item.unit_ratio)
-  item.price = 0
 }
 
 // เปลี่ยนหน่วยนับของรายการ โดยใช้ base_qty เดิมและปัดจำนวนขึ้นเมื่อมีเศษ
@@ -142,7 +141,6 @@ function updateUnit(ic_code, ap_code, newUnitCode) {
   const newRatio = Number(newUnit.ratio) || 1
   const baseQty = ensureBaseQty(item)
   item.qty = ceilQuantity(baseQty / newRatio)
-  item.price = 0
   item.selected_unit = newUnitCode
   item.unit_ratio = newRatio
 }
@@ -166,6 +164,12 @@ function updateQty(ic_code, ap_code, qty) {
   }
 }
 
+function updatePrice(ic_code, ap_code, price) {
+  const key = cartKey(ic_code, ap_code)
+  const item = cart.find((c) => cartKey(c.ic_code, c.ap_code) === key)
+  if (item) item.price = Number(price) || 0
+}
+
 function clearCart() {
   cart.splice(0, cart.length)
 }
@@ -182,24 +186,35 @@ const cartGroups = computed(() => {
         ap_code: item.ap_code,
         ap_name: item.ap_name,
         items: [],
+        subtotal: 0,
       })
     }
     const g = map.get(key)
     g.items.push(item)
+    g.subtotal += Number(item.qty || 0) * Number(item.price || 0)
   }
-  return Array.from(map.values())
+  return Array.from(map.values()).map((group) => ({
+    ...group,
+    subtotal: Math.round(group.subtotal * 100) / 100,
+  }))
 })
+
+const cartTotal = computed(() => (
+  Math.round(cartGroups.value.reduce((sum, group) => sum + Number(group.subtotal || 0), 0) * 100) / 100
+))
 
 export function usePlanningCart() {
   return {
     cart,
     cartCount,
     cartGroups,
+    cartTotal,
     addToCart,
     setUnits,
     updateUnit,
     removeFromCart,
     updateQty,
+    updatePrice,
     clearCart,
   }
 }
