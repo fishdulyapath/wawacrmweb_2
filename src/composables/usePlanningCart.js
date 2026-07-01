@@ -38,6 +38,39 @@ function cartKey(ic_code, ap_code) {
   return `${ic_code}::${ap_code}`
 }
 
+function roundQuantity(value) {
+  const num = Number(value || 0)
+  if (!Number.isFinite(num)) return 0
+  return Math.round(num * 1000000) / 1000000
+}
+
+function ceilQuantity(value) {
+  const num = Number(value || 0)
+  if (!Number.isFinite(num) || num <= 0) return 0
+  const nearestInt = Math.round(num)
+  if (Math.abs(num - nearestInt) < 0.000001) return nearestInt
+  return Math.ceil(num)
+}
+
+function itemRatio(item) {
+  const selectedUnit = (item.units || []).find((u) => u.unit_code === (item.selected_unit || item.unit_code))
+  return Number(item.unit_ratio || selectedUnit?.ratio || 1) || 1
+}
+
+function ensureBaseQty(item) {
+  const existing = Number(item.base_qty)
+  if (Number.isFinite(existing) && existing >= 0) return existing
+  const selectedUnitCode = String(item.selected_unit || '')
+  const baseUnitCode = String(item.unit_code || '')
+  const suggestedQty = Number(item.suggest_qty)
+  if (selectedUnitCode && baseUnitCode && selectedUnitCode !== baseUnitCode && Number.isFinite(suggestedQty) && suggestedQty > 0) {
+    item.base_qty = roundQuantity(suggestedQty)
+    return Number(item.base_qty || 0)
+  }
+  item.base_qty = roundQuantity(Number(item.qty || 0) * itemRatio(item))
+  return Number(item.base_qty || 0)
+}
+
 function addToCart(item) {
   const icCode = String(item.ic_code || '').trim()
   const apCode = String(item.ap_code || '').trim()
@@ -46,23 +79,35 @@ function addToCart(item) {
   const existing = cart.find((c) => cartKey(c.ic_code, c.ap_code) === key)
   if (existing) {
     // มีอยู่แล้ว → บวก qty (เก็บจำนวนสูงสุดระหว่างเดิมกับใหม่ เพื่อไม่ให้ทับ)
-    existing.qty = Number(existing.qty || 0) + Number(item.qty || 0)
-    // อัปเดตราคาถ้าใหม่มีค่า
-    if (item.price !== undefined && item.price !== null) existing.price = Number(item.price)
+    const existingRatio = itemRatio(existing)
+    const addRatio = Number(item.unit_ratio || 1) || 1
+    const addBaseQty = item.base_qty !== undefined && item.base_qty !== null
+      ? Number(item.base_qty || 0)
+      : Number(item.qty || 0) * addRatio
+    existing.base_qty = roundQuantity(ensureBaseQty(existing) + addBaseQty)
+    existing.qty = ceilQuantity(Number(existing.base_qty || 0) / existingRatio)
+    existing.price = 0
   } else {
+    const initialRatio = Number(item.unit_ratio || 1) || 1
+    const baseQty = roundQuantity(
+      item.base_qty !== undefined && item.base_qty !== null
+        ? Number(item.base_qty || 0)
+        : Number(item.qty || 0) * initialRatio,
+    )
     cart.push({
       ic_code: icCode,
       ic_name: String(item.ic_name || '').trim(),
       unit_code: String(item.unit_code || '').trim(),
       ap_code: apCode,
       ap_name: String(item.ap_name || '').trim(),
-      qty: Number(item.qty || 0),
-      price: Number(item.price || 0),
+      qty: ceilQuantity(baseQty / initialRatio),
+      base_qty: baseQty,
+      price: 0,
       suggest_qty: Number(item.suggest_qty || item.qty || 0),
       // หน่วยนับที่รองรับ + หน่วยที่เลือก + ratio (จะถูก set ทีหลังผ่าน setUnits)
       units: Array.isArray(item.units) ? item.units : [{ unit_code: String(item.unit_code || ''), ratio: 1, is_base: true }],
       selected_unit: String(item.unit_code || ''),
-      unit_ratio: 1,
+      unit_ratio: initialRatio,
       added_at: Date.now(),
     })
   }
@@ -73,31 +118,31 @@ function setUnits(ic_code, ap_code, units) {
   const key = cartKey(ic_code, ap_code)
   const item = cart.find((c) => cartKey(c.ic_code, c.ap_code) === key)
   if (!item) return
+  ensureBaseQty(item)
   item.units = units.length ? units : [{ unit_code: item.unit_code, ratio: 1, is_base: true }]
   // ถ้ายังไม่ได้เลือกหน่วย หรือเลือกไว้ไม่มีใน list → ใช้หน่วยหลัก
   const hasSelected = item.units.some((u) => u.unit_code === item.selected_unit)
   if (!hasSelected) {
     const base = item.units.find((u) => u.is_base) || item.units[0]
     item.selected_unit = base.unit_code
-    item.unit_ratio = Number(base.ratio) || 1
   }
+  const selectedUnit = item.units.find((u) => u.unit_code === item.selected_unit) || item.units[0]
+  item.unit_ratio = Number(selectedUnit?.ratio) || 1
+  item.qty = ceilQuantity(Number(item.base_qty || 0) / item.unit_ratio)
+  item.price = 0
 }
 
-// เปลี่ยนหน่วยนับของรายการ → แปลง qty/price ให้ตรงกับหน่วยใหม่
+// เปลี่ยนหน่วยนับของรายการ โดยใช้ base_qty เดิมและปัดจำนวนขึ้นเมื่อมีเศษ
 function updateUnit(ic_code, ap_code, newUnitCode) {
   const key = cartKey(ic_code, ap_code)
   const item = cart.find((c) => cartKey(c.ic_code, c.ap_code) === key)
   if (!item) return
-  const oldRatio = Number(item.unit_ratio) || 1
   const newUnit = (item.units || []).find((u) => u.unit_code === newUnitCode)
   if (!newUnit) return
   const newRatio = Number(newUnit.ratio) || 1
-  // แปลง qty + price จากหน่วยเดิม → หน่วยใหม่ (ผ่านหน่วยหลัก)
-  // qty_new = qty_old * oldRatio / newRatio, price_new = price_old * newRatio / oldRatio
-  const baseQty = Number(item.qty || 0) * oldRatio
-  const basePrice = Number(item.price || 0) / oldRatio
-  item.qty = Math.round((baseQty / newRatio) * 100) / 100
-  item.price = Math.round((basePrice * newRatio) * 100) / 100
+  const baseQty = ensureBaseQty(item)
+  item.qty = ceilQuantity(baseQty / newRatio)
+  item.price = 0
   item.selected_unit = newUnitCode
   item.unit_ratio = newRatio
 }
@@ -115,13 +160,10 @@ function removeFromCart(ic_code, ap_code) {
 function updateQty(ic_code, ap_code, qty) {
   const key = cartKey(ic_code, ap_code)
   const item = cart.find((c) => cartKey(c.ic_code, c.ap_code) === key)
-  if (item) item.qty = Number(qty) || 0
-}
-
-function updatePrice(ic_code, ap_code, price) {
-  const key = cartKey(ic_code, ap_code)
-  const item = cart.find((c) => cartKey(c.ic_code, c.ap_code) === key)
-  if (item) item.price = Number(price) || 0
+  if (item) {
+    item.qty = Number(qty) || 0
+    item.base_qty = roundQuantity(Number(item.qty || 0) * itemRatio(item))
+  }
 }
 
 function clearCart() {
@@ -130,7 +172,7 @@ function clearCart() {
 
 const cartCount = computed(() => cart.length)
 
-// จัดกลุ่มตามเจ้าหนี้ → { ap_code, ap_name, items: [...], subtotal }
+// จัดกลุ่มตามเจ้าหนี้ → { ap_code, ap_name, items: [...] }
 const cartGroups = computed(() => {
   const map = new Map()
   for (const item of cart) {
@@ -140,35 +182,24 @@ const cartGroups = computed(() => {
         ap_code: item.ap_code,
         ap_name: item.ap_name,
         items: [],
-        subtotal: 0,
       })
     }
     const g = map.get(key)
     g.items.push(item)
-    g.subtotal += Number(item.qty || 0) * Number(item.price || 0)
   }
-  // ปัด subtotal 2 ทศนิยม
-  for (const g of map.values()) g.subtotal = Math.round(g.subtotal * 100) / 100
   return Array.from(map.values())
 })
-
-// ยอดรวมทั้งตะกร้า
-const cartTotal = computed(() =>
-  Math.round(cartGroups.value.reduce((sum, g) => sum + g.subtotal, 0) * 100) / 100,
-)
 
 export function usePlanningCart() {
   return {
     cart,
     cartCount,
     cartGroups,
-    cartTotal,
     addToCart,
     setUnits,
     updateUnit,
     removeFromCart,
     updateQty,
-    updatePrice,
     clearCart,
   }
 }

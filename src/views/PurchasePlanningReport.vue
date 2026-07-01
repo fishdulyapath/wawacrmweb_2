@@ -45,7 +45,7 @@
           <input id="planning-report-wh" v-model="filter.warehouse" class="input-field font-mono" />
         </div>
         <div class="flex items-end gap-2">
-          <button class="btn-primary min-h-10 flex-1 justify-center" :disabled="isBusy" @click="load">โหลด</button>
+          <button class="btn-primary min-h-10 flex-1 justify-center" @click="load">โหลด</button>
           <button class="btn-secondary min-h-10 justify-center" :disabled="isBusy" @click="resetFilter">ล้าง</button>
         </div>
       </div>
@@ -64,7 +64,7 @@
       </div>
     </section>
 
-    <section class="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+    <section class="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <div v-for="card in summaryCards" :key="card.key" class="card p-4">
         <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ card.label }}</p>
         <p class="mt-1 text-2xl font-bold" :class="card.class">{{ card.value }}</p>
@@ -287,7 +287,6 @@
               <th class="table-head w-28 border border-slate-200 text-right">แนะนำซื้อ</th>
               <th class="table-head w-40 border border-slate-200 text-left">สถานะ</th>
               <th v-if="showExtraColumns" class="table-head w-28 border border-slate-200 text-right">Cover</th>
-              <th class="table-head w-24 border border-slate-200 text-right">ราคา</th>
             </tr>
           </thead>
           <tbody>
@@ -363,11 +362,10 @@
                 <td class="border border-slate-200 px-4 py-3 text-right font-semibold tabular-nums text-blue-700">{{ formatQty(row.suggest_qty) }} <span class="text-xs font-normal text-slate-400">{{ row.unit_code }}</span></td>
                 <td class="border border-slate-200 px-4 py-3"><span :class="statusClass(row.stock_status)">{{ statusLabel(row.stock_status) }}</span></td>
                 <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ row.stock_cover_days === null ? '-' : `${formatQty(row.stock_cover_days)} วัน` }}</td>
-                <td class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatMoney(selectedSupplierPrice(row)) }}</td>
               </tr>
 
               <tr v-if="expanded[row.ic_code]" class="bg-slate-50/70">
-                <td :colspan="showExtraColumns ? 19 : 7" class="px-4 py-4 sm:px-8">
+                <td :colspan="showExtraColumns ? 18 : 6" class="px-4 py-4 sm:px-8">
                   <div v-if="supplierLoading[row.ic_code]" class="py-6 text-center text-sm text-slate-400">กำลังโหลด supplier...</div>
                   <div v-else-if="supplierErrors[row.ic_code]" class="py-4 text-center text-sm text-red-500">{{ supplierErrors[row.ic_code] }}</div>
                   <div v-else class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
@@ -376,7 +374,6 @@
                         <tr>
                           <th class="supplier-head w-16 text-center">ใส่ตะกร้า</th>
                           <th class="supplier-head text-left">เจ้าหนี้</th>
-                          <th class="supplier-head w-28 text-right">ราคา</th>
                           <th class="supplier-head w-24 text-right">Lead</th>
                           <th class="supplier-head w-24 text-right">Late</th>
                           <th class="supplier-head w-28 text-right">Wholesale</th>
@@ -388,7 +385,7 @@
                       </thead>
                       <tbody class="divide-y divide-slate-100">
                         <tr v-if="!supplierRows(row).length">
-                          <td colspan="10" class="py-8 text-center text-slate-400">ยังไม่มี supplier ที่ผูกกับสินค้านี้</td>
+                          <td colspan="9" class="py-8 text-center text-slate-400">ยังไม่มี supplier ที่ผูกกับสินค้านี้</td>
                         </tr>
                         <tr v-for="supplier in supplierRows(row)" :key="`${row.ic_code}-${supplier.ap_code}`" class="hover:bg-slate-50">
                           <td class="px-3 py-2 text-center">
@@ -410,7 +407,6 @@
                             </div>
                             <div class="text-xs text-slate-400">{{ supplier.ap_code }}</div>
                           </td>
-                          <td class="px-3 py-2 text-right tabular-nums">{{ formatMoney(supplier.last_purchase_price ?? supplier.last_purchase_price_exclude_vat) }}</td>
                           <td class="px-3 py-2 text-right tabular-nums">{{ formatInt(supplier.lead_time_days) }}</td>
                           <td class="px-3 py-2 text-right tabular-nums">{{ formatInt(supplier.late_buffer_days) }}</td>
                           <td class="px-3 py-2 text-right tabular-nums">{{ formatInt(supplier.wholesale_buffer_days) }}</td>
@@ -616,7 +612,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import api from '../composables/useApi.js'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { useAuthStore } from '../stores/auth.js'
@@ -643,11 +639,12 @@ function addToCartFromRow(row) {
   addToCart({
     ic_code: row.ic_code,
     ic_name: row.ic_name,
-    unit_code: row.unit_code,
+    unit_code: selectedSupplierUnitCode(row),
     ap_code: selectedSupplierCode(row),
     ap_name: selectedSupplierName(row),
     qty,
-    price: Number(selectedSupplierPrice(row) || 0),
+    base_qty: qty,
+    price: 0,
     suggest_qty: suggest,
   })
   showToast(`เพิ่ม "${row.ic_name || row.ic_code}" ลงตะกร้าแล้ว`)
@@ -660,11 +657,12 @@ function addToCartFromSupplier(row, supplier) {
   addToCart({
     ic_code: row.ic_code,
     ic_name: row.ic_name,
-    unit_code: supplier.last_purchase_unit_code || row.unit_code,
+    unit_code: supplier.last_purchase_unit_code || supplier.purchase_unit_code || row.unit_code,
     ap_code: supplier.ap_code,
     ap_name: supplier.ap_name,
     qty,
-    price: Number(supplier.last_purchase_price ?? supplier.last_purchase_price_exclude_vat ?? 0),
+    base_qty: qty,
+    price: 0,
     suggest_qty: suggest,
   })
   showToast(`เพิ่ม "${row.ic_name || row.ic_code}" จาก "${supplier.ap_name || supplier.ap_code}" ลงตะกร้าแล้ว`)
@@ -820,7 +818,7 @@ const alertOnly = computed(() => props.alertOnly)
 const pageTitle = computed(() => alertOnly.value ? 'แจ้งเตือนสั่งซื้อ' : 'รายงานวางแผนสั่งซื้อ')
 const pageSubtitle = computed(() => alertOnly.value
   ? 'แสดงสินค้าที่พร้อมใช้ต่ำกว่าหรือเท่ากับจุดสั่งซื้อ กดชื่อสินค้าเพื่อดูรายละเอียด'
-  : '1 แถวต่อสินค้า เลือกเจ้าหนี้เริ่มต้นจากราคาซื้อล่าสุดที่ถูกที่สุด และกดขยายเพื่อดูเจ้าหนี้รายอื่น')
+  : '1 แถวต่อสินค้า เลือกเจ้าหนี้เริ่มต้นและกดขยายเพื่อดูเจ้าหนี้รายอื่น')
 const displayTotal = computed(() => {
   if (filterStockStatus.value) return Number(tableTotal.value || summary.value[filterStockStatus.value] || 0)
   return alertOnly.value ? Number(summary.value.total || rows.value.length || 0) : Number(tableTotal.value || total.value || 0)
@@ -854,7 +852,6 @@ const summaryCards = computed(() => [
   { key: 'low', label: alertOnly.value ? 'ถึงจุดสั่งซื้อ' : 'ต่ำกว่าเกณฑ์', value: formatInt(summary.value.low), note: 'available <= Min/ROP', class: 'text-red-600' },
   { key: 'normal', label: 'ปกติ', value: formatInt(summary.value.normal), note: 'อยู่ในช่วง Min-Max', class: 'text-green-600' },
   { key: 'high', label: 'สูงกว่าเกณฑ์', value: formatInt(summary.value.high), note: 'available > Max', class: 'text-amber-600' },
-  { key: 'มูลค่าแนะนำซื้อ', label: 'มูลค่าแนะนำซื้อ', value: formatMoney(summary.value.suggest_amount), note: 'คำนวณจากราคาซื้อ default', class: 'text-blue-600' },
 ])
 const summaryNote = computed(() => {
   if (jobStatus.value !== 'complete') return `กำลังคำนวณ ${formatInt(processed.value)} / ${formatInt(total.value)} รายการ`
@@ -930,10 +927,9 @@ function clearPollTimer() {
   pollTimer = null
 }
 
-async function load() {
-  const seq = ++loadSeq
+function clearReportState() {
   clearPollTimer()
-  loading.value = true
+  loading.value = false
   loadingMore.value = false
   error.value = ''
   rows.value = []
@@ -944,6 +940,13 @@ async function load() {
   processed.value = 0
   hasMore.value = false
   jobId.value = ''
+  jobStatus.value = ''
+}
+
+async function load() {
+  const seq = ++loadSeq
+  clearReportState()
+  loading.value = true
   jobStatus.value = 'queued'
   try {
     const { data } = await api.post('/purchase-planning/report-lazy', {
@@ -960,6 +963,7 @@ async function load() {
     if (seq !== loadSeq) return
     rows.value = []
     summary.value = {}
+    loading.value = false
     error.value = err.message
   }
 }
@@ -1036,7 +1040,8 @@ function resetFilter() {
   filter.as_of_date = today
   filter.warehouse = 'MMA01'
   filterStockStatus.value = ''
-  load()
+  loadSeq += 1
+  clearReportState()
 }
 
 async function toggleExpand(row) {
@@ -1061,7 +1066,7 @@ async function toggleExpand(row) {
 function chooseSupplier(row, supplier) {
   row.selected_supplier_code = supplier.ap_code
   row.selected_supplier_name = supplier.ap_name
-  row.selected_supplier_price = supplier.last_purchase_price ?? supplier.last_purchase_price_exclude_vat
+  row.selected_supplier_unit_code = supplier.last_purchase_unit_code || supplier.purchase_unit_code || row.unit_code
   row.selected_supplier_tax_type = supplier.tax_type
   row.suggest_qty = supplier.suggest_qty
   row.min_stock = supplier.min_stock
@@ -1100,8 +1105,8 @@ function hasTax(row) {
   return t === '1'
 }
 
-function selectedSupplierPrice(row) {
-  return row.selected_supplier_price ?? row.last_purchase_price ?? row.last_purchase_price_exclude_vat
+function selectedSupplierUnitCode(row) {
+  return row.selected_supplier_unit_code || row.last_purchase_unit_code || row.purchase_unit_code || row.unit_code
 }
 
 // MOQ ของเจ้าหนี้ที่เลือกอยู่ (ใช้เป็น qty เริ่มต้นเมื่อ suggest_qty = 0)
@@ -1237,9 +1242,11 @@ function statusClass(status) {
   }[status] || 'status-badge bg-slate-100 text-slate-500'
 }
 
-onMounted(() => load())
 onBeforeUnmount(clearPollTimer)
-watch(() => props.alertOnly, () => load())
+watch(() => props.alertOnly, () => {
+  loadSeq += 1
+  clearReportState()
+})
 </script>
 
 <style scoped>

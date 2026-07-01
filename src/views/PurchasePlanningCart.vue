@@ -4,7 +4,7 @@
       <div>
         <h1 class="text-xl font-bold text-slate-800">ตะกร้าสั่งซื้อ</h1>
         <p class="mt-0.5 text-sm text-slate-500">
-          {{ cartCount > 0 ? `${cartCount} รายการ · ${cartGroups.length} เจ้าหนี้ · รวม ${formatMoney(cartTotal)} บาท` : 'ยังไม่มีรายการในตะกร้า' }}
+          {{ cartCount > 0 ? `${cartCount} รายการ · ${cartGroups.length} เจ้าหนี้` : 'ยังไม่มีรายการในตะกร้า' }}
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
@@ -32,21 +32,15 @@
               <p class="text-xs text-slate-400">{{ group.ap_code }} · {{ group.items.length }} รายการ</p>
             </div>
           </div>
-          <p class="text-right">
-            <span class="text-xs text-slate-400">ยอดรวมกลุ่ม</span><br />
-            <strong class="text-lg tabular-nums text-slate-800">{{ formatMoney(group.subtotal) }}</strong>
-          </p>
         </div>
 
         <div class="overflow-x-auto">
-          <table class="w-full text-sm min-w-[720px]">
+          <table class="w-full text-sm min-w-[560px]">
             <thead class="border-b-2 border-slate-200 bg-slate-50">
               <tr>
                 <th class="table-head text-left">สินค้า</th>
                 <th class="table-head w-32 text-right">จำนวน</th>
                 <th class="table-head w-28 text-left">หน่วยนับ</th>
-                <th class="table-head w-32 text-right">ราคา/หน่วย</th>
-                <th class="table-head w-36 text-right">ยอดรวม</th>
                 <th class="table-head w-16 text-center"></th>
               </tr>
             </thead>
@@ -70,10 +64,6 @@
                   </select>
                   <span v-else class="text-sm text-slate-500">{{ item.selected_unit || item.unit_code }}</span>
                 </td>
-                <td class="px-3 py-3 text-right">
-                  <input :value="item.price" type="number" min="0" step="0.01" class="input-field h-10 text-right" @input="onPriceChange(item, $event.target.value)" />
-                </td>
-                <td class="px-4 py-3 text-right font-semibold tabular-nums text-blue-700">{{ formatMoney(lineTotal(item)) }}</td>
                 <td class="px-2 py-3 text-center">
                   <button class="text-red-400 hover:text-red-600" title="ลบรายการ" @click="removeFromCart(item.ic_code, item.ap_code)">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -106,7 +96,7 @@
           </div>
           <div class="flex flex-col items-end gap-1">
             <p class="text-sm text-slate-500">
-              จะสร้าง <strong class="text-slate-800">{{ selectedGroupCount }}</strong> ใบ PR · ยอดรวม <strong class="text-slate-800">{{ formatMoney(selectedTotal) }}</strong>
+              จะสร้าง <strong class="text-slate-800">{{ selectedGroupCount }}</strong> ใบ PR
             </p>
             <button class="btn-primary min-w-48" :disabled="creating || selectedGroupCount === 0" @click="createPR">
               {{ creating ? '⏳ กำลังสร้าง...' : `📄 สร้าง PR (${selectedGroupCount})` }}
@@ -151,7 +141,6 @@
                       {{ doc.ap_name || doc.ap_code }} · {{ doc.item_count }} รายการ
                     </div>
                   </div>
-                  <strong class="ml-3 shrink-0 tabular-nums text-slate-700">{{ formatMoney(doc.total_amount) }}</strong>
                 </div>
               </div>
             </div>
@@ -241,7 +230,7 @@ import api from '../composables/useApi.js'
 import { usePlanningCart } from '../composables/usePlanningCart.js'
 
 const router = useRouter()
-const { cart, cartCount, cartGroups, removeFromCart, updateQty, updatePrice, updateUnit, setUnits, clearCart } = usePlanningCart()
+const { cart, cartCount, cartGroups, removeFromCart, updateQty, updateUnit, setUnits, clearCart } = usePlanningCart()
 
 const today = new Date().toISOString().slice(0, 10)
 const docDate = ref(today)
@@ -282,33 +271,13 @@ onMounted(() => {
 })
 
 const selectedGroupCount = computed(() => cartGroups.value.filter((g) => selectedGroups[g.ap_code] ?? true).length)
-const selectedTotal = computed(() =>
-  Math.round(
-    cartGroups.value
-      .filter((g) => selectedGroups[g.ap_code] ?? true)
-      .reduce((sum, g) => sum + g.subtotal, 0) * 100,
-  ) / 100,
-)
-
-function lineTotal(item) {
-  return Math.round(Number(item.qty || 0) * Number(item.price || 0) * 100) / 100
-}
-
 function onQtyChange(item, value) {
   updateQty(item.ic_code, item.ap_code, value)
-}
-function onPriceChange(item, value) {
-  updatePrice(item.ic_code, item.ap_code, value)
 }
 
 function formatQty(value) {
   return Number(value || 0).toLocaleString('th-TH')
 }
-function formatMoney(value) {
-  if (value === null || value === undefined || value === '') return '-'
-  return Number(value || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
 function confirmClear() {
   showConfirm({
     variant: 'danger',
@@ -335,9 +304,9 @@ async function createPR() {
           item_code: it.ic_code,
           item_name: it.ic_name,
           unit_code: it.selected_unit || it.unit_code,
-          // ส่ง qty/price ตามหน่วยที่เลือก และส่งค่าแปลงหน่วยให้ backend เก็บในบรรทัดเอกสาร
+          // ส่ง qty ตามหน่วยที่เลือก และส่งค่าแปลงหน่วยให้ backend เก็บในบรรทัดเอกสาร
           qty: Number(it.qty),
-          price: Number(it.price),
+          price: 0,
           unit_ratio: Number(it.unit_ratio || selectedUnit?.ratio || 1),
           unit_stand_value: Number(selectedUnit?.stand_value || it.unit_ratio || 1),
           unit_divide_value: Number(selectedUnit?.divide_value || 1),
@@ -356,25 +325,20 @@ async function createPR() {
         await showConfirm({ variant: 'warning', title: 'ข้อมูลไม่ถูกต้อง', message: `จำนวนของ "${where}" ต้องมากกว่า 0`, confirmText: 'แก้ไข', cancelText: null })
         return
       }
-      if (it.price < 0) {
-        await showConfirm({ variant: 'warning', title: 'ข้อมูลไม่ถูกต้อง', message: `ราคาของ "${where}" ต้องไม่ติดลบ`, confirmText: 'แก้ไข', cancelText: null })
-        return
-      }
     }
   }
 
   // สรุปยอดแต่ละกลุ่มสำหรับแสดงใน dialog ยืนยัน
   const totalQty = groupsToSend.reduce((s, g) => s + g.items.length, 0)
   const groupDetails = groupsToSend.map((g) => {
-    const subtotal = Math.round(g.items.reduce((s, it) => s + Number(it.qty) * Number(it.price), 0) * 100) / 100
-    return { label: g.ap_name || g.ap_code, value: `${g.items.length} รายการ · ${formatMoney(subtotal)}` }
+    return { label: g.ap_name || g.ap_code, value: `${g.items.length} รายการ` }
   })
 
   // หน้ายืนยันก่อนสร้างจริง
   const ok = await showConfirm({
     variant: 'primary',
     title: 'ยืนยันสร้างใบเสนอซื้อ (PR)',
-    message: `จะสร้าง ${groupsToSend.length} ใบ PR · ${totalQty} รายการ · รวม ${formatMoney(selectedTotal.value)}`,
+    message: `จะสร้าง ${groupsToSend.length} ใบ PR · ${totalQty} รายการ`,
     details: groupDetails,
     confirmText: '📄 สร้าง PR',
     cancelText: 'ยกเลิก',
