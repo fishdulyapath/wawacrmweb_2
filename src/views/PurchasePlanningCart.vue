@@ -60,6 +60,9 @@
                     <span class="rounded bg-slate-100 px-1.5 py-0.5 font-mono">{{ item.ic_code }}</span>
                     <span v-if="item.suggest_qty" class="ml-1.5">· แนะนำ {{ formatQty(item.suggest_qty) }} {{ item.unit_code }}</span>
                   </p>
+                  <p v-if="hasReferenceDetail(item)" class="mt-1 text-xs text-slate-500">
+                    จากรายงาน: หน่วย {{ item.reference_unit_code || '-' }} · ราคา {{ formatMoney(item.reference_price) }}
+                  </p>
                 </td>
                 <td class="px-3 py-3 text-right">
                   <input :value="item.qty" type="number" min="0" step="1" class="input-field h-10 text-right" @input="onQtyChange(item, $event.target.value)" />
@@ -272,6 +275,10 @@ function onPriceChange(item, value) {
 
 function lineTotal(item) {
   return Math.round(Number(item.qty || 0) * Number(item.price || 0) * 100) / 100
+}
+
+function hasReferenceDetail(item) {
+  return Boolean(item.reference_unit_code) || Number(item.reference_price || 0) > 0
 }
 
 function formatQty(value) {

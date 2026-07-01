@@ -86,7 +86,8 @@ function addToCart(item) {
       : Number(item.qty || 0) * addRatio
     existing.base_qty = roundQuantity(ensureBaseQty(existing) + addBaseQty)
     existing.qty = ceilQuantity(Number(existing.base_qty || 0) / existingRatio)
-    if (item.price !== undefined && item.price !== null) existing.price = Number(item.price) || 0
+    existing.reference_unit_code = String(item.reference_unit_code || existing.reference_unit_code || '').trim()
+    existing.reference_price = Number(item.reference_price ?? existing.reference_price ?? 0) || 0
   } else {
     const initialRatio = Number(item.unit_ratio || 1) || 1
     const baseQty = roundQuantity(
@@ -103,6 +104,8 @@ function addToCart(item) {
       qty: ceilQuantity(baseQty / initialRatio),
       base_qty: baseQty,
       price: Number(item.price || 0),
+      reference_unit_code: String(item.reference_unit_code || '').trim(),
+      reference_price: Number(item.reference_price || 0),
       suggest_qty: Number(item.suggest_qty || item.qty || 0),
       // หน่วยนับที่รองรับ + หน่วยที่เลือก + ratio (จะถูก set ทีหลังผ่าน setUnits)
       units: Array.isArray(item.units) ? item.units : [{ unit_code: String(item.unit_code || ''), ratio: 1, is_base: true }],

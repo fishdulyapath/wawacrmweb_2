@@ -266,12 +266,13 @@
         </div>
 
         <div class="overflow-auto" style="max-height: calc(100vh - 200px)">
-        <table class="w-full border-collapse text-sm" :class="showExtraColumns ? 'min-w-[1640px]' : 'min-w-[1040px]'">
+        <table class="w-full border-collapse text-sm" :class="showExtraColumns ? 'min-w-[1760px]' : 'min-w-[1160px]'">
           <thead class="sticky top-0 z-10 border-b-2 border-slate-300 bg-slate-50">
             <tr>
               <th class="table-head w-12 border border-slate-200 text-center"></th>
               <th class="table-head w-[30rem] border border-slate-200 text-left">สินค้า</th>
               <th class="table-head min-w-56 border border-slate-200 text-left">เจ้าหนี้เริ่มต้น</th>
+              <th class="table-head w-28 border border-slate-200 text-right">ราคา/หน่วยเล็ก</th>
               <th class="table-head w-24 border border-slate-200 text-right">พร้อมใช้</th>
               <th v-if="showExtraColumns" class="table-head w-24 border border-slate-200 text-right">คงเหลือ</th>
               <th v-if="showExtraColumns" class="table-head w-24 border border-slate-200 text-right">ค้างรับ</th>
@@ -337,6 +338,7 @@
                     </div>
                   </div>
                 </td>
+                <td class="border border-slate-200 px-4 py-3 text-right tabular-nums text-slate-700">{{ formatMoney(selectedSupplierPrice(row)) }}</td>
                 <td class="border border-slate-200 px-4 py-3 text-right font-semibold tabular-nums">{{ formatQty(row.available_qty) }} <span class="text-xs font-normal text-slate-400">{{ row.unit_code }}</span></td>
                 <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.balance_qty) }}</td>
                 <td v-if="showExtraColumns" class="border border-slate-200 px-4 py-3 text-right tabular-nums">{{ formatQty(row.accrued_in_qty_calc) }}</td>
@@ -365,11 +367,11 @@
               </tr>
 
               <tr v-if="expanded[row.ic_code]" class="bg-slate-50/70">
-                <td :colspan="showExtraColumns ? 18 : 6" class="px-4 py-4 sm:px-8">
+                <td :colspan="showExtraColumns ? 19 : 7" class="px-4 py-4 sm:px-8">
                   <div v-if="supplierLoading[row.ic_code]" class="py-6 text-center text-sm text-slate-400">กำลังโหลด supplier...</div>
                   <div v-else-if="supplierErrors[row.ic_code]" class="py-4 text-center text-sm text-red-500">{{ supplierErrors[row.ic_code] }}</div>
                   <div v-else class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-                    <table class="w-full min-w-[720px] text-sm">
+                    <table class="w-full min-w-[820px] text-sm">
                       <thead class="bg-slate-50">
                         <tr>
                           <th class="supplier-head w-16 text-center">ใส่ตะกร้า</th>
@@ -380,12 +382,13 @@
                           <th class="supplier-head w-24 text-right">Cycle</th>
                           <th class="supplier-head w-24 text-right">MOQ</th>
                           <th class="supplier-head w-28 text-right">แนะนำซื้อ</th>
+                          <th class="supplier-head w-28 text-right">ราคา/หน่วยเล็ก</th>
                           <th class="supplier-head w-32 text-left">ซื้อล่าสุด</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-100">
                         <tr v-if="!supplierRows(row).length">
-                          <td colspan="9" class="py-8 text-center text-slate-400">ยังไม่มี supplier ที่ผูกกับสินค้านี้</td>
+                          <td colspan="10" class="py-8 text-center text-slate-400">ยังไม่มี supplier ที่ผูกกับสินค้านี้</td>
                         </tr>
                         <tr v-for="supplier in supplierRows(row)" :key="`${row.ic_code}-${supplier.ap_code}`" class="hover:bg-slate-50">
                           <td class="px-3 py-2 text-center">
@@ -413,6 +416,7 @@
                           <td class="px-3 py-2 text-right tabular-nums">{{ formatInt(supplier.order_cycle_days) }}</td>
                           <td class="px-3 py-2 text-right tabular-nums">{{ formatQty(supplier.min_order_qty) }}</td>
                           <td class="px-3 py-2 text-right font-semibold text-blue-700 tabular-nums">{{ formatQty(supplier.suggest_qty) }}</td>
+                          <td class="px-3 py-2 text-right tabular-nums text-slate-700">{{ formatMoney(purchasePrice(supplier)) }}</td>
                           <td class="px-3 py-2 text-xs text-slate-500">{{ formatDate(supplier.last_purchase_date) }}</td>
                         </tr>
                       </tbody>
@@ -645,6 +649,8 @@ function addToCartFromRow(row) {
     qty,
     base_qty: qty,
     price: 0,
+    reference_unit_code: selectedSupplierUnitCode(row),
+    reference_price: selectedSupplierPrice(row),
     suggest_qty: suggest,
   })
   showToast(`เพิ่ม "${row.ic_name || row.ic_code}" ลงตะกร้าแล้ว`)
@@ -663,6 +669,8 @@ function addToCartFromSupplier(row, supplier) {
     qty,
     base_qty: qty,
     price: 0,
+    reference_unit_code: supplier.last_purchase_unit_code || supplier.purchase_unit_code || row.unit_code,
+    reference_price: purchasePrice(supplier),
     suggest_qty: suggest,
   })
   showToast(`เพิ่ม "${row.ic_name || row.ic_code}" จาก "${supplier.ap_name || supplier.ap_code}" ลงตะกร้าแล้ว`)
@@ -1068,6 +1076,7 @@ function chooseSupplier(row, supplier) {
   row.selected_supplier_name = supplier.ap_name
   row.selected_supplier_unit_code = supplier.last_purchase_unit_code || supplier.purchase_unit_code || row.unit_code
   row.selected_supplier_tax_type = supplier.tax_type
+  row.selected_supplier_price = purchasePrice(supplier)
   row.suggest_qty = supplier.suggest_qty
   row.min_stock = supplier.min_stock
   row.max_stock = supplier.max_stock
@@ -1107,6 +1116,14 @@ function hasTax(row) {
 
 function selectedSupplierUnitCode(row) {
   return row.selected_supplier_unit_code || row.last_purchase_unit_code || row.purchase_unit_code || row.unit_code
+}
+
+function purchasePrice(source) {
+  return Number(source?.last_purchase_price ?? source?.last_purchase_price_exclude_vat ?? 0) || 0
+}
+
+function selectedSupplierPrice(row) {
+  return Number(row.selected_supplier_price ?? row.last_purchase_price ?? row.last_purchase_price_exclude_vat ?? 0) || 0
 }
 
 // MOQ ของเจ้าหนี้ที่เลือกอยู่ (ใช้เป็น qty เริ่มต้นเมื่อ suggest_qty = 0)
