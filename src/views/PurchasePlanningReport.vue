@@ -6,7 +6,7 @@
         <p class="mt-0.5 text-sm text-slate-500">{{ pageSubtitle }}</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <RouterLink to="/purchase-planning/master" class="btn-secondary">กำหนด master</RouterLink>
+        <RouterLink v-if="canManagePlanningMaster" to="/purchase-planning/master" class="btn-secondary">กำหนด master</RouterLink>
         <RouterLink v-if="alertOnly" to="/purchase-planning/report" class="btn-secondary">รายงานทั้งหมด</RouterLink>
         <RouterLink to="/purchase-planning/cart" class="relative btn-secondary" title="ตะกร้าสั่งซื้อ">
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
@@ -45,7 +45,8 @@
           <input id="planning-report-wh" v-model="filter.warehouse" class="input-field font-mono" />
         </div>
         <div class="flex items-end gap-2">
-          <button class="btn-primary min-h-10 flex-1 justify-center" @click="load">โหลด</button>
+          <button class="btn-primary min-h-10 flex-1 justify-center" @click="load()">โหลด</button>
+          <button class="btn-secondary min-h-10 justify-center" :disabled="isBusy" @click="loadFresh">โหลดใหม่</button>
           <button class="btn-secondary min-h-10 justify-center" :disabled="isBusy" @click="resetFilter">ล้าง</button>
         </div>
       </div>
@@ -237,7 +238,7 @@
 
       <div v-else-if="error" class="py-16 text-center">
         <p class="font-medium text-red-500">{{ error }}</p>
-        <button class="btn-secondary mx-auto mt-3" @click="load">ลองใหม่</button>
+        <button class="btn-secondary mx-auto mt-3" @click="load()">ลองใหม่</button>
       </div>
 
       <div v-else>
@@ -298,7 +299,8 @@
                     class="cart-add-btn"
                     :class="{ 'cart-add-btn--in-cart': rowInCart(row) }"
                     :aria-pressed="rowInCart(row)"
-                    :title="rowInCart(row) ? 'อยู่ในตะกร้าแล้ว' : (Number(row.suggest_qty || 0) > 0 ? 'ใส่ตะกร้า (ใช้ยอดแนะนำซื้อ)' : 'ใส่ตะกร้า (ไม่มียอดแนะนำซื้อ → ใช้ MOQ/1)')"
+                    :style="cartButtonStyle(row.ic_code, selectedSupplierCode(row))"
+                    :title="cartButtonTitle(row.ic_code, selectedSupplierCode(row), Number(row.suggest_qty || 0) > 0 ? 'ใส่ตะกร้า (ใช้ยอดแนะนำซื้อ)' : 'ใส่ตะกร้า (ไม่มียอดแนะนำซื้อ → ใช้ MOQ/1)')"
                     @click="addToCartFromRow(row)"
                   >
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
@@ -332,7 +334,7 @@
                         <span class="font-medium truncate" :class="hasTax(row) ? 'text-red-600' : 'text-slate-800'" :title="hasTax(row) ? 'เจ้าหนี้นี้มีภาษี' : ''">{{ selectedSupplierName(row) }}</span>
                         <span v-if="Number(row.is_preferred) === 1" class="preferred-badge" title="เจ้าหนี้หลัก">หลัก</span>
                         <span v-if="hasTax(row)" class="rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold text-red-600" title="มีภาษี">VAT</span>
-                        <span v-if="pendingPRCount(row.ic_code, selectedSupplierCode(row)) > 0" class="inline-flex items-center gap-0.5 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm" title="สินค้านี้มีใบเสนอซื้อ (PR) กับเจ้าหนี้นี้แล้ว และยังไม่ถูกดึงไปทำใบซื้อ">PR {{ pendingPRCount(row.ic_code, selectedSupplierCode(row)) }}</span>
+                        <span v-if="visiblePRCount(row.ic_code, selectedSupplierCode(row)) > 0" class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm" :style="prBadgeStyle(row.ic_code, selectedSupplierCode(row))" :title="prBadgeTitle(row.ic_code, selectedSupplierCode(row))">PR {{ visiblePRCount(row.ic_code, selectedSupplierCode(row)) }}</span>
                       </div>
                       <div class="text-xs text-slate-400">{{ selectedSupplierCode(row) || '-' }}</div>
                     </div>
@@ -396,7 +398,8 @@
                               class="cart-add-btn"
                               :class="{ 'cart-add-btn--in-cart': supplierInCart(row, supplier) }"
                               :aria-pressed="supplierInCart(row, supplier)"
-                              :title="supplierInCart(row, supplier) ? 'อยู่ในตะกร้าแล้ว' : 'ใส่ตะกร้าจากเจ้าหนี้นี้'"
+                              :style="cartButtonStyle(row.ic_code, supplier.ap_code)"
+                              :title="cartButtonTitle(row.ic_code, supplier.ap_code, 'ใส่ตะกร้าจากเจ้าหนี้นี้')"
                               @click="addToCartFromSupplier(row, supplier)"
                             >
                               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
@@ -406,7 +409,7 @@
                             <div class="flex flex-wrap items-center gap-1.5">
                               <span class="font-medium" :class="String(supplier.tax_type) === '1' ? 'text-red-600' : 'text-slate-800'">{{ supplier.ap_name || '-' }}</span>
                               <span v-if="String(supplier.tax_type) === '1'" class="rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold text-red-600" title="มีภาษี">VAT</span>
-                              <span v-if="pendingPRCount(row.ic_code, supplier.ap_code) > 0" class="inline-flex items-center gap-0.5 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm" title="สินค้านี้มีใบเสนอซื้อ (PR) กับเจ้าหนี้นี้แล้ว และยังไม่ถูกดึงไปทำใบซื้อ">PR {{ pendingPRCount(row.ic_code, supplier.ap_code) }}</span>
+                              <span v-if="visiblePRCount(row.ic_code, supplier.ap_code) > 0" class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm" :style="prBadgeStyle(row.ic_code, supplier.ap_code)" :title="prBadgeTitle(row.ic_code, supplier.ap_code)">PR {{ visiblePRCount(row.ic_code, supplier.ap_code) }}</span>
                             </div>
                             <div class="text-xs text-slate-400">{{ supplier.ap_code }}</div>
                           </td>
@@ -616,7 +619,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import api from '../composables/useApi.js'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { useAuthStore } from '../stores/auth.js'
@@ -627,53 +630,85 @@ const props = defineProps({
 })
 
 const auth = useAuthStore()
-const { cart, cartCount, addToCart } = usePlanningCart()
+const { cart, createdPrItems, cartCount, addToCart, removeFromCart, loadCart } = usePlanningCart()
 const toastMsg = ref('')
 let toastTimer = null
+const canManagePlanningMaster = computed(() => auth.user?.code?.toUpperCase() === 'SUPERADMIN' || auth.user?.role === 'admin')
 const canTriggerAlert = computed(() => {
   const user = auth.user || {}
   return String(user.code || '').toUpperCase() === 'SUPERADMIN' || user.role === 'admin'
 })
 
 // เพิ่มลงตะกร้าพร้อม toast feedback สั้น
-function addToCartFromRow(row) {
+async function addToCartFromRow(row) {
+  const apCode = selectedSupplierCode(row)
+  await loadCart().catch(() => {})
+  const existing = cartEntry(row.ic_code, apCode)
+  if (existing) {
+    if (existing.is_owner) {
+      await removeFromCart(row.ic_code, apCode)
+      showToast(`นำ "${row.ic_name || row.ic_code}" ออกจากตะกร้าแล้ว`)
+    } else {
+      showToast(`รายการนี้อยู่ในตะกร้าของ ${cartOwnerName(existing)} แล้ว`)
+    }
+    return
+  }
   const suggest = Number(row.suggest_qty || 0)
   // ถ้าไม่มีแนะนำซื้อ → ใช้ MOQ ของเจ้าหนี้ที่เลือก, ถ้าไม่มี MOQ ด้วย → ใช้ 1
   const qty = suggest > 0 ? suggest : (selectedSupplierMOQ(row) > 0 ? selectedSupplierMOQ(row) : 1)
-  addToCart({
-    ic_code: row.ic_code,
-    ic_name: row.ic_name,
-    unit_code: selectedSupplierUnitCode(row),
-    ap_code: selectedSupplierCode(row),
-    ap_name: selectedSupplierName(row),
-    qty,
-    base_qty: qty,
-    price: 0,
-    reference_unit_code: selectedSupplierUnitCode(row),
-    reference_price: selectedSupplierPrice(row),
-    suggest_qty: suggest,
-  })
-  showToast(`เพิ่ม "${row.ic_name || row.ic_code}" ลงตะกร้าแล้ว`)
+  try {
+    await addToCart({
+      ic_code: row.ic_code,
+      ic_name: row.ic_name,
+      unit_code: selectedSupplierUnitCode(row),
+      ap_code: apCode,
+      ap_name: selectedSupplierName(row),
+      qty,
+      base_qty: qty,
+      price: 0,
+      reference_unit_code: selectedSupplierUnitCode(row),
+      reference_price: selectedSupplierPrice(row),
+      suggest_qty: suggest,
+    })
+    showToast(`เพิ่ม "${row.ic_name || row.ic_code}" ลงตะกร้าแล้ว`)
+  } catch (err) {
+    showToast(err.response?.data?.error || err.message || 'เพิ่มลงตะกร้าไม่สำเร็จ')
+  }
 }
 
-function addToCartFromSupplier(row, supplier) {
+async function addToCartFromSupplier(row, supplier) {
+  await loadCart().catch(() => {})
+  const existing = cartEntry(row.ic_code, supplier.ap_code)
+  if (existing) {
+    if (existing.is_owner) {
+      await removeFromCart(row.ic_code, supplier.ap_code)
+      showToast(`นำ "${row.ic_name || row.ic_code}" ออกจากตะกร้าแล้ว`)
+    } else {
+      showToast(`รายการนี้อยู่ในตะกร้าของ ${cartOwnerName(existing)} แล้ว`)
+    }
+    return
+  }
   const suggest = Number(supplier.suggest_qty || 0)
   // ถ้า supplier นี้ไม่มียอดแนะนำซื้อ → ใช้ MOQ, ถ้าไม่มี MOQ ด้วย → ใช้ 1
   const qty = suggest > 0 ? suggest : (Number(supplier.min_order_qty || 0) > 0 ? Number(supplier.min_order_qty) : 1)
-  addToCart({
-    ic_code: row.ic_code,
-    ic_name: row.ic_name,
-    unit_code: supplier.last_purchase_unit_code || supplier.purchase_unit_code || row.unit_code,
-    ap_code: supplier.ap_code,
-    ap_name: supplier.ap_name,
-    qty,
-    base_qty: qty,
-    price: 0,
-    reference_unit_code: supplier.last_purchase_unit_code || supplier.purchase_unit_code || row.unit_code,
-    reference_price: purchasePrice(supplier),
-    suggest_qty: suggest,
-  })
-  showToast(`เพิ่ม "${row.ic_name || row.ic_code}" จาก "${supplier.ap_name || supplier.ap_code}" ลงตะกร้าแล้ว`)
+  try {
+    await addToCart({
+      ic_code: row.ic_code,
+      ic_name: row.ic_name,
+      unit_code: supplier.last_purchase_unit_code || supplier.purchase_unit_code || row.unit_code,
+      ap_code: supplier.ap_code,
+      ap_name: supplier.ap_name,
+      qty,
+      base_qty: qty,
+      price: 0,
+      reference_unit_code: supplier.last_purchase_unit_code || supplier.purchase_unit_code || row.unit_code,
+      reference_price: purchasePrice(supplier),
+      suggest_qty: suggest,
+    })
+    showToast(`เพิ่ม "${row.ic_name || row.ic_code}" จาก "${supplier.ap_name || supplier.ap_code}" ลงตะกร้าแล้ว`)
+  } catch (err) {
+    showToast(err.response?.data?.error || err.message || 'เพิ่มลงตะกร้าไม่สำเร็จ')
+  }
 }
 
 function showToast(msg) {
@@ -682,14 +717,40 @@ function showToast(msg) {
   toastTimer = setTimeout(() => { toastMsg.value = '' }, 2500)
 }
 
-function cartHas(icCode, apCode) {
+function cartEntry(icCode, apCode) {
   const itemCode = String(icCode || '').trim()
   const supplierCode = String(apCode || '').trim()
-  if (!itemCode || !supplierCode) return false
-  return cart.some((item) =>
+  if (!itemCode || !supplierCode) return null
+  return cart.find((item) =>
     String(item.ic_code || '').trim() === itemCode &&
     String(item.ap_code || '').trim() === supplierCode,
-  )
+  ) || null
+}
+
+function cartHas(icCode, apCode) {
+  return Boolean(cartEntry(icCode, apCode))
+}
+
+function cartOwnerName(item) {
+  return item?.user_name || item?.user_code || 'ผู้ใช้อื่น'
+}
+
+function cartButtonTitle(icCode, apCode, fallbackTitle = 'ใส่ตะกร้า') {
+  const item = cartEntry(icCode, apCode)
+  if (!item) return fallbackTitle
+  return item.is_owner ? 'อยู่ในตะกร้าของคุณแล้ว (กดอีกครั้งเพื่อนำออก)' : `อยู่ในตะกร้าของ ${cartOwnerName(item)} แล้ว`
+}
+
+function cartButtonStyle(icCode, apCode) {
+  const item = cartEntry(icCode, apCode)
+  if (!item) return {}
+  const color = item.cart_color || '#dc2626'
+  return {
+    borderColor: color,
+    backgroundColor: `${color}18`,
+    color,
+    boxShadow: `0 0 0 1px ${color}22`,
+  }
 }
 
 function rowInCart(row) {
@@ -794,9 +855,39 @@ function pendingPRCount(icCode, apCode) {
   if (!itemCode || !supplierCode) return 0
   return Number(pendingPR.value.byItemAp?.[itemCode]?.[supplierCode] || 0)
 }
+
+function createdPRRows(icCode, apCode) {
+  const itemCode = String(icCode || '').trim()
+  const supplierCode = String(apCode || '').trim()
+  if (!itemCode || !supplierCode) return []
+  return createdPrItems.filter((item) =>
+    String(item.ic_code || '').trim() === itemCode &&
+    String(item.ap_code || '').trim() === supplierCode,
+  )
+}
+
+function visiblePRCount(icCode, apCode) {
+  return Math.max(pendingPRCount(icCode, apCode), createdPRRows(icCode, apCode).length)
+}
+
+function prBadgeStyle(icCode, apCode) {
+  const rows = createdPRRows(icCode, apCode)
+  const color = rows[0]?.cart_color || '#dc2626'
+  return { backgroundColor: color }
+}
+
+function prBadgeTitle(icCode, apCode) {
+  const rows = createdPRRows(icCode, apCode)
+  if (!rows.length) return 'สินค้านี้มีใบเสนอซื้อ (PR) กับเจ้าหนี้นี้แล้ว และยังไม่ถูกดึงไปทำใบซื้อ'
+  const names = [...new Set(rows.map((row) => row.user_name || row.user_code || '').filter(Boolean))]
+  const docs = [...new Set(rows.map((row) => row.pr_doc_no || '').filter(Boolean))]
+  return `สินค้านี้มี PR แล้ว${docs.length ? `: ${docs.join(', ')}` : ''}${names.length ? ` โดย ${names.join(', ')}` : ''}`
+}
 const jobId = ref('')
 const jobStatus = ref('')
 const processed = ref(0)
+const reportFromCache = ref(false)
+const reportCacheUpdatedAt = ref('')
 const hasMore = ref(false)
 const selected = reactive({})
 const expanded = reactive({})
@@ -821,6 +912,7 @@ const noticeDialog = reactive({
 })
 let pollTimer = null
 let loadSeq = 0
+const REPORT_REQUEST_TIMEOUT = 10 * 60 * 1000
 
 const alertOnly = computed(() => props.alertOnly)
 const pageTitle = computed(() => alertOnly.value ? 'แจ้งเตือนสั่งซื้อ' : 'รายงานวางแผนสั่งซื้อ')
@@ -845,8 +937,10 @@ const progressPercent = computed(() => {
   return Math.min(100, Math.max(0, Math.round((Number(processed.value || 0) / Number(total.value || 1)) * 100)))
 })
 const progressStatusText = computed(() => {
+  if (jobStatus.value === 'complete' && reportFromCache.value) return `ใช้รายงานที่ freeze ไว้${reportCacheUpdatedAt.value ? ` (${formatDate(reportCacheUpdatedAt.value)})` : ''}`
   if (jobStatus.value === 'complete') return `โหลดครบแล้ว ${formatInt(processed.value || total.value)} / ${formatInt(total.value)} รายการ`
   if (jobStatus.value === 'failed') return 'โหลดรายงานไม่สำเร็จ'
+  if (!total.value) return 'กำลังเตรียมรายการสินค้า...'
   return `ประมวลผลแล้ว ${formatInt(processed.value)} / ${formatInt(total.value)} รายการ`
 })
 const loadMoreLabel = computed(() => {
@@ -920,13 +1014,18 @@ const amountAxisTicks = computed(() => {
 
 function requestParams() {
   return {
-    search: filter.search || undefined,
-    supplier_search: filter.supplier_search || undefined,
     days: filter.days,
     as_of_date: filter.as_of_date,
     warehouse: filter.warehouse,
     limit: limit.value,
     alert_only: alertOnly.value ? 1 : undefined,
+  }
+}
+
+function searchParams() {
+  return {
+    search: filter.search || undefined,
+    supplier_search: filter.supplier_search || undefined,
   }
 }
 
@@ -946,26 +1045,34 @@ function clearReportState() {
   total.value = 0
   tableTotal.value = 0
   processed.value = 0
+  reportFromCache.value = false
+  reportCacheUpdatedAt.value = ''
   hasMore.value = false
   jobId.value = ''
   jobStatus.value = ''
 }
 
-async function load() {
+async function load(forceReload = false) {
   const seq = ++loadSeq
   clearReportState()
   loading.value = true
   jobStatus.value = 'queued'
   try {
+    await loadCart().catch(() => {})
     const { data } = await api.post('/purchase-planning/report-lazy', {
       ...requestParams(),
       batch_size: 5,
+      force_reload: forceReload ? 1 : undefined,
+    }, {
+      timeout: REPORT_REQUEST_TIMEOUT,
     })
     if (seq !== loadSeq) return
     jobId.value = data.job_id
     total.value = data.total || 0
     processed.value = data.processed || 0
     jobStatus.value = data.status || 'queued'
+    reportFromCache.value = Boolean(data.from_cache)
+    reportCacheUpdatedAt.value = data.cache_updated_at || ''
     await pollReportJob(seq)
   } catch (err) {
     if (seq !== loadSeq) return
@@ -976,16 +1083,29 @@ async function load() {
   }
 }
 
+async function loadFresh() {
+  if (!window.confirm('ต้องการโหลดข้อมูลใหม่และเขียนทับรายงานที่ freeze ไว้หรือไม่?')) return
+  await load(true)
+}
+
 async function pollReportJob(seq) {
   if (!jobId.value || seq !== loadSeq) return
   try {
     const { data } = await api.get(`/purchase-planning/report-lazy/${encodeURIComponent(jobId.value)}`, {
-      params: { offset: 0, limit: limit.value, stock_status: filterStockStatus.value || undefined },
+      timeout: REPORT_REQUEST_TIMEOUT,
+      params: {
+        offset: 0,
+        limit: limit.value,
+        stock_status: filterStockStatus.value || undefined,
+        ...searchParams(),
+      },
     })
     if (seq !== loadSeq) return
     jobStatus.value = data.status
     total.value = data.total || 0
     processed.value = data.processed || 0
+    reportFromCache.value = Boolean(data.from_cache)
+    reportCacheUpdatedAt.value = data.cache_updated_at || reportCacheUpdatedAt.value
     if (data.status === 'failed') throw new Error(data.error || 'คำนวณรายงานไม่สำเร็จ')
     if (data.status === 'complete') {
       rows.value = data.data || []
@@ -1017,7 +1137,13 @@ async function loadMore() {
   loadingMore.value = true
   try {
     const { data } = await api.get(`/purchase-planning/report-lazy/${encodeURIComponent(jobId.value)}`, {
-      params: { offset: rows.value.length, limit: limit.value, stock_status: filterStockStatus.value || undefined },
+      timeout: REPORT_REQUEST_TIMEOUT,
+      params: {
+        offset: rows.value.length,
+        limit: limit.value,
+        stock_status: filterStockStatus.value || undefined,
+        ...searchParams(),
+      },
     })
     rows.value = [...rows.value, ...(data.data || [])]
     total.value = data.total || total.value
@@ -1258,6 +1384,10 @@ function statusClass(status) {
     insufficient_sales_days: 'status-badge bg-blue-100 text-blue-700',
   }[status] || 'status-badge bg-slate-100 text-slate-500'
 }
+
+onMounted(() => {
+  loadCart().catch(() => {})
+})
 
 onBeforeUnmount(clearPollTimer)
 watch(() => props.alertOnly, () => {

@@ -56,6 +56,16 @@
         </div>
 
         <div class="w-48">
+          <label class="label-text">เขตการขาย</label>
+          <select v-model="filter.sale_area" @change="applyFilter" class="input-field">
+            <option value="">ทั้งหมด</option>
+            <option v-for="area in saleAreas" :key="area.code" :value="area.code">
+              {{ area.code }} — {{ area.name_1 }}
+            </option>
+          </select>
+        </div>
+
+        <div class="w-48">
           <label class="label-text">ข้อมูลส่งของ</label>
           <select v-model="filter.fleet_status" @change="applyFilter" class="input-field">
             <option value="">ทั้งหมด</option>
@@ -139,6 +149,10 @@
                 <p class="mt-1 text-slate-700">{{ c.crm?.customer_type || 'B2C' }}</p>
               </div>
               <div>
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">เขตการขาย</p>
+                <p class="mt-1 text-slate-700">{{ saleAreaLabel(c) }}</p>
+              </div>
+              <div>
                 <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Follow Up</p>
                 <p class="mt-1" :class="followupDateClass(c.crm?.next_followup)">
                   {{ formatDate(c.crm?.next_followup) }}
@@ -209,7 +223,7 @@
 
         <!-- Desktop -->
         <div class="hidden lg:block overflow-x-auto">
-          <table class="w-full min-w-[1500px] text-sm">
+          <table class="w-full min-w-[1640px] text-sm">
             <thead class="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th @click="toggleSort('code')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28 cursor-pointer select-none hover:bg-slate-100">
@@ -217,6 +231,9 @@
                 </th>
                 <th @click="toggleSort('name_1')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide cursor-pointer select-none hover:bg-slate-100">
                   ชื่อลูกค้า <span class="ml-1 text-slate-400">{{ sortIndicator('name_1') }}</span>
+                </th>
+                <th @click="toggleSort('sale_area')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-40 cursor-pointer select-none hover:bg-slate-100">
+                  เขตการขาย <span class="ml-1 text-slate-400">{{ sortIndicator('sale_area') }}</span>
                 </th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">พนักงานผู้ดูแล</th>
                 <th @click="toggleSort('next_followup')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32 cursor-pointer select-none hover:bg-slate-100">
@@ -239,7 +256,7 @@
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-if="customers.length === 0">
-                <td colspan="11" class="py-16 text-center text-slate-400">
+                <td colspan="12" class="py-16 text-center text-slate-400">
                   <svg class="mx-auto w-10 h-10 text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
@@ -256,6 +273,10 @@
                 </td>
                 <td class="px-4 py-3">
                   <p class="font-medium text-slate-800">{{ c.name_1 }}</p>
+                </td>
+                <td class="px-4 py-3">
+                  <p class="text-slate-700 text-sm">{{ saleAreaLabel(c) }}</p>
+                  <p v-if="c.sale_area_code" class="text-xs text-slate-400">{{ c.sale_area_code }}</p>
                 </td>
                 <td class="px-4 py-3">
                   <template v-if="crmOwnerNames(c) || c.sale_name">
@@ -429,6 +450,7 @@ import api from '../composables/useApi.js'
 // ── State ─────────────────────────────────
 const customers = ref([])
 const employees  = ref([])
+const saleAreas  = ref([])
 const loading    = ref(false)
 const error      = ref(null)
 const total      = ref(0)
@@ -438,7 +460,7 @@ const deleteTarget = ref(null)
 const deleting     = ref(false)
 const toast = reactive({ show: false, type: 'success', message: '' })
 
-const filter = reactive({ search: '', status: '', owner: '', fleet_status: '', followup_enabled: '' })
+const filter = reactive({ search: '', status: '', owner: '', sale_area: '', fleet_status: '', followup_enabled: '' })
 const sortBy  = ref('code')
 const sortDir = ref('asc')
 
@@ -464,6 +486,7 @@ async function loadData() {
         search: filter.search,
         status: filter.status,
         owner: filter.owner,
+        sale_area: filter.sale_area,
         fleet_status: filter.fleet_status,
         page: page.value,
         limit: limit.value,
@@ -488,6 +511,13 @@ async function loadEmployees() {
   } catch {}
 }
 
+async function loadSaleAreas() {
+  try {
+    const { data } = await api.get('/customers/sale-areas')
+    saleAreas.value = data || []
+  } catch {}
+}
+
 function onSearchInput() {
   clearTimeout(searchTimer)
   searchTimer = setTimeout(() => { page.value = 1; loadData() }, 400)
@@ -502,6 +532,7 @@ function resetFilter() {
   filter.search = ''
   filter.status = ''
   filter.owner  = ''
+  filter.sale_area = ''
   filter.fleet_status = ''
   filter.followup_enabled = ''
   page.value    = 1
@@ -542,6 +573,10 @@ function crmOwnerNames(c) {
   const owners = c.crm?.owners || []
   if (owners.length) return owners.map(o => o.name || o.code).filter(Boolean).join(', ')
   return c.crm?.owner_name || ''
+}
+
+function saleAreaLabel(c) {
+  return c.sale_area_name || c.sale_area_code || '—'
 }
 
 function statusBadge(s) {
@@ -609,5 +644,6 @@ function sortIndicator(field) {
 onMounted(() => {
   loadData()
   loadEmployees()
+  loadSaleAreas()
 })
 </script>

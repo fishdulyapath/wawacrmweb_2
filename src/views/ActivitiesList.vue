@@ -479,6 +479,7 @@ const saleAreas     = ref([])
 const ownerSearch   = ref('')
 const ownerDropdown = ref(false)
 const selectedUser  = ref(null)
+const ACTIVITY_FILTER_STORAGE_KEY = 'crm.activities.filters.v1'
 
 const filteredUsers = computed(() => {
   const q = ownerSearch.value.trim().toLowerCase()
@@ -613,6 +614,7 @@ async function loadStats() {
 }
 
 async function loadActivities(page = 1) {
+  saveActivityFilterState(page)
   loading.value = true
   try {
     const params = { page, limit: pagination.limit }
@@ -824,6 +826,52 @@ function clearReportFilterState() {
   return changed
 }
 
+function activityFilterState(page = pagination.page) {
+  return {
+    page: Number(page || 1),
+    quick_filter: quickFilter.value,
+    type_filter: [...typeFilter.value],
+    search: searchInput.value,
+    sort_by: sortBy.value,
+    sort_dir: sortDir.value,
+    owner_search: ownerSearch.value,
+    report_filter: { ...reportFilter },
+  }
+}
+
+function saveActivityFilterState(page = pagination.page) {
+  try {
+    sessionStorage.setItem(ACTIVITY_FILTER_STORAGE_KEY, JSON.stringify(activityFilterState(page)))
+  } catch {}
+}
+
+function restoreActivityFilterState() {
+  try {
+    const raw = sessionStorage.getItem(ACTIVITY_FILTER_STORAGE_KEY)
+    if (!raw) return 1
+    const state = JSON.parse(raw)
+    quickFilter.value = state.quick_filter ?? ''
+    typeFilter.value = Array.isArray(state.type_filter) ? state.type_filter.filter(Boolean) : []
+    searchInput.value = state.search || ''
+    sortBy.value = state.sort_by || 'updated_at'
+    sortDir.value = state.sort_dir || 'desc'
+    ownerSearch.value = state.owner_search || ''
+    selectedUser.value = null
+    Object.assign(reportFilter, {
+      owner_id: '',
+      date_from: '',
+      date_to: '',
+      call_result: '',
+      status: '',
+      sale_area: '',
+      ...(state.report_filter || {}),
+    })
+    return Math.max(1, parseInt(state.page, 10) || 1)
+  } catch {
+    return 1
+  }
+}
+
 watch(() => route.query, (query) => {
   if (query.report) {
     if (syncReportFilter(query)) Promise.all([loadActivities(1), loadStats()])
@@ -836,10 +884,12 @@ watch(() => route.query, (query) => {
 onMounted(() => {
   api.get('/employees/crm-users').then(r => { users.value = r.data || [] }).catch(() => {})
   api.get('/customers/sale-areas').then(r => { saleAreas.value = r.data || [] }).catch(() => {})
+  let initialPage = 1
   if (route.query.report) syncReportFilter(route.query)
-  else syncQueueFilter(route.query.queue)
+  else if (route.query.queue) syncQueueFilter(route.query.queue)
+  else initialPage = restoreActivityFilterState()
   loadStats()
-  loadActivities()
+  loadActivities(initialPage)
 })
 </script>
 

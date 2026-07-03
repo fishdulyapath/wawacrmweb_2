@@ -83,7 +83,24 @@
       </div>
     </div>
 
-    <div class="card mb-4 p-4">
+    <div v-if="activeTab === 'users'" class="card mb-4 p-4">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-end">
+        <div class="min-w-0 flex-1">
+          <label for="planning-user-search" class="label-text">ค้นหาผู้ใช้</label>
+          <input
+            id="planning-user-search"
+            v-model="search"
+            class="input-field"
+            placeholder="ค้นหาตามรหัสหรือชื่อผู้ใช้"
+            @input="onSearchInput"
+            @keyup.enter="applySearch"
+          />
+        </div>
+        <button class="btn-secondary justify-center" @click="resetSearch">ล้างคำค้น</button>
+      </div>
+    </div>
+
+    <div v-else class="card mb-4 p-4">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-end">
         <div class="min-w-0 flex-1">
           <label for="planning-search" class="label-text">{{ currentConfig.searchLabel }}</label>
@@ -96,7 +113,15 @@
             @keyup.enter="applySearch"
           />
         </div>
-        <label class="flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm text-slate-700 transition-colors hover:bg-slate-50">
+        <div class="w-full sm:w-48">
+          <label for="planning-enabled-status" class="label-text">สถานะใช้</label>
+          <select id="planning-enabled-status" v-model="enabledStatus" class="input-field" @change="onEnabledStatusChange">
+            <option value="all">ทั้งหมด</option>
+            <option value="enabled">เปิดใช้</option>
+            <option value="disabled">ยังไม่เปิดใช้</option>
+          </select>
+        </div>
+        <label v-if="false" class="flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm text-slate-700 transition-colors hover:bg-slate-50">
           <input v-model="enabledOnly" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" @change="onToggleEnabled" />
           เฉพาะที่เปิดใช้
         </label>
@@ -123,7 +148,29 @@
           <thead class="border-b border-slate-200 bg-slate-50">
             <tr>
               <th v-for="col in currentConfig.columns" :key="col.key" :class="['table-head-static', col.class || 'text-left']">
-                {{ col.label }}
+                <template v-if="activeTab !== 'users' && col.key === 'enabled'">
+                  <div class="flex flex-col items-center gap-1">
+                    <label class="inline-flex cursor-pointer items-center gap-1" title="กดเพื่อเปิด/ปิดใช้ทั้งหมดตามตัวกรอง ทุกหน้า">
+                      <input
+                        :checked="allVisiblePlanningEnabled"
+                        :disabled="bulkUpdating || loading || total === 0"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
+                        @change="onBulkPlanningEnabled($event.target.checked)"
+                      />
+                      <span>{{ col.label }}</span>
+                    </label>
+                    <button
+                      type="button"
+                      class="rounded border border-slate-300 px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                      :disabled="bulkUpdating || loading || total === 0"
+                      @click="bulkSetPlanningEnabled(0)"
+                    >
+                      ไม่ใช้ทั้งหมด
+                    </button>
+                  </div>
+                </template>
+                <template v-else>{{ col.label }}</template>
               </th>
             </tr>
           </thead>
@@ -132,7 +179,25 @@
               <td :colspan="currentConfig.columns.length" class="py-16 text-center text-slate-400">{{ currentConfig.emptyText }}</td>
             </tr>
             <tr v-for="row in rows" :key="rowKey(row)" :class="['hover:bg-slate-50', isDirty(row) ? 'bg-amber-50/40' : '']">
-              <template v-if="activeTab === 'supplier'">
+              <template v-if="activeTab === 'users'">
+                <td class="relative px-4 py-3">
+                  <span v-if="isDirty(row)" class="absolute left-1 top-1/2 -translate-y-1/2 text-amber-500" title="ยังไม่ได้บันทึก">●</span>
+                  <CodePill :value="row.user_code" />
+                </td>
+                <td class="px-4 py-3 font-medium text-slate-800">{{ row.user_name || '-' }}</td>
+                <td class="px-4 py-3 text-center">
+                  <input :checked="Number(row.can_access) === 1" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600" @change="onToggleField(row, 'can_access', $event.target.checked)" />
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    <input v-model="row.cart_color" type="color" class="h-10 w-12 rounded border border-slate-300 bg-white p-1" @input="markDirty(row)" />
+                    <input v-model="row.cart_color" class="input-field h-10 max-w-32 font-mono" maxlength="7" @input="markDirty(row)" />
+                  </div>
+                </td>
+                <td class="px-2 py-3"><input v-model="row.remark" class="input-field h-10" @input="markDirty(row)" /></td>
+              </template>
+
+              <template v-else-if="activeTab === 'supplier'">
                 <td class="relative px-4 py-3">
                   <span v-if="isDirty(row)" class="absolute left-1 top-1/2 -translate-y-1/2 text-amber-500" title="ยังไม่ได้บันทึก">●</span>
                   <CodePill :value="row.ap_code" />
@@ -153,19 +218,21 @@
                 <td class="px-4 py-3 text-right tabular-nums">{{ formatMoney(row.last_purchase_price) }}</td>
               </template>
 
-              <td v-for="field in dayFields" :key="field" class="px-2 py-3">
-                <input v-model.number="row[field]" type="number" min="0" max="999" class="input-field h-10 text-right" placeholder="" @input="markDirty(row)" />
-              </td>
+              <template v-if="activeTab !== 'users'">
+                <td v-for="field in dayFields" :key="field" class="px-2 py-3">
+                  <input v-model.number="row[field]" type="number" min="0" max="999" class="input-field h-10 text-right" placeholder="" @input="markDirty(row)" />
+                </td>
 
-              <template v-if="activeTab === 'itemSupplier'">
-                <td class="px-2 py-3"><input v-model.number="row.min_order_qty" type="number" min="0" class="input-field h-10 text-right" @input="markDirty(row)" /></td>
-                <td class="px-4 py-3 text-center"><input :checked="Number(row.is_preferred) === 1" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600" @change="onToggleField(row, 'is_preferred', $event.target.checked)" /></td>
+                <template v-if="activeTab === 'itemSupplier'">
+                  <td class="px-2 py-3"><input v-model.number="row.min_order_qty" type="number" min="0" class="input-field h-10 text-right" @input="markDirty(row)" /></td>
+                  <td class="px-4 py-3 text-center"><input :checked="Number(row.is_preferred) === 1" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600" @change="onToggleField(row, 'is_preferred', $event.target.checked)" /></td>
+                </template>
+
+                <td class="px-4 py-3 text-center">
+                  <input :checked="Number(row.planning_enabled) === 1" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600" @change="onToggleField(row, 'planning_enabled', $event.target.checked)" />
+                </td>
+                <td class="px-2 py-3"><input v-model="row.remark" class="input-field h-10" @input="markDirty(row)" /></td>
               </template>
-
-              <td class="px-4 py-3 text-center">
-                <input :checked="Number(row.planning_enabled) === 1" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600" @change="onToggleField(row, 'planning_enabled', $event.target.checked)" />
-              </td>
-              <td class="px-2 py-3"><input v-model="row.remark" class="input-field h-10" @input="markDirty(row)" /></td>
             </tr>
           </tbody>
         </table>
@@ -235,6 +302,7 @@ const CodePill = defineComponent({
 const tabs = [
   { key: 'supplier', label: 'เจ้าหนี้' },
   { key: 'itemSupplier', label: 'สินค้า+เจ้าหนี้' },
+  { key: 'users', label: 'สิทธิ์ผู้ใช้' },
 ]
 
 const dayFields = ['lead_time_days', 'late_buffer_days', 'wholesale_buffer_days', 'order_cycle_days']
@@ -244,10 +312,12 @@ const loading = ref(false)
 const error = ref('')
 const search = ref('')
 const enabledOnly = ref(false)
+const enabledStatus = ref('all')
 const page = ref(1)
 const limit = ref(30)
 const total = ref(0)
 const savingKey = ref('')
+const bulkUpdating = ref(false)
 const syncing = ref(false)
 const syncResult = ref(null)
 const exporting = ref(false)
@@ -278,6 +348,7 @@ const configs = {
   supplier: {
     url: '/purchase-planning/supplier-settings',
     save: (row) => `/purchase-planning/supplier-settings/save/${encodeURIComponent(row.ap_code)}`,
+    bulkEnableUrl: '/purchase-planning/supplier-settings/bulk-planning-enabled',
     syncUrl: '/purchase-planning/supplier-settings/sync-from-purchase-history',
     exportUrl: '/purchase-planning/supplier-settings/export',
     importUrl: '/purchase-planning/supplier-settings/import',
@@ -302,6 +373,7 @@ const configs = {
   itemSupplier: {
     url: '/purchase-planning/item-supplier-settings',
     save: () => '/purchase-planning/item-supplier-settings/save',
+    bulkEnableUrl: '/purchase-planning/item-supplier-settings/bulk-planning-enabled',
     syncUrl: '/purchase-planning/item-supplier-settings/sync-from-purchase-history',
     exportUrl: '/purchase-planning/item-supplier-settings/export',
     importUrl: '/purchase-planning/item-supplier-settings/import',
@@ -328,11 +400,37 @@ const configs = {
       { key: 'remark', label: 'หมายเหตุ', class: 'min-w-44 text-left' },
     ],
   },
+  users: {
+    url: '/purchase-planning/users',
+    save: (row) => `/purchase-planning/users/${encodeURIComponent(row.user_id)}`,
+    saveMethod: 'patch',
+    bulkEnableUrl: '',
+    syncUrl: '',
+    exportUrl: '',
+    importUrl: '',
+    syncCheckLabel: '',
+    syncUpdateLabel: '',
+    syncUnit: 'ราย',
+    searchLabel: 'ค้นหาผู้ใช้',
+    searchPlaceholder: 'ค้นหาตามรหัสหรือชื่อผู้ใช้',
+    emptyText: 'ไม่พบผู้ใช้',
+    tableClass: 'min-w-[860px]',
+    columns: [
+      { key: 'user_code', label: 'รหัสผู้ใช้', class: 'w-36 text-left' },
+      { key: 'user_name', label: 'ชื่อผู้ใช้', class: 'min-w-64 text-left' },
+      { key: 'can_access', label: 'ใช้วางแผนซื้อ', class: 'w-32 text-center' },
+      { key: 'cart_color', label: 'สีตะกร้า', class: 'w-56 text-left' },
+      { key: 'remark', label: 'หมายเหตุ', class: 'min-w-56 text-left' },
+    ],
+  },
 }
 
 const currentConfig = computed(() => configs[activeTab.value])
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit.value)))
 const canSyncCurrentTab = computed(() => Boolean(currentConfig.value.syncUrl))
+const allVisiblePlanningEnabled = computed(() => (
+  rows.value.length > 0 && rows.value.every((row) => Number(row.planning_enabled) === 1)
+))
 const syncCheckLabel = computed(() => currentConfig.value.syncCheckLabel)
 const syncUpdateLabel = computed(() => currentConfig.value.syncUpdateLabel)
 const syncUnit = computed(() => currentConfig.value.syncUnit || 'รายการ')
@@ -389,12 +487,20 @@ function formatMoney(value) {
 }
 
 function rowKey(row) {
+  if (activeTab.value === 'users') return row.user_id
   if (activeTab.value === 'supplier') return row.ap_code
   if (activeTab.value === 'item') return row.ic_code
   return `${row.ic_code}::${row.ap_code}`
 }
 
 function normalizeRow(row) {
+  if (activeTab.value === 'users') {
+    row.user_id = Number(row.user_id || 0)
+    row.can_access = Number(row.can_access ?? 0)
+    row.cart_color = /^#[0-9A-Fa-f]{6}$/.test(String(row.cart_color || '')) ? row.cart_color : '#2563eb'
+    row.remark = row.remark || ''
+    return row
+  }
   for (const field of dayFields) {
     row[field] = row[field] === null || row[field] === undefined ? null : Number(row[field])
   }
@@ -406,7 +512,7 @@ function normalizeRow(row) {
 }
 
 // ฟิลด์ที่ใช้ track dirty (เฉพาะที่ editable)
-const editableFields = [...dayFields, 'planning_enabled', 'is_preferred', 'min_order_qty', 'remark']
+const editableFields = [...dayFields, 'planning_enabled', 'is_preferred', 'min_order_qty', 'remark', 'can_access', 'cart_color']
 
 function snapshotRow(row) {
   const snap = {}
@@ -455,7 +561,7 @@ async function loadRows() {
   error.value = ''
   try {
     const { data } = await api.get(currentConfig.value.url, {
-      params: { search: search.value, page: page.value, limit: limit.value, enabled_only: enabledOnly.value ? 1 : 0 },
+      params: { search: search.value, page: page.value, limit: limit.value, enabled_status: enabledStatus.value },
     })
     if (seq !== loadSeq) return
     rows.value = (data.data || []).map(normalizeRow)
@@ -466,6 +572,48 @@ async function loadRows() {
     error.value = err.message
   } finally {
     if (seq === loadSeq) loading.value = false
+  }
+}
+
+function onBulkPlanningEnabled(checked) {
+  bulkSetPlanningEnabled(checked ? 1 : 0)
+}
+
+async function bulkSetPlanningEnabled(value) {
+  if (activeTab.value === 'users' || !currentConfig.value.bulkEnableUrl || bulkUpdating.value) return
+  const planningEnabled = Number(value) === 0 ? 0 : 1
+  const okToContinue = await guardDirty(async () => {})
+  if (!okToContinue) return
+
+  const actionText = planningEnabled === 1 ? 'เปิดใช้' : 'ปิดใช้'
+  const ok = await askConfirm({
+    title: `${actionText}ทั้งหมด`,
+    message: `ต้องการ${actionText}รายการตามตัวกรองปัจจุบันทุกหน้าหรือไม่`,
+    detail: `มีรายการตามตัวกรองประมาณ ${formatInt(total.value)} รายการ`,
+    confirmLabel: `${actionText}ทั้งหมด`,
+    cancelLabel: 'ยกเลิก',
+    tone: planningEnabled === 1 ? 'info' : 'danger',
+  })
+  if (!ok) return
+
+  bulkUpdating.value = true
+  saveAllResult.value = null
+  try {
+    const { data } = await api.post(currentConfig.value.bulkEnableUrl, {
+      planning_enabled: planningEnabled,
+      search: search.value,
+      enabled_status: enabledStatus.value,
+    }, { timeout: 180000 })
+    saveAllResult.value = {
+      ok: true,
+      message: `ปรับสถานะสำเร็จ ${formatInt(data.updated_count)} / ${formatInt(data.target_count)} รายการ`,
+    }
+    await loadRows()
+  } catch (err) {
+    saveAllResult.value = { ok: false, message: err.message }
+  } finally {
+    bulkUpdating.value = false
+    setTimeout(() => { saveAllResult.value = null }, 5000)
   }
 }
 
@@ -480,7 +628,8 @@ async function saveAll() {
   // บันทึกทีละ row ผ่าน save endpoint เดิม (parallel แบบจำกัด)
   await Promise.all(dirtyRows.map(async (row) => {
     try {
-      await api.post(currentConfig.value.save(row), row)
+      if (currentConfig.value.saveMethod === 'patch') await api.patch(currentConfig.value.save(row), row)
+      else await api.post(currentConfig.value.save(row), row)
       ok += 1
     } catch (err) {
       failed += 1
@@ -558,6 +707,7 @@ function switchTab(key) {
     activeTab.value = key
     search.value = ''
     enabledOnly.value = false
+    enabledStatus.value = 'all'
     page.value = 1
     syncResult.value = null
     importResult.value = null
@@ -586,9 +736,17 @@ function onToggleEnabled() {
   })
 }
 
+function onEnabledStatusChange() {
+  guardDirty(() => {
+    page.value = 1
+    loadRows()
+  })
+}
+
 function resetSearch() {
   guardDirty(() => {
     search.value = ''
+    enabledStatus.value = 'all'
     page.value = 1
     loadRows()
   })

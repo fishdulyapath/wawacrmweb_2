@@ -4,7 +4,7 @@
       <div>
         <h1 class="text-xl font-bold text-slate-800">ตะกร้าสั่งซื้อ</h1>
         <p class="mt-0.5 text-sm text-slate-500">
-          {{ cartCount > 0 ? `${cartCount} รายการ · ${cartGroups.length} เจ้าหนี้ · รวม ${formatMoney(cartTotal)} บาท` : 'ยังไม่มีรายการในตะกร้า' }}
+          {{ cartSummaryText }}
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
@@ -13,7 +13,7 @@
       </div>
     </div>
 
-    <div v-if="cartCount === 0" class="card py-16 text-center">
+    <div v-if="allCartCount === 0 && createdPrGroups.length === 0" class="card py-16 text-center">
       <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-3xl">
         <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l3-8H6.4M7 13 5.4 5M7 13l-2 8m12-8 2 8M9 21h6" />
@@ -28,10 +28,10 @@
       <div v-for="group in cartGroups" :key="group.ap_code" class="card mb-4 overflow-hidden">
         <div class="flex items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-3">
           <div class="flex items-center gap-2">
-            <input :checked="selectedGroups[group.ap_code] ?? true" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600" @change="selectedGroups[group.ap_code] = $event.target.checked" />
+            <input :checked="selectedGroups[group.ap_code] ?? true" :disabled="!group.owner_count" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600 disabled:cursor-not-allowed disabled:opacity-40" @change="selectedGroups[group.ap_code] = $event.target.checked" />
             <div>
               <p class="font-semibold text-slate-800">{{ group.ap_name || group.ap_code }}</p>
-              <p class="text-xs text-slate-400">{{ group.ap_code }} · {{ group.items.length }} รายการ</p>
+              <p class="text-xs text-slate-400">{{ group.ap_code }} · {{ group.items.length }} รายการ · ของคุณ {{ group.owner_count }} รายการ</p>
             </div>
           </div>
           <p class="shrink-0 text-right">
@@ -53,22 +53,31 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200">
-              <tr v-for="(item, idx) in group.items" :key="`${item.ic_code}-${item.ap_code}`" :class="[idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white', 'transition-colors hover:bg-blue-50/50']">
+              <tr v-for="(item, idx) in group.items" :key="`${item.ic_code}-${item.ap_code}`" :class="[idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white', !item.is_owner ? 'opacity-80' : '', 'transition-colors hover:bg-blue-50/50']" :style="{ borderLeft: `4px solid ${item.cart_color || '#cbd5e1'}` }">
                 <td class="px-4 py-3">
-                  <p class="font-medium text-slate-800">{{ item.ic_name || item.ic_code }}</p>
-                  <p class="mt-0.5 text-xs text-slate-400">
-                    <span class="rounded bg-slate-100 px-1.5 py-0.5 font-mono">{{ item.ic_code }}</span>
-                    <span v-if="item.suggest_qty" class="ml-1.5">· แนะนำ {{ formatQty(item.suggest_qty) }} {{ item.unit_code }}</span>
-                  </p>
-                  <p v-if="hasReferenceDetail(item)" class="mt-1 text-xs text-slate-500">
-                    จากรายงาน: หน่วย {{ item.reference_unit_code || '-' }} · ราคา {{ formatMoney(item.reference_price) }}
-                  </p>
+                  <div class="flex items-start gap-3">
+                    <img :src="productImageUrl(item.ic_code)" class="h-14 w-14 shrink-0 rounded border border-slate-200 bg-slate-50 object-cover" loading="lazy" @error="hideBrokenImage" />
+                    <div class="min-w-0">
+                      <p class="font-medium text-slate-800">{{ item.ic_name || item.ic_code }}</p>
+                      <p class="mt-0.5 text-xs text-slate-400">
+                        <span class="rounded bg-slate-100 px-1.5 py-0.5 font-mono">{{ item.ic_code }}</span>
+                        <span v-if="item.suggest_qty" class="ml-1.5">· แนะนำ {{ formatQty(item.suggest_qty) }} {{ item.unit_code }}</span>
+                      </p>
+                      <p class="mt-1 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                        <span class="h-2 w-2 rounded-full" :style="{ backgroundColor: item.cart_color || '#64748b' }"></span>
+                        {{ item.is_owner ? 'ของคุณ' : (item.user_name || item.user_code || 'ผู้ใช้อื่น') }}
+                      </p>
+                      <p v-if="hasReferenceDetail(item)" class="mt-1 text-xs text-slate-500">
+                        จากรายงาน: หน่วย {{ item.reference_unit_code || '-' }} · ราคา {{ formatMoney(item.reference_price) }}
+                      </p>
+                    </div>
+                  </div>
                 </td>
                 <td class="px-3 py-3 text-right">
-                  <input :value="item.qty" type="number" min="0" step="1" class="input-field h-10 text-right" @input="onQtyChange(item, $event.target.value)" />
+                  <input :value="item.qty" :disabled="!item.is_owner" type="number" min="0" step="1" class="input-field h-10 text-right disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" @input="onQtyChange(item, $event.target.value)" />
                 </td>
                 <td class="px-3 py-3">
-                  <select v-if="(item.units || []).length > 1" :value="item.selected_unit || item.unit_code" class="input-field h-10" @change="onUnitChange(item, $event)">
+                  <select v-if="(item.units || []).length > 1" :value="item.selected_unit || item.unit_code" :disabled="!item.is_owner" class="input-field h-10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" @change="onUnitChange(item, $event)">
                     <option v-for="u in (item.units || [])" :key="u.unit_code" :value="u.unit_code">
                       {{ u.unit_code }}{{ !u.is_base ? ` (x${u.ratio})` : '' }}
                     </option>
@@ -76,11 +85,11 @@
                   <span v-else class="text-sm text-slate-500">{{ item.selected_unit || item.unit_code }}</span>
                 </td>
                 <td class="px-3 py-3 text-right">
-                  <input :value="item.price" type="number" min="0" step="0.01" class="input-field h-10 text-right" @input="onPriceChange(item, $event.target.value)" />
+                  <input :value="item.price" :disabled="!item.is_owner" type="number" min="0" step="0.01" class="input-field h-10 text-right disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" @input="onPriceChange(item, $event.target.value)" />
                 </td>
                 <td class="px-4 py-3 text-right font-semibold tabular-nums text-blue-700">{{ formatMoney(lineTotal(item)) }}</td>
                 <td class="px-2 py-3 text-center">
-                  <button class="text-red-400 hover:text-red-600" title="ลบรายการ" @click="removeFromCart(item.ic_code, item.ap_code)">
+                  <button class="text-red-400 hover:text-red-600 disabled:cursor-not-allowed disabled:text-slate-300" :disabled="!item.is_owner" title="ลบรายการ" @click="removeFromCart(item.ic_code, item.ap_code)">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12" />
                     </svg>
@@ -103,7 +112,7 @@
         </div>
       </div>
 
-      <div class="card sticky bottom-4 z-20 p-4 shadow-lg">
+      <div v-if="cartCount > 0" class="card sticky bottom-4 z-20 p-4 shadow-lg">
         <div class="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <label class="label-text" for="pr-doc-date">วันที่เอกสาร</label>
@@ -122,6 +131,30 @@
 
       <div v-if="prResult && !prResult.success" class="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
         <p class="font-semibold text-red-800">{{ prResult.error }}</p>
+      </div>
+
+      <div v-if="createdPrGroups.length" class="mt-5">
+        <h2 class="mb-3 text-sm font-semibold text-slate-700">PR ที่สร้างแล้ว</h2>
+        <div class="grid gap-3 lg:grid-cols-2">
+          <div v-for="doc in createdPrGroups" :key="doc.pr_doc_no" class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm" :style="{ borderLeft: `4px solid ${doc.cart_color || '#cbd5e1'}` }">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="font-mono font-bold text-blue-700">{{ doc.pr_doc_no }}</p>
+                <p class="mt-0.5 text-xs text-slate-500">{{ doc.ap_name || doc.ap_code }} · {{ doc.items.length }} รายการ</p>
+              </div>
+              <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                <span class="h-2 w-2 rounded-full" :style="{ backgroundColor: doc.cart_color || '#64748b' }"></span>
+                {{ doc.user_name || doc.user_code || '-' }}
+              </span>
+            </div>
+            <div class="mt-2 space-y-1 text-xs text-slate-500">
+              <p v-for="item in doc.items.slice(0, 4)" :key="`${doc.pr_doc_no}-${item.ic_code}`" class="truncate">
+                {{ item.ic_code }} · {{ item.ic_name || '-' }} · {{ formatQty(item.qty) }} {{ item.selected_unit || item.unit_code }}
+              </p>
+              <p v-if="doc.items.length > 4" class="text-slate-400">และอีก {{ doc.items.length - 4 }} รายการ</p>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -143,7 +176,7 @@
             <div class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-left">
               <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">เลขที่เอกสาร</p>
               <div class="space-y-2">
-                <div v-for="doc in prResult.pr_docs" :key="doc.doc_no" class="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm shadow-sm">
+                <div v-for="doc in prResult.pr_docs" :key="doc.doc_no" class="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm shadow-sm" :style="{ borderLeft: `4px solid ${doc.cart_color || '#cbd5e1'}` }">
                   <div class="min-w-0">
                     <span class="font-mono font-bold text-blue-700">{{ doc.doc_no }}</span>
                     <div class="mt-0.5 text-xs text-slate-500">
@@ -228,7 +261,21 @@ import api from '../composables/useApi.js'
 import { usePlanningCart } from '../composables/usePlanningCart.js'
 
 const router = useRouter()
-const { cart, cartCount, cartGroups, cartTotal, removeFromCart, updateQty, updatePrice, updateUnit, setUnits, clearCart } = usePlanningCart()
+const {
+  cart,
+  createdPrItems,
+  cartCount,
+  allCartCount,
+  cartGroups,
+  cartTotal,
+  removeFromCart,
+  updateQty,
+  updatePrice,
+  updateUnit,
+  setUnits,
+  clearCart,
+  loadCart,
+} = usePlanningCart()
 
 const today = new Date().toISOString().slice(0, 10)
 const docDate = ref(today)
@@ -238,14 +285,41 @@ const selectedGroups = reactive({})
 const groupRemarks = reactive({})
 const unitsLoaded = reactive({})
 
-const selectedGroupCount = computed(() => cartGroups.value.filter((g) => selectedGroups[g.ap_code] ?? true).length)
+const cartSummaryText = computed(() => {
+  if (allCartCount.value === 0) return 'ยังไม่มีรายการในตะกร้า'
+  return `${cartCount.value} รายการของคุณ · ${allCartCount.value} รายการทั้งหมด · ${cartGroups.value.length} เจ้าหนี้ · รวมของคุณ ${formatMoney(cartTotal.value)} บาท`
+})
+
+const selectedGroupCount = computed(() => cartGroups.value.filter((g) => (selectedGroups[g.ap_code] ?? true) && Number(g.owner_count || 0) > 0).length)
 const selectedTotal = computed(() => (
   Math.round(
     cartGroups.value
       .filter((g) => selectedGroups[g.ap_code] ?? true)
-      .reduce((sum, group) => sum + Number(group.subtotal || 0), 0) * 100,
+      .reduce((sum, group) => sum + group.items
+        .filter((item) => item.is_owner)
+        .reduce((itemSum, item) => itemSum + lineTotal(item), 0), 0) * 100,
   ) / 100
 ))
+
+const createdPrGroups = computed(() => {
+  const map = new Map()
+  for (const item of createdPrItems) {
+    const key = item.pr_doc_no || `${item.ap_code}-${item.user_id || ''}`
+    if (!map.has(key)) {
+      map.set(key, {
+        pr_doc_no: item.pr_doc_no || '-',
+        ap_code: item.ap_code,
+        ap_name: item.ap_name,
+        user_code: item.user_code,
+        user_name: item.user_name,
+        cart_color: item.cart_color,
+        items: [],
+      })
+    }
+    map.get(key).items.push(item)
+  }
+  return Array.from(map.values())
+})
 
 async function loadUnitsForItem(icCode, apCode) {
   if (unitsLoaded[icCode]) {
@@ -293,7 +367,8 @@ function formatMoney(value) {
   })
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await loadCart().catch(() => {})
   for (const item of cart) {
     if (!item.units || item.units.length <= 1) {
       loadUnitsForItem(item.ic_code, item.ap_code)
@@ -315,12 +390,12 @@ function confirmClear() {
 
 async function createPR() {
   const groupsToSend = cartGroups.value
-    .filter((g) => selectedGroups[g.ap_code] ?? true)
+    .filter((g) => (selectedGroups[g.ap_code] ?? true) && Number(g.owner_count || 0) > 0)
     .map((g) => ({
       ap_code: g.ap_code,
       ap_name: g.ap_name,
       remark: (groupRemarks[g.ap_code] || '').trim(),
-      items: g.items.map((it) => {
+      items: g.items.filter((it) => it.is_owner).map((it) => {
         const selectedUnit = (it.units || []).find((unit) => unit.unit_code === (it.selected_unit || it.unit_code))
         return {
           item_code: it.ic_code,
@@ -332,9 +407,12 @@ async function createPR() {
           unit_stand_value: Number(selectedUnit?.stand_value || it.unit_ratio || 1),
           unit_divide_value: Number(selectedUnit?.divide_value || 1),
           base_unit: it.unit_code,
+          cart_id: it.id,
         }
       }),
+      cart_color: g.items.find((it) => it.is_owner)?.cart_color || '#2563eb',
     }))
+    .filter((g) => g.items.length > 0)
 
   if (!groupsToSend.length) return
 
@@ -377,7 +455,7 @@ async function createPR() {
     })
     prResult.value = data
     if (data.success) {
-      removeCreatedGroupsFromCart(groupsToSend, data.pr_docs || [])
+      await loadCart().catch(() => {})
     }
   } catch (err) {
     prResult.value = { success: false, error: err.response?.data?.error || err.message || 'เกิดข้อผิดพลาด' }
@@ -386,7 +464,7 @@ async function createPR() {
   }
 }
 
-function removeCreatedGroupsFromCart(groupsToSend, prDocs) {
+async function removeCreatedGroupsFromCart(groupsToSend, prDocs) {
   const createdApCodes = new Set((prDocs || []).map((doc) => String(doc.ap_code || '').trim()).filter(Boolean))
   const groupsToRemove = createdApCodes.size
     ? groupsToSend.filter((group) => createdApCodes.has(String(group.ap_code || '').trim()))
@@ -394,11 +472,19 @@ function removeCreatedGroupsFromCart(groupsToSend, prDocs) {
 
   for (const group of groupsToRemove) {
     for (const item of group.items) {
-      removeFromCart(item.item_code, group.ap_code)
+      await removeFromCart(item.item_code, group.ap_code)
     }
     delete selectedGroups[group.ap_code]
     delete groupRemarks[group.ap_code]
   }
+}
+
+function productImageUrl(icCode) {
+  return `/api/products/images/primary?item_code=${encodeURIComponent(icCode || '')}`
+}
+
+function hideBrokenImage(event) {
+  event.target.style.display = 'none'
 }
 
 function goReport() {
