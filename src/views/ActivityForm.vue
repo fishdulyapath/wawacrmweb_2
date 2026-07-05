@@ -888,19 +888,39 @@ function crmOwnersFromCustomerPayload(crm) {
     .filter(o => o.user_id)
 }
 
+function crmVisitOwnersFromCustomerPayload(crm) {
+  const owners = Array.isArray(crm?.visit_owners) ? crm.visit_owners : []
+  return owners
+    .map(o => ({
+      user_id: Number(o.user_id),
+      name: o.name,
+      code: o.code,
+      is_primary: !!o.is_primary,
+    }))
+    .filter(o => o.user_id)
+}
+
+function customerOwnersForActivity(c) {
+  if (form.activity_type === 'visit' && Array.isArray(c?.visit_owners) && c.visit_owners.length) {
+    return c.visit_owners
+  }
+  return Array.isArray(c?.owners) ? c.owners : []
+}
+
 function customerOwnerIds(c) {
-  const ids = (c.owners || []).map(o => Number(o.user_id)).filter(Boolean)
+  const ids = customerOwnersForActivity(c).map(o => Number(o.user_id)).filter(Boolean)
   if (ids.length) return [...new Set(ids)]
   return c.owner_id ? [Number(c.owner_id)] : []
 }
 
 function customerPrimaryOwnerId(c) {
-  const primary = (c.owners || []).find(o => o.is_primary) || (c.owners || [])[0]
+  const owners = customerOwnersForActivity(c)
+  const primary = owners.find(o => o.is_primary) || owners[0]
   return primary?.user_id || c.owner_id || null
 }
 
 function customerOwnerNames(c) {
-  const names = (c.owners || []).map(o => o.name || o.code).filter(Boolean)
+  const names = customerOwnersForActivity(c).map(o => o.name || o.code).filter(Boolean)
   return names.length ? names.join(', ') : c.owner_name
 }
 
@@ -931,6 +951,7 @@ async function selectCust(c) {
     owner_id:   c.crm?.owner_user_id || null,
     owner_name: c.crm?.owner_name    || null,
     owners:     crmOwnersFromCustomerPayload(c.crm),
+    visit_owners: crmVisitOwnersFromCustomerPayload(c.crm),
   }
   try {
     const { data } = await api.get(`/customers/${c.code}`)
@@ -941,12 +962,14 @@ async function selectCust(c) {
     entry.crm_status = customerCrmStatus({ crm: data.crm })
     // override ด้วยข้อมูลล่าสุดจาก detail (อาจใหม่กว่า list cache)
     const owners = crmOwnersFromCustomerPayload(data.crm)
+    const visitOwners = crmVisitOwnersFromCustomerPayload(data.crm)
     if (owners.length) {
       entry.owners = owners
       const primary = owners.find(o => o.is_primary) || owners[0]
       entry.owner_id = primary.user_id
       entry.owner_name = primary.name
     }
+    entry.visit_owners = visitOwners
     if (data.crm?.owner_user_id) {
       entry.owner_id   = data.crm.owner_user_id
       entry.owner_name = data.crm.owner_name
@@ -1087,12 +1110,13 @@ async function loadActivity() {
 
     // โหลด customer เดิม (edit mode = 1 ลูกค้า)
     if (data.ar_code) {
-      const entry = { code: data.ar_code, name_1: data.ar_code, owner_id: null, owner_name: null, owners: [] }
+      const entry = { code: data.ar_code, name_1: data.ar_code, owner_id: null, owner_name: null, owners: [], visit_owners: [] }
       try {
         const { data: cd } = await api.get(`/customers/${data.ar_code}`)
         const customer = cd.customer || {}
         entry.name_1 = customer.name_1 || data.ar_code
         entry.owners = crmOwnersFromCustomerPayload(cd.crm)
+        entry.visit_owners = crmVisitOwnersFromCustomerPayload(cd.crm)
         const primary = entry.owners.find(o => o.is_primary) || entry.owners[0]
         if (primary) {
           entry.owner_id = primary.user_id
@@ -1275,7 +1299,7 @@ onMounted(async () => {
       await selectCust({ code: c.code || route.query.ar_code, name_1: c.name_1 || route.query.ar_code, crm: data.crm })
     } catch {
       // ถ้าโหลดไม่ได้ ใส่ code เปล่าไว้ก่อน
-      selectedCustomers.value = [{ code: route.query.ar_code, name_1: route.query.ar_code, owner_id: null, owner_name: null, owners: [] }]
+      selectedCustomers.value = [{ code: route.query.ar_code, name_1: route.query.ar_code, owner_id: null, owner_name: null, owners: [], visit_owners: [] }]
     }
   }
 })

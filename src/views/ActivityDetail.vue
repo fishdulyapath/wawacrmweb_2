@@ -654,7 +654,419 @@
           </div>
         </div>
 
-        <!-- ── หนี้คงค้าง ── -->
+        <div v-show="customerActiveTab === 'activities'" class="space-y-4">
+          <section v-if="followupSummary" class="card p-4 border border-blue-100 bg-blue-50/40">
+            <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+              <div>
+                <h3 class="text-sm font-semibold text-slate-800">Follow-up โทร</h3>
+              </div>
+              <button v-if="isManager" type="button" @click="toggleCustomerFollowup"
+                :disabled="savingFollowup"
+                :class="followupForm.followup_enabled ? 'bg-blue-600' : 'bg-slate-300'"
+                class="relative w-12 h-7 rounded-full transition-colors flex-shrink-0 disabled:opacity-60">
+                <span :class="followupForm.followup_enabled ? 'translate-x-5' : 'translate-x-0'"
+                  class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full shadow transition-transform" />
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label class="label-text">วันติดตามถัดไป</label>
+                <div class="flex flex-col gap-2 sm:flex-row">
+                  <DateInput v-model="followupForm.next_followup" class="input-field text-sm" :disabled="!isManager" />
+                  <button v-if="isManager" type="button" @click="saveFollowupOverride({ next_followup: followupForm.next_followup || null })"
+                    :disabled="savingFollowup"
+                    class="px-3 rounded-lg bg-white border border-blue-200 text-blue-700 text-xs font-semibold hover:bg-blue-50 disabled:opacity-60">
+                    บันทึก
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label class="label-text">พักถึงวันที่</label>
+                <DateInput v-model="followupForm.followup_pause_until" class="input-field text-sm" :disabled="!isManager" />
+              </div>
+              <div>
+                <label class="label-text">เหตุผลพัก</label>
+                <div class="flex flex-col gap-2 sm:flex-row">
+                  <input v-model="followupForm.followup_pause_reason" class="input-field text-sm" placeholder="เช่น รอลูกค้าติดต่อกลับ" :disabled="!isManager" />
+                  <button v-if="isManager" type="button" @click="pauseCustomerFollowup"
+                    :disabled="savingFollowup || !followupForm.followup_pause_until"
+                    class="px-3 rounded-lg bg-white border border-amber-200 text-amber-700 text-xs font-semibold hover:bg-amber-50 disabled:opacity-60">
+                    พัก
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-3 rounded-xl border border-blue-100 bg-white/70 p-3">
+              <div class="flex flex-wrap items-end gap-3">
+                <div class="min-w-[180px]">
+                  <label class="label-text">รอบโทรเฉพาะลูกค้า</label>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <input
+                      v-model.number="followupForm.followup_interval_days"
+                      type="number"
+                      min="1"
+                      max="365"
+                      class="input-field text-sm max-w-[140px]"
+                      :disabled="!isManager"
+                    />
+                    <span class="text-xs text-slate-500">วัน</span>
+                    <button v-if="isManager" type="button" @click="saveCustomerFollowupInterval"
+                      :disabled="savingFollowup"
+                      class="px-3 py-2 rounded-lg bg-white border border-blue-200 text-blue-700 text-xs font-semibold hover:bg-blue-50 disabled:opacity-60">
+                      บันทึกรอบโทร
+                    </button>
+                    <button v-if="isManager" type="button" @click="useDefaultFollowupInterval"
+                      :disabled="savingFollowup || !followupForm.followup_interval_days"
+                      class="px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 disabled:opacity-60">
+                      ใช้ค่ากลาง
+                    </button>
+                  </div>
+                </div>
+                <div class="text-xs text-slate-500">
+                  <span class="inline-flex rounded-full bg-blue-50 px-2 py-1 font-semibold text-blue-700">{{ followupIntervalBadge }}</span>
+                  <span class="ml-2">{{ followupIntervalHelp }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+              <span v-if="!followupForm.followup_enabled" class="px-2 py-1 rounded bg-slate-100 text-slate-600">ปิด follow-up</span>
+              <span v-if="followupForm.followup_pause_until" class="px-2 py-1 rounded bg-amber-100 text-amber-700">
+                พักถึง {{ formatActDate(followupForm.followup_pause_until) }}
+              </span>
+              <span v-if="followupSummary.next_open_followup" class="px-2 py-1 rounded bg-white border border-slate-200">
+                งานถัดไป: {{ followupSummary.next_open_followup.subject }} · {{ formatActDateTime(followupSummary.next_open_followup.start_datetime || followupSummary.next_open_followup.retry_due_at || followupSummary.next_open_followup.due_date) }}
+              </span>
+              <span v-if="followupSummary.policy" class="px-2 py-1 rounded bg-white border border-slate-200">
+                โทรทุก {{ followupSummary.policy.default_call_interval_days }} วัน · โทรซ้ำ {{ followupSummary.policy.no_answer_retry_minutes }} นาที
+              </span>
+              <span v-if="!isManager" class="ml-auto text-slate-400">ดูได้อย่างเดียว</span>
+              <button v-if="isManager && (followupForm.followup_pause_until || !followupForm.followup_enabled)"
+                type="button"
+                @click="resumeCustomerFollowup"
+                :disabled="savingFollowup"
+                class="ml-auto text-blue-700 font-semibold hover:underline disabled:opacity-60">
+                เปิดใช้งานอีกครั้ง
+              </button>
+            </div>
+          </section>
+
+          <section v-if="followupSummary" class="card p-4 border border-green-100 bg-green-50/40">
+            <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+              <div>
+                <h3 class="text-sm font-semibold text-slate-800">Follow-up เยี่ยม</h3>
+              </div>
+              <button v-if="isManager" type="button" @click="toggleCustomerVisitFollowup"
+                :disabled="savingFollowup"
+                :class="followupForm.visit_followup_enabled ? 'bg-green-600' : 'bg-slate-300'"
+                class="relative w-12 h-7 rounded-full transition-colors flex-shrink-0 disabled:opacity-60">
+                <span :class="followupForm.visit_followup_enabled ? 'translate-x-5' : 'translate-x-0'"
+                  class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full shadow transition-transform" />
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label class="label-text">วันเยี่ยมถัดไป</label>
+                <div class="flex flex-col gap-2 sm:flex-row">
+                  <DateInput v-model="followupForm.next_visit_followup" class="input-field text-sm" :disabled="!isManager" />
+                  <button v-if="isManager" type="button" @click="saveFollowupOverride({ next_visit_followup: followupForm.next_visit_followup || null })"
+                    :disabled="savingFollowup"
+                    class="px-3 rounded-lg bg-white border border-green-200 text-green-700 text-xs font-semibold hover:bg-green-50 disabled:opacity-60">
+                    บันทึก
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label class="label-text">พักถึงวันที่</label>
+                <DateInput v-model="followupForm.visit_followup_pause_until" class="input-field text-sm" :disabled="!isManager" />
+              </div>
+              <div>
+                <label class="label-text">เหตุผลพัก</label>
+                <div class="flex flex-col gap-2 sm:flex-row">
+                  <input v-model="followupForm.visit_followup_pause_reason" class="input-field text-sm" placeholder="เช่น นัดหมายแล้ว" :disabled="!isManager" />
+                  <button v-if="isManager" type="button" @click="pauseCustomerVisitFollowup"
+                    :disabled="savingFollowup || !followupForm.visit_followup_pause_until"
+                    class="px-3 rounded-lg bg-white border border-amber-200 text-amber-700 text-xs font-semibold hover:bg-amber-50 disabled:opacity-60">
+                    พัก
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-3 rounded-xl border border-green-100 bg-white/70 p-3">
+              <div class="flex flex-wrap items-end gap-3">
+                <div class="min-w-[180px]">
+                  <label class="label-text">รอบเยี่ยมเฉพาะลูกค้า</label>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <input
+                      v-model.number="followupForm.visit_followup_interval_days"
+                      type="number"
+                      min="1"
+                      max="365"
+                      class="input-field text-sm max-w-[140px]"
+                      :disabled="!isManager"
+                    />
+                    <span class="text-xs text-slate-500">วัน</span>
+                    <button v-if="isManager" type="button" @click="saveCustomerVisitInterval"
+                      :disabled="savingFollowup"
+                      class="px-3 py-2 rounded-lg bg-white border border-green-200 text-green-700 text-xs font-semibold hover:bg-green-50 disabled:opacity-60">
+                      บันทึกรอบเยี่ยม
+                    </button>
+                    <button v-if="isManager" type="button" @click="useDefaultVisitInterval"
+                      :disabled="savingFollowup || !followupForm.visit_followup_interval_days"
+                      class="px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 disabled:opacity-60">
+                      ใช้ค่ากลาง
+                    </button>
+                  </div>
+                </div>
+                <div class="text-xs text-slate-500">
+                  <span class="inline-flex rounded-full bg-green-50 px-2 py-1 font-semibold text-green-700">
+                    {{ followupForm.visit_followup_interval_days ? `${followupForm.visit_followup_interval_days} วัน` : 'ใช้ค่ากลาง' }}
+                  </span>
+                  <span class="ml-2">{{ followupForm.visit_followup_interval_days ? 'รอบเยี่ยมเฉพาะลูกค้า' : 'ตามค่า global' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+              <span v-if="!followupForm.visit_followup_enabled" class="px-2 py-1 rounded bg-slate-100 text-slate-600">ปิด follow-up เยี่ยม</span>
+              <span v-if="followupForm.visit_followup_pause_until" class="px-2 py-1 rounded bg-amber-100 text-amber-700">
+                พักถึง {{ formatActDate(followupForm.visit_followup_pause_until) }}
+              </span>
+              <span v-if="followupSummary.policy" class="px-2 py-1 rounded bg-white border border-slate-200">
+                เยี่ยมทุก {{ followupSummary.policy.default_visit_interval_days || 30 }} วัน
+              </span>
+              <span v-if="!isManager" class="ml-auto text-slate-400">ดูได้อย่างเดียว</span>
+              <button v-if="isManager && (followupForm.visit_followup_pause_until || !followupForm.visit_followup_enabled)"
+                type="button"
+                @click="resumeCustomerVisitFollowup"
+                :disabled="savingFollowup"
+                class="ml-auto text-green-700 font-semibold hover:underline disabled:opacity-60">
+                เปิดใช้งานอีกครั้ง
+              </button>
+            </div>
+          </section>
+
+          <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div class="relative flex-1 min-w-[180px]">
+              <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+              <input v-model="customerActivityFilter.search" @input="customerActivityDebounce" class="input-field pl-9 text-sm" placeholder="ค้นหาหัวข้อ..."/>
+            </div>
+            <select v-model="customerActivityFilter.status" @change="loadCustomerActivities(true)" class="input-field w-full text-sm sm:w-auto">
+              <option value="all">ทุกสถานะ</option>
+              <option value="open">ค้างอยู่</option>
+              <option value="done">ปิดแล้ว</option>
+              <option value="deleted">ถูกลบ</option>
+            </select>
+          </div>
+
+          <div v-if="loadingCustomerActivities" class="text-center text-slate-400 py-8 text-sm">
+            <svg class="animate-spin w-5 h-5 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+            กำลังโหลด...
+          </div>
+
+          <div v-else-if="customerActivities.length === 0" class="card p-8 text-center text-slate-400">
+            <svg class="mx-auto w-10 h-10 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <p class="text-sm">ยังไม่มีกิจกรรมสำหรับลูกค้านี้</p>
+          </div>
+
+          <template v-else>
+            <div v-for="act in customerActivities" :key="act.id"
+              :class="[
+                'card border cursor-pointer hover:shadow-md transition-shadow',
+                act.status === 'deleted' ? 'opacity-50' : '',
+                act.status === 'done' ? 'border-green-200' : '',
+                actOverdueDays(act) > 0 ? 'border-red-200 bg-red-50/30' : ''
+              ]"
+              @click="openCustomerActivityDialog(act)">
+              <div class="p-4">
+                <div class="flex items-start justify-between gap-2 mb-2">
+                  <div class="flex items-center gap-2 min-w-0 flex-1">
+                    <span class="text-lg flex-shrink-0">{{ actTypeIcon(act.activity_type) }}</span>
+                    <div class="min-w-0">
+                      <p :class="['text-sm font-semibold', act.status === 'deleted' ? 'line-through text-slate-400' : 'text-slate-800']">
+                        {{ act.subject }}
+                      </p>
+                      <p class="text-xs text-slate-400 mt-0.5">
+                        {{ actTypeLabel(act.activity_type) }}
+                        <span v-if="act.group_id" class="ml-1 text-purple-500" title="กิจกรรมกลุ่ม">👥</span>
+                        <span v-if="act.followup_type === 'no_answer_retry'" class="ml-1 text-amber-600 font-semibold">
+                          โทรซ้ำ {{ act.attempt_no ? `#${act.attempt_no}` : '' }}
+                        </span>
+                        <span v-else-if="act.system_created" class="ml-1 text-indigo-600 font-semibold">สร้างโดยระบบ</span>
+                      </p>
+                      <p v-if="act.activity_type === 'call' && (act.call_direction || act.call_result)" class="text-xs mt-0.5">
+                        <span class="text-slate-400">{{ act.call_direction === 'outbound' ? 'โทรออก' : act.call_direction === 'inbound' ? 'รับสาย' : '' }}</span>
+                        <span v-if="act.call_result" :class="act.call_result === 'answered' ? 'text-green-600' : 'text-red-500'">
+                          {{ act.call_direction ? ' · ' : '' }}{{ callResultLabel(act.call_result) }}
+                        </span>
+                      </p>
+                      <div v-if="act.activity_type === 'visit'" class="flex flex-wrap gap-1 mt-0.5">
+                        <span v-if="act.visit_met === true" class="bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-full text-[10px]">ได้พบ</span>
+                        <span v-if="act.visit_met === false" class="bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded-full text-[10px]">ไม่ได้พบ</span>
+                        <span v-if="act.visit_order === true" class="bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-full text-[10px]">ออเดอร์</span>
+                        <span v-if="act.visit_order_amount" class="text-[10px] text-slate-500 self-center">฿{{ Number(act.visit_order_amount).toLocaleString() }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', actStatusBadge(act.status, act).cls]">
+                      {{ actStatusBadge(act.status, act).label }}
+                    </span>
+                    <span class="text-xs text-slate-400 whitespace-nowrap">
+                      {{ formatActDate(act.due_date || act.start_datetime) }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-1 text-xs text-slate-500 min-w-0">
+                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                    <span class="truncate">
+                      {{ (act.owners || []).filter(o => !o.removed_at).map(o => o.name).join(', ') || 'ไม่มีผู้รับผิดชอบ' }}
+                    </span>
+                  </div>
+                  <span v-if="actOverdueDays(act) > 0" class="text-xs text-red-500 font-medium whitespace-nowrap">
+                    เลยกำหนด {{ actOverdueDays(act) }} วัน
+                  </span>
+                </div>
+
+                <div v-if="act.status === 'done' && act.outcome"
+                  class="mt-3 p-3 bg-green-50 rounded-lg border border-green-100">
+                  <p class="text-xs font-medium text-green-700 mb-1">ผลลัพธ์</p>
+                  <p class="text-sm text-green-800 whitespace-pre-wrap">{{ act.outcome }}</p>
+                  <p v-if="act.created_by_name" class="text-xs text-green-600 mt-1">
+                    อัปเดตล่าสุด {{ formatActDateTime(act.updated_at) }}
+                  </p>
+                </div>
+
+                <div v-else-if="act.status === 'done' && !act.outcome"
+                  class="mt-3 p-3 bg-green-50 rounded-lg border border-green-100">
+                  <p class="text-xs font-medium text-green-700">งานเสร็จสิ้น</p>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="customerActivities.length < customerActivityTotal" class="text-center pt-2">
+              <button @click="loadMoreCustomerActivities" :disabled="loadingCustomerActivities"
+                class="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                ดูเพิ่ม (แสดง {{ customerActivities.length }} จาก {{ customerActivityTotal }}) →
+              </button>
+            </div>
+          </template>
+        </div>
+
+        <div v-show="customerActiveTab === 'notes'" class="space-y-4">
+          <div class="card p-4">
+            <label class="label-text mb-2 block">เพิ่มบันทึกใหม่</label>
+            <textarea v-model="newNote" rows="3" class="input-field mb-3"
+              placeholder="บันทึกการติดต่อ, ข้อสังเกต, หมายเหตุ..."/>
+            <div
+              class="mb-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-3 transition-colors"
+              :class="noteFileDragging ? 'border-blue-400 bg-blue-50' : ''"
+              @dragover.prevent="noteFileDragging = true"
+              @dragleave.prevent="noteFileDragging = false"
+              @drop.prevent="onNewNoteFileDrop">
+              <input ref="noteFileInput" type="file" multiple class="hidden" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                @change="onNewNoteFileChange" />
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p class="text-sm font-medium text-slate-700">แนบรูป/ไฟล์ประกอบบันทึก</p>
+                  <p class="text-xs text-slate-400">ลากไฟล์มาวาง หรือเลือกไฟล์ได้สูงสุด 10 ไฟล์</p>
+                </div>
+                <button type="button" class="btn-secondary text-xs px-3 py-1.5" @click="noteFileInput?.click()">
+                  เลือกไฟล์
+                </button>
+              </div>
+              <div v-if="newNoteFiles.length" class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div v-for="(item, idx) in newNoteFiles" :key="item.id" class="relative rounded-lg border border-slate-200 bg-white p-2">
+                  <img v-if="item.previewUrl" :src="item.previewUrl" class="h-20 w-full rounded-md object-cover" />
+                  <div v-else class="h-20 rounded-md bg-slate-100 flex items-center justify-center text-xs text-slate-500 text-center px-2">
+                    {{ item.file.name }}
+                  </div>
+                  <p class="mt-1 truncate text-[11px] text-slate-500">{{ item.file.name }}</p>
+                  <button type="button" class="absolute right-1 top-1 rounded-full bg-white/90 px-1.5 text-xs text-red-500 shadow"
+                    @click="removeNewNoteFile(idx)">
+                    x
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                <input v-model="newNotePinned" type="checkbox" class="rounded"/>
+                ปักหมุด
+              </label>
+              <button @click="addNote" :disabled="!canAddNote || savingNote"
+                class="btn-primary text-sm px-4 py-1.5 disabled:opacity-40">
+                {{ savingNote ? 'กำลังบันทึก...' : 'บันทึก' }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="loadingNotes" class="text-center text-slate-400 py-8 text-sm">กำลังโหลด...</div>
+
+          <div v-else-if="!notes.length" class="card p-8 text-center text-slate-400 text-sm">
+            ยังไม่มีบันทึก
+          </div>
+
+          <div v-for="note in notes" :key="note.id"
+            :class="note.is_pinned ? 'border-yellow-300 bg-yellow-50/50' : ''"
+            class="card p-4 border">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-slate-800 whitespace-pre-wrap">{{ note.note_text }}</p>
+                <div v-if="note.attachments?.length" class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button v-for="att in note.attachments" :key="att.id" type="button"
+                    class="text-left rounded-lg border border-slate-200 bg-slate-50 overflow-hidden hover:border-blue-300"
+                    @click="isNoteImage(att) ? openNoteAttachmentPreview(att, $event) : null">
+                    <img v-if="isNoteImage(att)" :src="noteAttachmentThumbUrl(att)" class="h-24 w-full object-cover" />
+                    <div v-else class="h-24 flex items-center justify-center bg-white text-xs text-slate-500 px-2 text-center">
+                      {{ att.original_name || att.filename }}
+                    </div>
+                    <div class="px-2 py-1">
+                      <p class="truncate text-[11px] text-slate-600">{{ att.original_name || att.filename }}</p>
+                      <p class="text-[10px] text-slate-400">{{ formatFileSize(att.file_size) }}</p>
+                    </div>
+                  </button>
+                </div>
+                <p class="text-xs text-slate-400 mt-2">
+                  {{ note.created_by_name || 'ไม่ระบุ' }} · {{ formatNoteDate(note.created_at) }}
+                  <span v-if="note.is_pinned" class="ml-2 text-yellow-600 font-medium">📌 ปักหมุด</span>
+                </p>
+              </div>
+              <div class="flex gap-1 flex-shrink-0">
+                <button @click="togglePin(note)" title="ปักหมุด"
+                  class="p-1.5 rounded-lg text-slate-400 hover:text-yellow-500 hover:bg-yellow-50 transition-colors">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+                  </svg>
+                </button>
+                <button @click="deleteNote(note)" title="ลบ"
+                  class="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div v-show="customerActiveTab === 'credit_detail'" class="space-y-4">
           <div v-if="loadingCreditDetail" class="text-center text-slate-400 py-8 text-sm">
             <svg class="animate-spin w-5 h-5 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
@@ -769,6 +1181,98 @@
       </div>
     </template>
 
+  <Teleport to="body">
+    <div v-if="selectedCustomerActivity"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      @click.self="closeCustomerActivityDialog">
+      <div class="w-full max-w-3xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+          <div class="min-w-0">
+            <div class="mb-2 flex flex-wrap items-center gap-2">
+              <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium" :class="typeClass(selectedCustomerActivity.activity_type)">
+                {{ actTypeLabel(selectedCustomerActivity.activity_type) }}
+              </span>
+              <span :class="['inline-flex rounded-full px-2 py-0.5 text-xs font-medium', actStatusBadge(selectedCustomerActivity.status, selectedCustomerActivity).cls]">
+                {{ actStatusBadge(selectedCustomerActivity.status, selectedCustomerActivity).label }}
+              </span>
+              <span v-if="selectedCustomerActivity.system_created" class="text-xs font-semibold text-indigo-600">สร้างโดยระบบ</span>
+            </div>
+            <h3 class="truncate text-lg font-semibold text-slate-800">{{ selectedCustomerActivity.subject || '-' }}</h3>
+            <p class="mt-1 text-xs text-slate-400">
+              {{ formatActDateTime(selectedCustomerActivity.start_datetime || selectedCustomerActivity.due_date || selectedCustomerActivity.created_at) }}
+            </p>
+          </div>
+          <button type="button"
+            class="rounded-lg px-3 py-1 text-sm text-slate-500 hover:bg-slate-100"
+            @click="closeCustomerActivityDialog">
+            ปิด
+          </button>
+        </div>
+
+        <div class="max-h-[calc(90vh-88px)] overflow-y-auto px-5 py-4">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+              <p class="text-xs font-medium text-slate-400">ผู้รับผิดชอบ</p>
+              <p class="mt-1 text-sm text-slate-700">
+                {{ customerActivityOwnerNames(selectedCustomerActivity) || 'ไม่มีผู้รับผิดชอบ' }}
+              </p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+              <p class="text-xs font-medium text-slate-400">ผู้สร้าง</p>
+              <p class="mt-1 text-sm text-slate-700">{{ selectedCustomerActivity.created_by_name || 'ไม่ระบุ' }}</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+              <p class="text-xs font-medium text-slate-400">วันที่เริ่ม / กำหนด</p>
+              <p class="mt-1 text-sm text-slate-700">
+                {{ formatActDateTime(selectedCustomerActivity.start_datetime || selectedCustomerActivity.due_date) || '-' }}
+              </p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+              <p class="text-xs font-medium text-slate-400">อัปเดตล่าสุด</p>
+              <p class="mt-1 text-sm text-slate-700">{{ formatActDateTime(selectedCustomerActivity.updated_at) || '-' }}</p>
+            </div>
+          </div>
+
+          <div v-if="selectedCustomerActivity.description" class="mt-4 rounded-xl border border-slate-200 p-4">
+            <p class="mb-2 text-xs font-medium text-slate-400">รายละเอียด</p>
+            <p class="whitespace-pre-wrap text-sm text-slate-700">{{ selectedCustomerActivity.description }}</p>
+          </div>
+
+          <div v-if="selectedCustomerActivity.activity_type === 'call'" class="mt-4 rounded-xl border border-orange-100 bg-orange-50/40 p-4">
+            <p class="mb-2 text-xs font-semibold text-orange-700">ข้อมูลการโทร</p>
+            <div class="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+              <div>
+                <span class="text-slate-400">ทิศทาง: </span>
+                <span class="text-slate-700">{{ selectedCustomerActivity.call_direction === 'outbound' ? 'โทรออก' : selectedCustomerActivity.call_direction === 'inbound' ? 'รับสาย' : '-' }}</span>
+              </div>
+              <div>
+                <span class="text-slate-400">ผลการโทร: </span>
+                <span class="text-slate-700">{{ selectedCustomerActivity.call_result ? callResultLabel(selectedCustomerActivity.call_result) : '-' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="selectedCustomerActivity.activity_type === 'visit'" class="mt-4 rounded-xl border border-teal-100 bg-teal-50/40 p-4">
+            <p class="mb-2 text-xs font-semibold text-teal-700">ข้อมูลการเยี่ยม</p>
+            <div class="flex flex-wrap gap-2 text-xs">
+              <span v-if="selectedCustomerActivity.visit_met === true" class="rounded-full border border-green-200 bg-green-50 px-2 py-1 font-medium text-green-700">ได้พบ</span>
+              <span v-if="selectedCustomerActivity.visit_met === false" class="rounded-full border border-red-200 bg-red-50 px-2 py-1 font-medium text-red-600">ไม่ได้พบ</span>
+              <span v-if="selectedCustomerActivity.visit_order === true" class="rounded-full border border-blue-200 bg-blue-50 px-2 py-1 font-medium text-blue-600">มีออเดอร์</span>
+              <span v-if="selectedCustomerActivity.visit_order_amount" class="rounded-full border border-slate-200 bg-white px-2 py-1 font-medium text-slate-600">
+                ยอด {{ Number(selectedCustomerActivity.visit_order_amount).toLocaleString('th-TH') }}
+              </span>
+            </div>
+          </div>
+
+          <div v-if="selectedCustomerActivity.outcome" class="mt-4 rounded-xl border border-green-100 bg-green-50/50 p-4">
+            <p class="mb-2 text-xs font-medium text-green-700">ผลลัพธ์</p>
+            <p class="whitespace-pre-wrap text-sm text-green-800">{{ selectedCustomerActivity.outcome }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
   <!-- Lightbox -->
   <Teleport to="body">
     <div v-if="lightbox.open"
@@ -779,6 +1283,27 @@
           class="absolute -top-10 right-0 text-white/80 hover:text-white text-3xl leading-none">&times;</button>
         <img :src="lightbox.src" class="max-w-full max-h-[80vh] rounded-lg shadow-2xl object-contain" />
         <div v-if="lightbox.label" class="mt-3 text-sm text-white/70">{{ lightbox.label }}</div>
+      </div>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div v-if="noteAttachmentPreview"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      @click.self="noteAttachmentPreview = null">
+      <div class="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-xl bg-white shadow-2xl">
+        <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <p class="truncate text-sm font-medium text-slate-700">
+            {{ noteAttachmentPreview.original_name || noteAttachmentPreview.filename }}
+          </p>
+          <button type="button" class="rounded-lg px-3 py-1 text-sm text-slate-500 hover:bg-slate-100"
+            @click="noteAttachmentPreview = null">
+            ปิด
+          </button>
+        </div>
+        <div class="max-h-[82vh] overflow-auto bg-slate-950 p-3">
+          <img :src="noteAttachmentUrl(noteAttachmentPreview)" class="mx-auto max-h-[78vh] max-w-full rounded-lg object-contain" />
+        </div>
       </div>
     </div>
   </Teleport>
@@ -812,7 +1337,7 @@ import SnoozeActivityModal from '../components/SnoozeActivityModal.vue'
 import DateInput from '../components/DateInput.vue'
 import { usePermissions } from '../composables/usePermissions.js'
 
-const { canEdit } = usePermissions()
+const { canEdit, isManager } = usePermissions()
 
 const props = defineProps({ id: String })
 const route = useRoute()
@@ -883,6 +1408,8 @@ const customerActiveTab = ref('delivery_history')
 const customerTabs = [
   { key: 'delivery_history', label: 'ประวัติการขนส่ง' },
   { key: 'visit_history', label: 'ประวัติการเยี่ยม' },
+  { key: 'activities', label: 'กิจกรรม' },
+  { key: 'notes', label: 'บันทึก' },
   { key: 'purchase_history', label: 'ประวัติการซื้อ' },
   { key: 'credit_detail',   label: 'หนี้คงค้าง' },
 ]
@@ -909,6 +1436,56 @@ const purchaseFilter  = reactive({ doc_no: '', sale_code: '', quote_no: '', date
 const expandedDoc     = ref(null)
 const expandedLines   = ref([])
 const loadingLines    = ref(false)
+
+// Customer activities
+const customerActivities = ref([])
+const customerActivityTotal = ref(0)
+const customerActivityLimit = ref(10)
+const loadingCustomerActivities = ref(false)
+const customerActivityFilter = reactive({ search: '', status: 'all' })
+const selectedCustomerActivity = ref(null)
+const followupSummary = ref(null)
+const savingFollowup = ref(false)
+const followupForm = reactive({
+  followup_enabled: false,
+  followup_pause_until: '',
+  followup_pause_reason: '',
+  next_followup: '',
+  followup_interval_days: '',
+  visit_followup_enabled: false,
+  visit_followup_pause_until: '',
+  visit_followup_pause_reason: '',
+  next_visit_followup: '',
+  visit_followup_interval_days: '',
+})
+
+const followupIntervalDays = computed(() => {
+  const n = Number(followupForm.followup_interval_days || 0)
+  return Number.isInteger(n) && n > 0 ? n : null
+})
+const defaultFollowupIntervalDays = computed(() => Number(followupSummary.value?.policy?.default_call_interval_days || 30))
+const followupIntervalBadge = computed(() => {
+  return followupIntervalDays.value
+    ? `โทรทุก ${followupIntervalDays.value} วัน`
+    : `โทรทุก ${defaultFollowupIntervalDays.value} วัน`
+})
+const followupIntervalHelp = computed(() => {
+  return followupIntervalDays.value
+    ? `ลูกค้ารายนี้ใช้รอบเฉพาะ โทรทุก ${followupIntervalDays.value} วัน`
+    : `ยังไม่ได้ตั้งรอบเฉพาะ ใช้ค่ากลาง ${defaultFollowupIntervalDays.value} วัน`
+})
+
+// Customer notes
+const notes = ref([])
+const loadingNotes = ref(false)
+const savingNote = ref(false)
+const newNote = ref('')
+const newNotePinned = ref(false)
+const newNoteFiles = ref([])
+const noteFileInput = ref(null)
+const noteFileDragging = ref(false)
+const noteAttachmentPreview = ref(null)
+const canAddNote = computed(() => newNote.value.trim() || newNoteFiles.value.length > 0)
 
 // Credit detail
 const creditDetail        = ref(null)
@@ -940,6 +1517,7 @@ onMounted(async () => {
           work_title: ct.work_title || '',
           email:     ct.email || '',
         }))
+        applyCustomerFollowupData(cust)
       } catch {}
     }
     if (data.ar_code) loadDeliveryHistory(1)
@@ -1102,6 +1680,294 @@ function purchaseDebounce() {
   purchaseTimer = setTimeout(() => loadPurchaseHistory(1), 350)
 }
 
+async function loadCustomerActivities(reset = false) {
+  const code = activity.value?.ar_code
+  if (!code) return
+  if (reset) {
+    customerActivities.value = []
+    customerActivityLimit.value = 10
+  }
+  loadingCustomerActivities.value = true
+  const params = {
+    status: customerActivityFilter.status || 'all',
+    search: customerActivityFilter.search || undefined,
+    limit: customerActivityLimit.value,
+    offset: 0,
+  }
+  const res = await api.get(`/activities/by-customer/${encodeURIComponent(code)}`, { params })
+    .then(r => r.data)
+    .catch(() => ({ activities: [], total: 0 }))
+  customerActivities.value = res.activities || []
+  customerActivityTotal.value = Number(res.total || 0)
+  loadingCustomerActivities.value = false
+}
+
+function loadMoreCustomerActivities() {
+  customerActivityLimit.value += 10
+  loadCustomerActivities(false)
+}
+
+function openCustomerActivityDialog(act) {
+  selectedCustomerActivity.value = act
+}
+
+function closeCustomerActivityDialog() {
+  selectedCustomerActivity.value = null
+}
+
+function customerActivityOwnerNames(act) {
+  return (act?.owners || [])
+    .filter(o => !o.removed_at)
+    .map(o => o.name || o.code)
+    .filter(Boolean)
+    .join(', ')
+}
+
+let customerActivityTimer = null
+function customerActivityDebounce() {
+  clearTimeout(customerActivityTimer)
+  customerActivityTimer = setTimeout(() => loadCustomerActivities(true), 350)
+}
+
+function applyCustomerFollowupData(data = {}) {
+  followupSummary.value = data.followup_summary || null
+  const crm = data.crm || {}
+  followupForm.followup_enabled = crm.followup_enabled === true
+  followupForm.followup_pause_until = dateOnly(crm.followup_pause_until)
+  followupForm.followup_pause_reason = crm.followup_pause_reason || ''
+  followupForm.next_followup = dateOnly(crm.next_followup)
+  followupForm.followup_interval_days = crm.followup_interval_days || ''
+  followupForm.visit_followup_enabled = crm.visit_followup_enabled === true
+  followupForm.visit_followup_pause_until = dateOnly(crm.visit_followup_pause_until)
+  followupForm.visit_followup_pause_reason = crm.visit_followup_pause_reason || ''
+  followupForm.next_visit_followup = dateOnly(crm.next_visit_followup)
+  followupForm.visit_followup_interval_days = crm.visit_followup_interval_days || ''
+}
+
+function applyFollowupOverride(data = {}) {
+  followupForm.followup_enabled = data.followup_enabled === true
+  followupForm.followup_pause_until = dateOnly(data.followup_pause_until)
+  followupForm.followup_pause_reason = data.followup_pause_reason || ''
+  followupForm.next_followup = dateOnly(data.next_followup)
+  followupForm.followup_interval_days = data.followup_interval_days || ''
+  if ('visit_followup_enabled' in data) followupForm.visit_followup_enabled = data.visit_followup_enabled === true
+  if ('visit_followup_pause_until' in data) followupForm.visit_followup_pause_until = dateOnly(data.visit_followup_pause_until)
+  if ('visit_followup_pause_reason' in data) followupForm.visit_followup_pause_reason = data.visit_followup_pause_reason || ''
+  if ('next_visit_followup' in data) followupForm.next_visit_followup = dateOnly(data.next_visit_followup)
+  if ('visit_followup_interval_days' in data) followupForm.visit_followup_interval_days = data.visit_followup_interval_days || ''
+  if (followupSummary.value) followupSummary.value = { ...followupSummary.value }
+}
+
+async function saveFollowupOverride(patch) {
+  const code = activity.value?.ar_code
+  if (!code || savingFollowup.value) return
+  savingFollowup.value = true
+  try {
+    const { data } = await api.patch(`/customers/${encodeURIComponent(code)}/followup`, patch)
+    applyFollowupOverride(data)
+    showToast('success', 'บันทึกการติดตามลูกค้าแล้ว')
+  } catch (e) {
+    showToast('error', e.response?.data?.error || e.message)
+  } finally {
+    savingFollowup.value = false
+  }
+}
+
+function toggleCustomerFollowup() {
+  saveFollowupOverride({ followup_enabled: !followupForm.followup_enabled })
+}
+
+function pauseCustomerFollowup() {
+  saveFollowupOverride({
+    followup_enabled: true,
+    followup_pause_until: followupForm.followup_pause_until,
+    followup_pause_reason: followupForm.followup_pause_reason || null,
+  })
+}
+
+function saveCustomerFollowupInterval() {
+  const n = Number(followupForm.followup_interval_days || 0)
+  if (!Number.isInteger(n) || n < 1 || n > 365) {
+    showToast('error', 'รอบโทรรายลูกค้าต้องอยู่ระหว่าง 1-365 วัน')
+    return
+  }
+  saveFollowupOverride({ followup_interval_days: n })
+}
+
+function useDefaultFollowupInterval() {
+  saveFollowupOverride({ followup_interval_days: null })
+}
+
+function resumeCustomerFollowup() {
+  saveFollowupOverride({
+    followup_enabled: true,
+    followup_pause_until: null,
+    followup_pause_reason: null,
+  })
+}
+
+function toggleCustomerVisitFollowup() {
+  saveFollowupOverride({ visit_followup_enabled: !followupForm.visit_followup_enabled })
+}
+
+function pauseCustomerVisitFollowup() {
+  saveFollowupOverride({
+    visit_followup_enabled: true,
+    visit_followup_pause_until: followupForm.visit_followup_pause_until,
+    visit_followup_pause_reason: followupForm.visit_followup_pause_reason || null,
+  })
+}
+
+function saveCustomerVisitInterval() {
+  const n = Number(followupForm.visit_followup_interval_days || 0)
+  if (!Number.isInteger(n) || n < 1 || n > 365) {
+    showToast('error', 'รอบเยี่ยมรายลูกค้าต้องอยู่ระหว่าง 1-365 วัน')
+    return
+  }
+  saveFollowupOverride({ visit_followup_interval_days: n })
+}
+
+function useDefaultVisitInterval() {
+  saveFollowupOverride({ visit_followup_interval_days: null })
+}
+
+function resumeCustomerVisitFollowup() {
+  saveFollowupOverride({
+    visit_followup_enabled: true,
+    visit_followup_pause_until: null,
+    visit_followup_pause_reason: null,
+  })
+}
+
+function addNewNoteFiles(files) {
+  const picked = Array.from(files || []).slice(0, Math.max(0, 10 - newNoteFiles.value.length))
+  picked.forEach(file => {
+    const isImage = file.type?.startsWith('image/')
+    newNoteFiles.value.push({
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      file,
+      previewUrl: isImage ? URL.createObjectURL(file) : ''
+    })
+  })
+}
+
+function clearNewNoteFiles() {
+  newNoteFiles.value.forEach(item => {
+    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl)
+  })
+  newNoteFiles.value = []
+  if (noteFileInput.value) noteFileInput.value.value = ''
+}
+
+function removeNewNoteFile(idx) {
+  const item = newNoteFiles.value[idx]
+  if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl)
+  newNoteFiles.value.splice(idx, 1)
+  if (noteFileInput.value) noteFileInput.value.value = ''
+}
+
+function onNewNoteFileChange(e) {
+  addNewNoteFiles(e.target.files)
+  if (noteFileInput.value) noteFileInput.value.value = ''
+}
+
+function onNewNoteFileDrop(e) {
+  noteFileDragging.value = false
+  addNewNoteFiles(e.dataTransfer.files)
+}
+
+async function loadNotes() {
+  const code = activity.value?.ar_code
+  if (!code) return
+  loadingNotes.value = true
+  const data = await api.get('/notes', { params: { ar_code: code } })
+    .then(r => r.data)
+    .catch(() => [])
+  notes.value = Array.isArray(data) ? data : []
+  loadingNotes.value = false
+}
+
+async function addNote() {
+  const code = activity.value?.ar_code
+  if (!code || !canAddNote.value) return
+  savingNote.value = true
+  try {
+    const fd = new FormData()
+    fd.append('ar_code', code)
+    fd.append('note_text', newNote.value)
+    fd.append('is_pinned', newNotePinned.value ? 'true' : 'false')
+    newNoteFiles.value.forEach(item => fd.append('files', item.file))
+
+    const { data } = await api.post('/notes', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    notes.value.unshift(data)
+    newNote.value = ''
+    newNotePinned.value = false
+    clearNewNoteFiles()
+  } catch (e) {
+    showToast('error', e.response?.data?.error || e.message)
+  } finally {
+    savingNote.value = false
+  }
+}
+
+async function togglePin(note) {
+  try {
+    const { data } = await api.patch(`/notes/${note.id}/pin`)
+    note.is_pinned = data.is_pinned
+    notes.value.sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned))
+  } catch (e) {
+    showToast('error', e.response?.data?.error || e.message)
+  }
+}
+
+async function deleteNote(note) {
+  if (!window.confirm('ต้องการลบบันทึกนี้? ไม่สามารถกู้คืนได้')) return
+  try {
+    await api.delete(`/notes/${note.id}`)
+    notes.value = notes.value.filter(n => n.id !== note.id)
+  } catch (e) {
+    showToast('error', e.response?.data?.error || e.message)
+  }
+}
+
+function formatNoteDate(d) {
+  if (!d) return ''
+  return new Date(d).toLocaleString('th-TH', {
+    day: '2-digit', month: 'short', year: '2-digit',
+    hour: '2-digit', minute: '2-digit'
+  })
+}
+
+function noteAttachmentUrl(att) {
+  if (!att?.file_path) return '#'
+  return `/uploads/${att.file_path}`
+}
+
+function noteAttachmentThumbUrl(att) {
+  return att.thumb_path ? `/uploads/${att.thumb_path}` : noteAttachmentUrl(att)
+}
+
+function isNoteImage(att) {
+  const mime = String(att?.mime_type || '').toLowerCase()
+  const name = String(att?.filename || att?.original_name || '').toLowerCase()
+  return mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(name)
+}
+
+function openNoteAttachmentPreview(att, event) {
+  event?.preventDefault()
+  noteAttachmentPreview.value = att
+}
+
+function formatFileSize(bytes) {
+  const size = Number(bytes || 0)
+  if (!size) return ''
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
 function phFmtAmount(v) {
   return parseFloat(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -1132,6 +1998,8 @@ watch(customerActiveTab, t => {
   if (!code) return
   if (t === 'delivery_history' && !deliveryTimeline.value.length) loadDeliveryHistory(1)
   if (t === 'visit_history' && !visitTimeline.value.length) loadVisitHistory(1)
+  if (t === 'activities' && !customerActivities.value.length) loadCustomerActivities(true)
+  if (t === 'notes' && !notes.value.length) loadNotes()
   if (t === 'purchase_history' && !purchaseHistory.value.length)  loadPurchaseHistory(1)
   if (t === 'credit_detail'   && !creditDetail.value)             loadCreditDetail()
 })
@@ -1157,6 +2025,69 @@ function fmtDateTime(v) {
 function fmtDuration(sec) {
   const m = Math.floor(sec / 60), s = sec % 60
   return m > 0 ? `${m} นาที ${s} วินาที` : `${s} วินาที`
+}
+
+function dateOnly(value) {
+  if (!value) return ''
+  const raw = String(value).trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
+  const parsed = new Date(raw)
+  if (Number.isNaN(parsed.getTime())) return raw.split('T')[0] || ''
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(parsed)
+}
+
+function formatActDate(d) {
+  if (!d) return ''
+  const only = dateOnly(d)
+  if (only) {
+    const [year, month, day] = only.split('-').map(Number)
+    return new Date(year, month - 1, day).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
+  }
+  return ''
+}
+
+function formatActDateTime(d) {
+  if (!d) return ''
+  return new Date(d).toLocaleString('th-TH', {
+    day: 'numeric', month: 'short', year: '2-digit',
+    hour: '2-digit', minute: '2-digit'
+  })
+}
+
+function actTypeLabel(t) {
+  if (t === 'task') return 'งาน'
+  if (t === 'call') return 'โทร'
+  if (t === 'transfer') return 'โอนเงิน'
+  if (t === 'visit') return 'เยี่ยมลูกค้า'
+  return 'นัดประชุม'
+}
+
+function actTypeIcon(t) {
+  return typeIcon(t) || ''
+}
+
+function actStatusBadge(status, a) {
+  if (status === 'deleted') return { label: 'ถูกลบ', cls: 'bg-slate-100 text-slate-500' }
+  if (status === 'done') return { label: 'ปิดแล้ว', cls: 'bg-green-100 text-green-700' }
+  if (status === 'cancelled') return { label: 'ยกเลิก', cls: 'bg-slate-100 text-slate-500' }
+  const dueStr = a.due_date || a.start_datetime
+  if (dueStr && new Date(dueStr) < new Date(new Date().toDateString())) {
+    return { label: 'เลยกำหนด', cls: 'bg-red-100 text-red-700' }
+  }
+  return { label: 'ค้างอยู่', cls: 'bg-blue-100 text-blue-700' }
+}
+
+function actOverdueDays(a) {
+  if (a.status === 'done' || a.status === 'deleted' || a.status === 'cancelled') return 0
+  const dueStr = a.due_date || a.start_datetime
+  if (!dueStr) return 0
+  const diff = Math.floor((new Date(new Date().toDateString()) - new Date(new Date(dueStr).toDateString())) / 86400000)
+  return diff > 0 ? diff : 0
 }
 
 // ── Labels ────────────────────────────────────────────────────
