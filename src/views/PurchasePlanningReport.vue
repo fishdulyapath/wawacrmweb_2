@@ -625,6 +625,11 @@ import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { useAuthStore } from '../stores/auth.js'
 import { usePlanningCart } from '../composables/usePlanningCart.js'
 
+const reportViewCache = new Map()
+const CART_REFRESH_INTERVAL_MS = 15000
+const REPORT_VIEW_CACHE_PREFIX = 'purchasePlanning.reportView.'
+const REPORT_VIEW_META_PREFIX = 'purchasePlanning.reportMeta.'
+
 const props = defineProps({
   alertOnly: { type: Boolean, default: false },
 })
@@ -915,6 +920,8 @@ const noticeDialog = reactive({
   detail: '',
 })
 let pollTimer = null
+let cartRefreshTimer = null
+let cartRefreshInFlight = false
 let loadSeq = 0
 const REPORT_REQUEST_TIMEOUT = 10 * 60 * 1000
 
@@ -1033,9 +1040,152 @@ function searchParams() {
   }
 }
 
+function reportCacheKey() {
+  return alertOnly.value ? 'alerts' : 'report'
+}
+
+function reportStorageKey(prefix = REPORT_VIEW_CACHE_PREFIX) {
+  return `${prefix}${reportCacheKey()}`
+}
+
+function clonePlain(value) {
+  return JSON.parse(JSON.stringify(value))
+}
+
+function readStoredReportView(prefix = REPORT_VIEW_CACHE_PREFIX) {
+  try {
+    const raw = sessionStorage.getItem(reportStorageKey(prefix))
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function writeStoredReportView(payload) {
+  const meta = {
+    ...payload,
+    rows: [],
+    summary: {},
+    pendingPR: emptyPendingPR(),
+  }
+  try {
+    sessionStorage.setItem(reportStorageKey(REPORT_VIEW_META_PREFIX), JSON.stringify(meta))
+  } catch {}
+  try {
+    sessionStorage.setItem(reportStorageKey(REPORT_VIEW_CACHE_PREFIX), JSON.stringify(payload))
+  } catch {}
+}
+
+function applyCachedFilter(cached) {
+  filter.search = cached?.filter?.search || ''
+  filter.supplier_search = cached?.filter?.supplier_search || ''
+  filter.days = Number(cached?.filter?.days || 30)
+  filter.as_of_date = cached?.filter?.as_of_date || today
+  filter.warehouse = cached?.filter?.warehouse || 'MMA01'
+  filterStockStatus.value = cached?.filterStockStatus || ''
+}
+
+function saveReportViewCache() {
+  if (!rows.value.length || jobStatus.value !== 'complete') return
+  const payload = {
+    filter: clonePlain(filter),
+    filterStockStatus: filterStockStatus.value,
+    rows: clonePlain(rows.value),
+    summary: clonePlain(summary.value),
+    pendingPR: clonePlain(pendingPR.value),
+    total: total.value,
+    tableTotal: tableTotal.value,
+    processed: processed.value,
+    reportFromCache: reportFromCache.value,
+    reportCacheUpdatedAt: reportCacheUpdatedAt.value,
+    hasMore: hasMore.value,
+    jobId: jobId.value,
+    jobStatus: jobStatus.value,
+    savedAt: Date.now(),
+  }
+  reportViewCache.set(reportCacheKey(), payload)
+  writeStoredReportView(payload)
+}
+
+function restoreReportViewCache() {
+  const cached = reportViewCache.get(reportCacheKey())
+    || readStoredReportView(REPORT_VIEW_CACHE_PREFIX)
+    || readStoredReportView(REPORT_VIEW_META_PREFIX)
+  if (!cached) return false
+  applyCachedFilter(cached)
+  if (!cached?.rows?.length) return false
+  rows.value = cached.rows || []
+  summary.value = cached.summary || {}
+  pendingPR.value = cached.pendingPR || emptyPendingPR()
+  total.value = Number(cached.total || 0)
+  tableTotal.value = Number(cached.tableTotal || rows.value.length || 0)
+  processed.value = Number(cached.processed || total.value || rows.value.length || 0)
+  reportFromCache.value = Boolean(cached.reportFromCache)
+  reportCacheUpdatedAt.value = cached.reportCacheUpdatedAt || ''
+  hasMore.value = Boolean(cached.hasMore)
+  jobId.value = cached.jobId || ''
+  jobStatus.value = cached.jobStatus || 'complete'
+  loading.value = false
+  loadingMore.value = false
+  error.value = ''
+  return true
+}
+
+function forgetReportViewCache() {
+  reportViewCache.delete(reportCacheKey())
+  try {
+    sessionStorage.removeItem(reportStorageKey(REPORT_VIEW_CACHE_PREFIX))
+    sessionStorage.removeItem(reportStorageKey(REPORT_VIEW_META_PREFIX))
+  } catch {}
+}
+
+async function autoLoadServerSnapshot() {
+  if (rows.value.length || loading.value || loadingMore.value) return
+  try {
+    const { data } = await api.get('/purchase-planning/report-snapshot/status', {
+      params: requestParams(),
+    })
+    if (data.exists) await load(false)
+  } catch {
+    // no-op: first-time users still load manually
+  }
+}
+
 function clearPollTimer() {
   if (pollTimer) clearTimeout(pollTimer)
   pollTimer = null
+}
+
+async function refreshCartState() {
+  if (cartRefreshInFlight) return
+  cartRefreshInFlight = true
+  try {
+    await loadCart()
+  } catch {
+    // keep the last known cart state; report rows are still usable
+  } finally {
+    cartRefreshInFlight = false
+  }
+}
+
+function startCartStateRefresh() {
+  stopCartStateRefresh()
+  cartRefreshTimer = setInterval(() => {
+    if (document.visibilityState !== 'hidden') refreshCartState()
+  }, CART_REFRESH_INTERVAL_MS)
+  window.addEventListener('focus', refreshCartState)
+  document.addEventListener('visibilitychange', onVisibilityChange)
+}
+
+function stopCartStateRefresh() {
+  if (cartRefreshTimer) clearInterval(cartRefreshTimer)
+  cartRefreshTimer = null
+  window.removeEventListener('focus', refreshCartState)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible') refreshCartState()
 }
 
 function clearReportState() {
@@ -1058,6 +1208,7 @@ function clearReportState() {
 
 async function load(forceReload = false) {
   const seq = ++loadSeq
+  forgetReportViewCache()
   clearReportState()
   loading.value = true
   jobStatus.value = 'queued'
@@ -1118,6 +1269,7 @@ async function pollReportJob(seq) {
       tableTotal.value = Number(data.filtered_total ?? data.total ?? rows.value.length ?? 0)
       hasMore.value = Boolean(data.has_more)
       loading.value = false
+      saveReportViewCache()
       return
     }
     // partial result: แสดง row ที่คำนวณแล้วให้ user เห็นความคืบหน้า แต่ยัง poll ต่อ
@@ -1154,6 +1306,7 @@ async function loadMore() {
     tableTotal.value = Number(data.filtered_total ?? tableTotal.value ?? rows.value.length ?? 0)
     summary.value = data.summary || summary.value
     hasMore.value = Boolean(data.has_more)
+    saveReportViewCache()
   } catch (err) {
     error.value = err.message
   } finally {
@@ -1179,6 +1332,7 @@ function resetFilter() {
   filter.warehouse = 'MMA01'
   filterStockStatus.value = ''
   loadSeq += 1
+  forgetReportViewCache()
   clearReportState()
 }
 
@@ -1389,14 +1543,22 @@ function statusClass(status) {
   }[status] || 'status-badge bg-slate-100 text-slate-500'
 }
 
-onMounted(() => {
-  loadCart().catch(() => {})
+onMounted(async () => {
+  const restored = restoreReportViewCache()
+  await refreshCartState()
+  if (!restored) await autoLoadServerSnapshot()
+  startCartStateRefresh()
 })
 
-onBeforeUnmount(clearPollTimer)
-watch(() => props.alertOnly, () => {
+onBeforeUnmount(() => {
+  clearPollTimer()
+  stopCartStateRefresh()
+})
+watch(() => props.alertOnly, async () => {
   loadSeq += 1
   clearReportState()
+  const restored = restoreReportViewCache()
+  if (!restored) await autoLoadServerSnapshot()
 })
 </script>
 
