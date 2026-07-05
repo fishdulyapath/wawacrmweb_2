@@ -16,11 +16,11 @@ const router = createRouter({
     { path: '/suppliers/new',       component: () => import('../views/SupplierForm.vue'), meta: { requireAdmin: true } },
     { path: '/suppliers/:code/edit', component: () => import('../views/SupplierForm.vue'), meta: { requireAdmin: true }, props: true },
     { path: '/item-supplier-link', component: () => import('../views/ItemSupplierLink.vue'), meta: { requireAdmin: true } },
-    { path: '/purchase-planning/master', component: () => import('../views/PurchasePlanningMaster.vue'), meta: { requireAdmin: true } },
-    { path: '/purchase-planning/report', component: () => import('../views/PurchasePlanningReport.vue') },
-    { path: '/purchase-planning/alerts', component: () => import('../views/PurchasePlanningReport.vue'), props: { alertOnly: true } },
-    { path: '/purchase-planning/cart', component: () => import('../views/PurchasePlanningCart.vue') },
-    { path: '/purchase-planning/items/:icCode', component: () => import('../views/PurchasePlanningItemDetail.vue'), props: true },
+    { path: '/purchase-planning/master', component: () => import('../views/PurchasePlanningMaster.vue'), meta: { requirePurchasePlanning: true } },
+    { path: '/purchase-planning/report', component: () => import('../views/PurchasePlanningReport.vue'), meta: { requirePurchasePlanning: true } },
+    { path: '/purchase-planning/alerts', component: () => import('../views/PurchasePlanningReport.vue'), meta: { requirePurchasePlanning: true }, props: { alertOnly: true } },
+    { path: '/purchase-planning/cart', component: () => import('../views/PurchasePlanningCart.vue'), meta: { requirePurchasePlanning: true } },
+    { path: '/purchase-planning/items/:icCode', component: () => import('../views/PurchasePlanningItemDetail.vue'), meta: { requirePurchasePlanning: true }, props: true },
 
     // ── Activities ──
     { path: '/activities',           component: () => import('../views/ActivitiesList.vue') },
@@ -69,16 +69,21 @@ function isSupervisorUp(user)  { return isSuperAdmin(user) || ['admin', 'manager
 function canViewDashboard(user){ return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
 function canManagePolicy(user) { return isSuperAdmin(user) || ['admin', 'manager'].includes(user?.role) }
 function isAdmin(user)         { return isSuperAdmin(user) || user?.role === 'admin' }
+function canUsePurchasePlanning(user) { return isAdmin(user) || Number(user?.purchase_planning_can_access || 0) === 1 }
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
   if (to.meta.liff) return   // LIFF pages จัดการ auth เอง
   if (!to.meta.public && !auth.isLoggedIn) return { path: '/login' }
   if (to.path === '/login' && auth.isLoggedIn) return { path: '/notifications' }
+  if (to.meta.requirePurchasePlanning && auth.isLoggedIn && auth.user?.purchase_planning_can_access === undefined) {
+    await auth.loadMe()
+  }
   if (to.meta.requireManager      && !isManager(auth.user))        return { path: '/activities' }
   if (to.meta.requireSupervisor   && !isSupervisorUp(auth.user))   return { path: '/activities' }
   if (to.meta.requireDashboard    && !canViewDashboard(auth.user)) return { path: '/activities' }
   if (to.meta.requireAdminManager && !canManagePolicy(auth.user))  return { path: '/activities' }
+  if (to.meta.requirePurchasePlanning && !canUsePurchasePlanning(auth.user)) return { path: '/activities' }
   if (to.meta.requireAdmin        && !isAdmin(auth.user))          return { path: '/activities' }
 })
 

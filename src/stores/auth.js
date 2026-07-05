@@ -58,5 +58,17 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { token, user, loading, isLoggedIn, login, logout, refreshToken }
+  async function loadMe() {
+    if (!token.value) return null
+    try {
+      const { data } = await api.get('/auth/me')
+      user.value = data
+      localStorage.setItem('crm_user', JSON.stringify(data))
+      return data
+    } catch {
+      return null
+    }
+  }
+
+  return { token, user, loading, isLoggedIn, login, logout, refreshToken, loadMe }
 })

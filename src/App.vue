@@ -112,19 +112,19 @@
             </svg>
             ผูกสินค้า-เจ้าหนี้
           </RouterLink>
-          <RouterLink v-if="canManageSuppliers" to="/purchase-planning/master" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+          <RouterLink v-if="canUsePurchasePlanning" to="/purchase-planning/master" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
             <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M7 12h10M10 18h4" />
             </svg>
             กำหนดวางแผนสั่งซื้อ
           </RouterLink>
-          <RouterLink to="/purchase-planning/report" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+          <RouterLink v-if="canUsePurchasePlanning" to="/purchase-planning/report" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
             <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-6m4 6V7m4 10v-4M5 19h14M5 5h14" />
             </svg>
             รายงานวางแผนสั่งซื้อ
           </RouterLink>
-          <RouterLink to="/purchase-planning/alerts" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+          <RouterLink v-if="canUsePurchasePlanning" to="/purchase-planning/alerts" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
             <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
             </svg>
@@ -378,7 +378,7 @@ import { usePermissions } from "./composables/usePermissions.js";
 const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
-const { canCreate, isManager, isSuperAdmin, canViewDashboards, canViewSalesFleet, canManageFollowupPolicy, canManageProducts, canManageSuppliers } = usePermissions();
+const { canCreate, isManager, isSuperAdmin, canViewDashboards, canViewSalesFleet, canManageFollowupPolicy, canManageProducts, canManageSuppliers, canUsePurchasePlanning } = usePermissions();
 const isAdmin = computed(() => isSuperAdmin.value || auth.user?.role === "admin");
 
 const unreadNotif = ref(0);
@@ -405,7 +405,10 @@ async function fetchUnread() {
   } catch {}
 }
 
-onMounted(() => {
+onMounted(async () => {
+  if (auth.isLoggedIn && auth.user?.purchase_planning_can_access === undefined) {
+    await auth.loadMe()
+  }
   fetchUnread();
   notifTimer = setInterval(fetchUnread, 15000);
   window.addEventListener("resize", onResize);

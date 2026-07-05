@@ -46,6 +46,10 @@ export function usePermissions() {
 
   const canManageSuppliers = computed(() => isAdmin.value)
 
+  const canUsePurchasePlanning = computed(() =>
+    isAdmin.value || Number(auth.user?.purchase_planning_can_access || 0) === 1
+  )
+
   // สร้างกิจกรรมใหม่ได้
   const canCreate = computed(() => isManager.value)
 
@@ -55,5 +59,5 @@ export function usePermissions() {
   // ปิดงาน / เลื่อนได้ (ทุกคน)
   const canClose = computed(() => true)
 
-  return { isSuperAdmin, isAdmin, isManager, canViewDashboards, canViewSalesFleet, canManageFollowupPolicy, canManageProducts, canManageSuppliers, canCreate, canEdit, canClose }
+  return { isSuperAdmin, isAdmin, isManager, canViewDashboards, canViewSalesFleet, canManageFollowupPolicy, canManageProducts, canManageSuppliers, canUsePurchasePlanning, canCreate, canEdit, canClose }
 }

@@ -633,7 +633,11 @@ const auth = useAuthStore()
 const { cart, createdPrItems, cartCount, addToCart, removeFromCart, loadCart } = usePlanningCart()
 const toastMsg = ref('')
 let toastTimer = null
-const canManagePlanningMaster = computed(() => auth.user?.code?.toUpperCase() === 'SUPERADMIN' || auth.user?.role === 'admin')
+const canManagePlanningMaster = computed(() =>
+  auth.user?.code?.toUpperCase() === 'SUPERADMIN' ||
+  auth.user?.role === 'admin' ||
+  Number(auth.user?.purchase_planning_can_access || 0) === 1
+)
 const canTriggerAlert = computed(() => {
   const user = auth.user || {}
   return String(user.code || '').toUpperCase() === 'SUPERADMIN' || user.role === 'admin'

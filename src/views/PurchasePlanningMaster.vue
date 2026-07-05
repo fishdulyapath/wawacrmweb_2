@@ -149,10 +149,11 @@
             <tr>
               <th v-for="col in currentConfig.columns" :key="col.key" :class="['table-head-static', col.class || 'text-left']">
                 <template v-if="activeTab !== 'users' && col.key === 'enabled'">
-                  <div class="flex flex-col items-center gap-1">
-                    <label class="inline-flex cursor-pointer items-center gap-1" title="กดเพื่อเปิด/ปิดใช้ทั้งหมดตามตัวกรอง ทุกหน้า">
+                  <div class="flex items-center justify-center">
+                    <label class="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-slate-700 hover:bg-white" title="ติ๊กเพื่อใช้ทั้งหมดตามตัวกรอง เอาติ๊กออกเพื่อไม่ใช้ทั้งหมด ระบบจะให้ยืนยันก่อนทำงาน">
                       <input
                         :checked="allVisiblePlanningEnabled"
+                        :indeterminate.prop="someVisiblePlanningEnabled && !allVisiblePlanningEnabled"
                         :disabled="bulkUpdating || loading || total === 0"
                         type="checkbox"
                         class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
@@ -160,14 +161,6 @@
                       />
                       <span>{{ col.label }}</span>
                     </label>
-                    <button
-                      type="button"
-                      class="rounded border border-slate-300 px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                      :disabled="bulkUpdating || loading || total === 0"
-                      @click="bulkSetPlanningEnabled(0)"
-                    >
-                      ไม่ใช้ทั้งหมด
-                    </button>
                   </div>
                 </template>
                 <template v-else>{{ col.label }}</template>
@@ -291,6 +284,7 @@
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import api from '../composables/useApi.js'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import { useAuthStore } from '../stores/auth.js'
 
 const CodePill = defineComponent({
   props: { value: { type: [String, Number], default: '' } },
@@ -299,11 +293,17 @@ const CodePill = defineComponent({
   },
 })
 
-const tabs = [
+const auth = useAuthStore()
+const canManagePlanningUsers = computed(() =>
+  auth.user?.code?.toUpperCase() === 'SUPERADMIN' || auth.user?.role === 'admin'
+)
+
+const baseTabs = [
   { key: 'supplier', label: 'เจ้าหนี้' },
   { key: 'itemSupplier', label: 'สินค้า+เจ้าหนี้' },
   { key: 'users', label: 'สิทธิ์ผู้ใช้' },
 ]
+const tabs = computed(() => canManagePlanningUsers.value ? baseTabs : baseTabs.filter((tab) => tab.key !== 'users'))
 
 const dayFields = ['lead_time_days', 'late_buffer_days', 'wholesale_buffer_days', 'order_cycle_days']
 const activeTab = ref('supplier')
@@ -430,6 +430,9 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit.valu
 const canSyncCurrentTab = computed(() => Boolean(currentConfig.value.syncUrl))
 const allVisiblePlanningEnabled = computed(() => (
   rows.value.length > 0 && rows.value.every((row) => Number(row.planning_enabled) === 1)
+))
+const someVisiblePlanningEnabled = computed(() => (
+  rows.value.some((row) => Number(row.planning_enabled) === 1)
 ))
 const syncCheckLabel = computed(() => currentConfig.value.syncCheckLabel)
 const syncUpdateLabel = computed(() => currentConfig.value.syncUpdateLabel)
@@ -703,6 +706,7 @@ async function guardDirty(action) {
 
 function switchTab(key) {
   if (key === activeTab.value) return
+  if (key === 'users' && !canManagePlanningUsers.value) return
   guardDirty(() => {
     activeTab.value = key
     search.value = ''
