@@ -1092,7 +1092,7 @@ function saveReportViewCache() {
     filterStockStatus: filterStockStatus.value,
     rows: clonePlain(rows.value),
     summary: clonePlain(summary.value),
-    pendingPR: clonePlain(pendingPR.value),
+    pendingPR: emptyPendingPR(),
     total: total.value,
     tableTotal: tableTotal.value,
     processed: processed.value,
@@ -1116,7 +1116,7 @@ function restoreReportViewCache() {
   if (!cached?.rows?.length) return false
   rows.value = cached.rows || []
   summary.value = cached.summary || {}
-  pendingPR.value = cached.pendingPR || emptyPendingPR()
+  pendingPR.value = emptyPendingPR()
   total.value = Number(cached.total || 0)
   tableTotal.value = Number(cached.tableTotal || rows.value.length || 0)
   processed.value = Number(cached.processed || total.value || rows.value.length || 0)
@@ -1160,7 +1160,13 @@ async function refreshCartState() {
   if (cartRefreshInFlight) return
   cartRefreshInFlight = true
   try {
-    await loadCart()
+    const [, pendingResult] = await Promise.allSettled([
+      loadCart(),
+      api.get('/purchase-planning/pending-pr'),
+    ])
+    if (pendingResult.status === 'fulfilled') {
+      pendingPR.value = pendingResult.value.data || emptyPendingPR()
+    }
   } catch {
     // keep the last known cart state; report rows are still usable
   } finally {
