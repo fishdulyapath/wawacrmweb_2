@@ -112,6 +112,12 @@
             </svg>
             ผูกสินค้า-เจ้าหนี้
           </RouterLink>
+          <RouterLink v-if="isAdmin" to="/price-adjustment" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
+            <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V6m0 12v-2M5 5h14M5 19h14" />
+            </svg>
+            ปรับราคาสินค้า
+          </RouterLink>
           <RouterLink v-if="canUsePurchasePlanning" to="/purchase-planning/master" class="nav-link" active-class="nav-link-active" @click="sidebarOpen = false">
             <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M7 12h10M10 18h4" />
