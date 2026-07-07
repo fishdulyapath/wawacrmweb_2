@@ -157,6 +157,7 @@
         <div class="flex flex-wrap gap-2">
           <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="fillEmptyFromPurchase">เติมช่องว่างด้วยราคาซื้อสูงสุด</button>
           <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="applyFormulaToItems">คำนวณราคาจากสูตร</button>
+          <button class="btn-secondary justify-center" :disabled="printablePriceBarcodeRows.length === 0" @click="printPriceBarcodes">พิมพ์บาร์โค้ด</button>
           <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="exportPriceExcel">Export Excel</button>
           <button class="btn-primary justify-center" :disabled="saving || items.length === 0" @click="openSaveDialog">บันทึกราคา</button>
         </div>
@@ -282,6 +283,7 @@
           <p class="text-sm text-slate-500">ตรวจเอกสารที่ CRM บันทึกไปแล้ว พร้อมราคาเก่าและราคาใหม่ของแต่ละรายการ</p>
         </div>
         <div class="flex flex-wrap gap-2">
+          <button class="btn-secondary justify-center" :disabled="!selectedHistory || loadingHistoryDetails || printableHistoryBarcodeRows.length === 0" @click="printHistoryBarcodes">พิมพ์บาร์โค้ด</button>
           <button class="btn-secondary justify-center" :disabled="!selectedHistory || loadingHistoryDetails || historyDetails.length === 0" @click="exportHistoryExcel">Export Excel</button>
           <button class="btn-secondary justify-center" :disabled="loadingHistory" @click="loadHistory">โหลดประวัติใหม่</button>
         </div>
@@ -953,6 +955,8 @@ const filteredFormulaRules = computed(() => {
       .some((value) => String(value || '').toLowerCase().includes(keyword))
   })
 })
+const printablePriceBarcodeRows = computed(() => buildBarcodePrintRows(items.value, 'price'))
+const printableHistoryBarcodeRows = computed(() => buildBarcodePrintRows(historyDetails.value, 'history'))
 const filteredProductCategoryOptions = computed(() => {
   const keyword = productCategoryQuery.value.trim().toLowerCase()
   if (!keyword) return formulaRules.value
@@ -1526,6 +1530,241 @@ function exportPriceExcel() {
   ])
   const filename = `price-adjustment-check-${safeFilePart(new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-'))}.xls`
   downloadBlob(filename, html, 'application/vnd.ms-excel;charset=utf-8')
+}
+
+function price9Changed(row) {
+  const newPrice = normalizedPrice(row.new_prices?.price_9 ?? row.price_9)
+  if (!Number.isFinite(newPrice)) return false
+  const hasOld = row.old_price_available === false ? false : hasOldPrice(row, 'price_9')
+  if (!hasOld) return newPrice > 0
+  const oldPrice = normalizedPrice(row.old_prices?.price_9 ?? row.old_price_9)
+  return Number.isFinite(oldPrice) && newPrice !== oldPrice
+}
+
+function buildBarcodePrintRows(rows) {
+  return rows
+    .filter((row) => price9Changed(row))
+    .map((row) => {
+      const ratio = Number(row.unit_ratio || 1) || 1
+      const price9 = normalizedPrice(row.new_prices?.price_9 ?? row.price_9)
+      const barcode = String(row.barcode || '').trim()
+      return {
+        item_code: row.item_code || row.ic_code || '',
+        item_name: row.barcode_description || row.item_name || '',
+        unit_code: row.unit_code || '',
+        ratio,
+        barcode,
+        price_9: price9,
+        unit_per_value: ratio ? price9 / ratio : price9,
+        show_unit_price: Math.abs(ratio - 1) > 0.000001,
+      }
+    })
+    .filter((row) => row.barcode && Number.isFinite(row.price_9))
+}
+
+function printPriceBarcodes() {
+  printBarcodeLabels(printablePriceBarcodeRows.value, 'พิมพ์บาร์โค้ดจากตารางปรับราคา')
+}
+
+function printHistoryBarcodes() {
+  printBarcodeLabels(printableHistoryBarcodeRows.value, `พิมพ์บาร์โค้ดจากประวัติ ${selectedHistory.value?.doc_no || ''}`)
+}
+
+function printBarcodeLabels(rows, title) {
+  if (!rows.length) {
+    setError('ไม่มีรายการที่ราคา 9 ใหม่มีส่วนต่างและมีบาร์โค้ดสำหรับพิมพ์')
+    return
+  }
+
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    setError('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาต popup แล้วลองใหม่')
+    return
+  }
+
+  const todayText = new Intl.DateTimeFormat('th-TH-u-ca-buddhist', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date())
+
+  const labels = rows.map((row) => {
+    const qrData = encodeURIComponent(row.barcode)
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=96x96&margin=0&data=${qrData}`
+    const unitPriceHtml = row.show_unit_price
+      ? `
+            <div class="unit-caption">ราคา [ย่อย] ต่อหน่วย<br><span>Price/Unit :</span></div>
+            <div class="unit-price">${escapeHtml(formatBarcodeUnitPrice(row.unit_per_value))} <span>ชิ้น</span></div>`
+      : ''
+    return `
+      <article class="barcode-label">
+        <section class="label-top">
+          <div class="price-box">
+            <div class="tiny-label">ราคา<br><span>Price</span></div>
+            <div class="main-price">${escapeHtml(formatBarcodePrice(row.price_9))}<span>${escapeHtml(row.unit_code)}</span></div>
+            ${unitPriceHtml}
+          </div>
+          <div class="qr-box">
+            <img class="qr-code" src="${qrUrl}" alt="QR ${escapeHtml(row.barcode)}" />
+            <div class="barcode-text">${escapeHtml(row.barcode)}</div>
+            <div class="print-date">${escapeHtml(todayText)}</div>
+          </div>
+        </section>
+        <section class="description">${escapeHtml(row.item_name || row.item_code || '-')}</section>
+      </article>
+    `
+  }).join('')
+
+  printWindow.document.write(`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(title)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 6mm; }
+    * { box-sizing: border-box; }
+    html {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #000;
+      font-family: Tahoma, Arial, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .sheet {
+      display: grid;
+      grid-template-columns: repeat(3, 80mm);
+      grid-auto-rows: 42mm;
+      gap: 1mm 1mm;
+      align-content: start;
+      justify-content: start;
+      width: 100%;
+      min-height: 194mm;
+      margin: 0;
+      padding: 0;
+    }
+    .barcode-label {
+      width: 80mm;
+      height: 42mm;
+      overflow: hidden;
+      border: 0.7mm solid #555;
+      page-break-inside: avoid;
+      background: white;
+    }
+    .label-top {
+      display: grid;
+      grid-template-columns: 49mm 31mm;
+      height: 28.5mm;
+      border-bottom: 0.35mm solid #555;
+    }
+    .price-box {
+      position: relative;
+      padding: 2mm 2.4mm;
+      border-right: 0.35mm solid #555;
+    }
+    .tiny-label {
+      font-size: 7pt;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .tiny-label span,
+    .unit-caption span {
+      font-size: 6.5pt;
+    }
+    .main-price {
+      margin-top: 0mm;
+      text-align: center;
+      font-size: 21pt;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+    .main-price span {
+      margin-left: 1.4mm;
+      font-size: 10pt;
+      font-weight: 800;
+    }
+    .unit-caption {
+      margin-top: 1.8mm;
+      font-size: 7pt;
+      font-weight: 700;
+      line-height: 1.05;
+    }
+    .unit-price {
+      margin-top: -2.5mm;
+      padding-right: 2mm;
+      text-align: right;
+      font-size: 13pt;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .unit-price span {
+      font-size: 9pt;
+      font-weight: 800;
+    }
+    .qr-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.4mm 1mm 0.8mm;
+    }
+    .qr-code {
+      width: 13.5mm;
+      height: 13.5mm;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+    .barcode-text {
+      margin-top: 1mm;
+      max-width: 27mm;
+      overflow: hidden;
+      text-align: center;
+      font-family: "Courier New", monospace;
+      font-size: 7pt;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .print-date {
+      margin-top: 0.4mm;
+      font-size: 6.8pt;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .description {
+      height: 13.5mm;
+      padding: 2mm 2.4mm;
+      overflow: hidden;
+      font-size: 9pt;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+  </style>
+</head>
+<body>
+  <main class="sheet">${labels}</main>
+  <script>
+    window.addEventListener('load', function () {
+      setTimeout(function () { window.print(); }, 800);
+    });
+  <\/script>
+</body>
+</html>`)
+  printWindow.document.close()
+}
+
+function formatBarcodePrice(value) {
+  return new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(Number(value || 0))
+}
+
+function formatBarcodeUnitPrice(value) {
+  return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0))
 }
 
 function applyPurchasePrice(row) {
