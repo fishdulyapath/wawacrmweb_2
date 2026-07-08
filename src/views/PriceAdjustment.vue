@@ -159,6 +159,7 @@
           <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="applyFormulaToItems">คำนวณราคาจากสูตร</button>
           <button class="btn-secondary justify-center" :disabled="printablePriceBarcodeRows.length === 0" @click="printPriceBarcodes">พิมพ์บาร์โค้ด</button>
           <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="exportPriceExcel">Export Excel</button>
+          <button class="justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 shadow-sm hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60" :disabled="items.length === 0" @click="openClearItemsDialog">ล้างรายการ</button>
           <button class="btn-primary justify-center" :disabled="saving || items.length === 0" @click="openSaveDialog">บันทึกราคา</button>
         </div>
       </div>
@@ -197,6 +198,7 @@
                 <th class="table-head-static border-l border-slate-200 text-center" :class="priceBandClass(field)" colspan="3" scope="colgroup">{{ priceLabel(field) }}</th>
               </template>
               <th class="table-head-static w-36 text-center" rowspan="2" scope="col">คำสั่ง</th>
+              <th class="table-head-static w-24 text-center" rowspan="2" scope="col">ลบ</th>
             </tr>
             <tr>
               <template v-for="field in priceFields" :key="`${field}-subhead`">
@@ -211,7 +213,11 @@
               <td class="sticky left-0 z-10 px-3 py-2 align-top font-mono text-xs font-semibold text-slate-700" :class="itemRowBgClass(row)">{{ row.item_code }}</td>
               <td class="sticky left-32 z-10 px-3 py-2 align-top shadow-[1px_0_0_#e2e8f0]" :class="itemRowBgClass(row)">
                 <div class="flex items-start gap-2">
-                  <p class="font-medium text-slate-800">{{ row.item_name || '-' }}</p>
+                  <p class="font-medium text-slate-800">
+                    {{ row.item_name || '-' }}
+                    <span v-if="Number(row.is_permium || 0) === 1" class="ml-1 font-semibold text-emerald-800">(ของแถม)</span>
+                    <span v-if="Number(row.item_tax_type || 0) === 1" class="ml-1 font-semibold text-red-600">(ยกเว้นภาษี)</span>
+                  </p>
                   <button
                     v-if="hasOtherPrice(row)"
                     type="button"
@@ -222,7 +228,7 @@
                   </button>
                 </div>
                 <p v-if="hasOtherPrice(row)" class="mt-1 text-[11px] text-red-600">{{ otherPriceSummaryText(row) }}</p>
-                <p class="mt-1 text-xs text-slate-400">จาก {{ row.source_doc_count }} เอกสาร / {{ row.source_line_count }} รายการ</p>
+                <!-- <p class="mt-1 text-xs text-slate-400">จาก {{ row.source_doc_count }} เอกสาร / {{ row.source_line_count }} รายการ</p> -->
               </td>
               <td class="px-3 py-2 align-top text-slate-600" :class="itemRowBgClass(row)">{{ row.unit_code }}</td>
               <td class="px-3 py-2 align-top text-right text-slate-600 tabular-nums" :class="itemRowBgClass(row)">{{ formatRatio(row.unit_ratio) }}</td>
@@ -245,8 +251,24 @@
               </td>
               <td class="px-3 py-2 align-top text-right text-slate-600 tabular-nums" :class="itemRowBgClass(row)">{{ formatInt(row.unit_row_order) }}</td>
               <td class="px-3 py-2 align-top text-right text-slate-600 tabular-nums" :class="itemRowBgClass(row)">{{ formatInt(row.vat_type) }}</td>
-              <td class="px-3 py-2 align-top text-right font-semibold text-slate-800 tabular-nums" :class="itemRowBgClass(row)">{{ formatMoney(row.purchase_price) }}</td>
-              <td class="px-3 py-2 align-top text-right font-semibold text-slate-700 tabular-nums" :class="itemRowBgClass(row)">{{ formatMoney(row.average_cost) }}</td>
+              <td class="px-3 py-2 align-top text-right font-semibold text-slate-800 tabular-nums" :class="itemRowBgClass(row)">
+                <p>{{ formatMoney(row.purchase_price) }}</p>
+                <p v-if="Number(row.purchase_price_before_vat || 0) > 0" class="mt-1 text-[11px] font-medium text-slate-500">
+                   {{ formatMoney(row.purchase_price_before_vat) }}
+                </p>
+                <p v-if="Number(row.purchase_price_vat_amount || 0) > 0" class="text-[11px] font-medium text-amber-700">
+                  VAT {{ formatMoney(row.purchase_price_vat_amount) }}
+                </p>
+              </td>
+              <td class="px-3 py-2 align-top text-right font-semibold text-slate-700 tabular-nums" :class="itemRowBgClass(row)">
+                <p>{{ formatMoney(row.average_cost) }}</p>
+                <p v-if="Number(row.average_cost_before_vat || 0) > 0" class="mt-1 text-[11px] font-medium text-slate-500">
+                  ทุน {{ formatMoney(row.average_cost_before_vat) }}
+                </p>
+                <p v-if="Number(row.average_cost_vat_amount || 0) > 0" class="mt-1 text-[11px] font-medium text-amber-700">
+                  VAT {{ formatMoney(row.average_cost_vat_amount) }}
+                </p>
+              </td>
               <td class="px-3 py-2 align-top text-xs text-slate-500" :class="itemRowBgClass(row)">{{ row.source_docs || row.source_doc_no }}</td>
               <template v-for="field in priceFields" :key="`${row.item_code}-${row.unit_code}-${field}`">
                 <td class="border-l border-slate-100 px-3 py-2 align-top text-right text-slate-500 tabular-nums" :class="itemRowBgClass(row)">
@@ -276,6 +298,11 @@
                   ใช้ราคารวมซื้อ
                 </button>
                 </div>
+              </td>
+              <td class="px-3 py-2 align-top text-center" :class="itemRowBgClass(row)">
+                <button class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:border-red-300 hover:bg-red-100" @click="openDeleteItemDialog(row)">
+                  ลบรายการ
+                </button>
               </td>
             </tr>
           </tbody>
@@ -337,8 +364,8 @@
               <table class="min-w-[3600px] text-sm">
                 <thead class="sticky top-0 z-10 bg-slate-50">
                   <tr>
-                    <th class="table-head-static sticky left-0 z-20 w-32 bg-slate-50" rowspan="2">รหัสสินค้า</th>
-                    <th class="table-head-static sticky z-20 w-64 bg-slate-50 shadow-[1px_0_0_#e2e8f0]" style="left:7.25rem" rowspan="2">ชื่อสินค้า</th>
+                    <th class="table-head-static sticky left-0 z-20  bg-slate-50" rowspan="2" style="min-width:9rem">รหัสสินค้า</th>
+                    <th class="table-head-static sticky z-20 w-64 bg-slate-50 shadow-[1px_0_0_#e2e8f0]" style="left:7.5rem" rowspan="2">ชื่อสินค้า</th>
                     <th class="table-head-static w-24" rowspan="2">หน่วย</th>
                     <th class="table-head-static w-20 text-right" rowspan="2">ภาษี</th>
                     <th class="table-head-static w-56" rowspan="2">กลุ่มสูตรราคา</th>
@@ -357,8 +384,8 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                   <tr v-for="row in historyDetails" :key="row.roworder" class="transition hover:brightness-[0.98]">
-                    <td class="sticky left-0 z-10 px-3 py-2 align-top font-mono text-xs font-semibold text-slate-700" :class="historyRowBgClass(row)">{{ row.ic_code }}</td>
-                    <td class="sticky z-10 px-3 py-2 align-top shadow-[1px_0_0_#e2e8f0]" style="left:7.25rem" :class="historyRowBgClass(row)">{{ row.item_name || '-' }}</td>
+                    <td class="sticky left-0 z-10 px-3 py-2 align-top font-mono text-xs font-semibold  text-slate-700" style="min-width:9rem" :class="historyRowBgClass(row)">{{ row.ic_code }}</td>
+                    <td class="sticky z-10 px-3 py-2 align-top shadow-[1px_0_0_#e2e8f0]" style="left:7.5rem" :class="historyRowBgClass(row)">{{ row.item_name || '-' }}</td>
                     <td class="px-3 py-2 align-top text-slate-600" :class="historyRowBgClass(row)">{{ row.unit_code }}</td>
                     <td class="px-3 py-2 align-top text-right text-slate-600 tabular-nums" :class="historyRowBgClass(row)">{{ formatInt(row.tax_type) }}</td>
                     <td class="px-3 py-2 align-top" :class="historyRowBgClass(row)">
@@ -471,11 +498,90 @@
     </div>
 
     <div
+      v-if="clearItemsDialogOpen"
+      class="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/50 p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div class="w-full max-w-lg overflow-hidden rounded-lg bg-white shadow-xl">
+        <div class="border-b border-red-100 bg-red-50 px-5 py-4">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-red-500">ยืนยันการล้าง</p>
+              <h2 class="mt-1 text-lg font-semibold text-slate-900">ล้างรายการในตารางปรับราคา</h2>
+              <p class="mt-1 text-sm text-slate-600">ระบบจะลบรายการออกจากหน้าจอเท่านั้น ยังไม่มีผลกับฐานข้อมูล</p>
+            </div>
+            <button class="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-red-50" @click="closeClearItemsDialog">
+              ปิด
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-4 p-5">
+          <div class="rounded-lg border border-red-100 bg-red-50 p-4 text-center">
+            <p class="text-sm font-semibold text-red-600">จำนวนรายการที่จะล้าง</p>
+            <p class="mt-2 text-3xl font-bold text-red-700">{{ formatInt(items.length) }}</p>
+          </div>
+          <p class="text-sm text-slate-500">ถ้าต้องการนำกลับมา ให้เปิดเลือกเอกสารหรือเลือกสินค้า แล้วดึงรายการเข้าตารางใหม่อีกครั้ง</p>
+        </div>
+
+        <div class="flex flex-col gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:justify-end">
+          <button class="btn-secondary justify-center" @click="closeClearItemsDialog">ยกเลิก</button>
+          <button class="justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700" @click="confirmClearItems">
+            ยืนยันล้างรายการ
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="deleteDialogOpen"
+      class="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/50 p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div class="w-full max-w-lg overflow-hidden rounded-lg bg-white shadow-xl">
+        <div class="border-b border-red-100 bg-red-50 px-5 py-4">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-red-500">ยืนยันการลบ</p>
+              <h2 class="mt-1 text-lg font-semibold text-slate-900">ลบรายการออกจากตารางปรับราคา</h2>
+              <p class="mt-1 text-sm text-slate-600">รายการนี้จะถูกลบออกจากหน้าจอเท่านั้น ยังไม่มีผลกับฐานข้อมูลจนกว่าจะบันทึกราคา</p>
+            </div>
+            <button class="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-red-50" @click="closeDeleteItemDialog">
+              ปิด
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-4 p-5">
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div class="grid gap-3 sm:grid-cols-[7rem_1fr]">
+              <p class="text-sm font-semibold text-slate-500">รหัสสินค้า</p>
+              <p class="font-mono text-sm font-semibold text-slate-800">{{ deleteTargetRow?.item_code || '-' }}</p>
+              <p class="text-sm font-semibold text-slate-500">ชื่อสินค้า</p>
+              <p class="text-sm font-medium text-slate-800">{{ deleteTargetRow?.item_name || '-' }}</p>
+              <p class="text-sm font-semibold text-slate-500">หน่วย</p>
+              <p class="text-sm font-medium text-slate-800">{{ deleteTargetRow?.unit_code || '-' }}</p>
+            </div>
+          </div>
+          <p class="text-sm text-slate-500">ถ้าต้องการนำกลับ ให้เปิดเลือกเอกสารหรือเลือกสินค้า แล้วดึงรายการเข้าตารางใหม่อีกครั้ง</p>
+        </div>
+
+        <div class="flex flex-col gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:justify-end">
+          <button class="btn-secondary justify-center" @click="closeDeleteItemDialog">ยกเลิก</button>
+          <button class="justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700" @click="confirmDeleteItem">
+            ยืนยันลบรายการ
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
       v-if="documentDialogOpen"
       class="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/50 p-4"
       role="dialog"
       aria-modal="true"
-      @click.self="documentDialogOpen = false"
     >
       <div class="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
         <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
@@ -588,14 +694,14 @@
       v-if="productDialogOpen"
       class="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/50 p-4"
       role="dialog"
+      
       aria-modal="true"
-      @click.self="productDialogOpen = false"
     >
       <div class="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
         <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 class="text-lg font-semibold text-slate-800">เลือกสินค้าจากราคาตามสูตร</h2>
-            <p class="text-sm text-slate-500">ค้นหาได้หลายคำ เช่น มาม่า 90 10g แล้วเลือกสินค้าเพื่อดึงราคาตามสูตรเข้าตารางปรับราคา</p>
+        
           </div>
           <button class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-white" @click="productDialogOpen = false">
             ปิด
@@ -919,6 +1025,8 @@ const activeTab = ref('price')
 const documentDialogOpen = ref(false)
 const productDialogOpen = ref(false)
 const saveDialogOpen = ref(false)
+const deleteDialogOpen = ref(false)
+const clearItemsDialogOpen = ref(false)
 const loadingDocs = ref(false)
 const loadingItems = ref(false)
 const loadingProducts = ref(false)
@@ -931,6 +1039,7 @@ const saving = ref(false)
 const error = ref('')
 const success = ref('')
 const pendingSaveItems = ref([])
+const deleteTargetRow = ref(null)
 const historyRows = ref([])
 const selectedHistory = ref(null)
 const historyDetails = ref([])
@@ -1065,6 +1174,18 @@ function normalizeItemRow(row) {
     old_prices: { ...(row.old_prices || {}) },
     new_prices: { ...(row.new_prices || {}) },
   }
+}
+
+function mergeItemRows(existingRows, incomingRows) {
+  const seen = new Set(existingRows.map(itemLineKey))
+  const merged = [...existingRows]
+  for (const row of incomingRows) {
+    const key = itemLineKey(row)
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push(row)
+  }
+  return merged
 }
 
 function applyCategorySelection(row) {
@@ -1341,10 +1462,11 @@ async function loadItemsFromProducts() {
     const { data } = await api.post('/price-adjustment/items-from-products', {
       products,
     })
-    items.value = (data.data || []).map(normalizeItemRow)
+    const incomingItems = (data.data || []).map(normalizeItemRow)
+    items.value = mergeItemRows(items.value, incomingItems)
     await loadAllMarginMaster()
     activeTab.value = 'price'
-    if (!items.value.length) setError('ไม่พบราคาตามสูตรของสินค้าที่เลือก')
+    if (!incomingItems.length) setError('ไม่พบราคาตามสูตรของสินค้าที่เลือก')
   } catch (err) {
     setError(err.message)
   } finally {
@@ -1499,7 +1621,11 @@ function exportPriceExcel() {
     'ลำดับหน่วย',
     'ภาษี',
     'ราคารวมซื้อสูงสุด',
+    'ราคาซื้อก่อน VAT',
+    'ยอด VAT ราคาซื้อ',
     'ต้นทุนเฉลี่ย',
+    'ทุนก่อน VAT',
+    'ยอด VAT ต้นทุนเฉลี่ย',
     'เอกสารอ้างอิง',
     'จำนวนเอกสาร',
     'จำนวนรายการอ้างอิง',
@@ -1519,7 +1645,11 @@ function exportPriceExcel() {
       numberCell(row.unit_row_order, 0),
       numberCell(row.vat_type, 0),
       numberCell(row.purchase_price),
+      numberCell(row.purchase_price_before_vat),
+      numberCell(row.purchase_price_vat_amount),
       numberCell(row.average_cost),
+      numberCell(row.average_cost_before_vat),
+      numberCell(row.average_cost_vat_amount),
       textCell(row.source_docs || row.source_doc_no || ''),
       numberCell(row.source_doc_count, 0),
       numberCell(row.source_line_count, 0),
@@ -1789,6 +1919,42 @@ function applyOldPrices(row) {
   for (const field of priceFields) {
     row.new_prices[field] = hasOldPrice(row, field) ? roundedPrice(row.old_prices?.[field]) : ''
   }
+}
+
+function openClearItemsDialog() {
+  clearItemsDialogOpen.value = true
+}
+
+function closeClearItemsDialog() {
+  clearItemsDialogOpen.value = false
+}
+
+function confirmClearItems() {
+  items.value = []
+  pendingSaveItems.value = []
+  closeClearItemsDialog()
+  activeTab.value = 'price'
+}
+
+function openDeleteItemDialog(row) {
+  deleteTargetRow.value = row
+  deleteDialogOpen.value = true
+}
+
+function closeDeleteItemDialog() {
+  deleteDialogOpen.value = false
+  deleteTargetRow.value = null
+}
+
+function confirmDeleteItem() {
+  const row = deleteTargetRow.value
+  if (!row) {
+    closeDeleteItemDialog()
+    return
+  }
+  const key = itemLineKey(row)
+  items.value = items.value.filter((item) => itemLineKey(item) !== key)
+  closeDeleteItemDialog()
 }
 
 function fillEmptyFromPurchase() {
