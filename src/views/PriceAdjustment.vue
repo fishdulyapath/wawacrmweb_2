@@ -3,7 +3,7 @@
     <div class="mb-6">
       <div>
         <h1 class="text-xl font-bold text-slate-800">ปรับราคาสินค้า</h1>
-        <p class="mt-1 text-sm text-slate-500">เลือกเอกสารซื้อหรือรับสินค้า แล้วนำราคาซื้อสูงสุดต่อสินค้า/หน่วยไปปรับราคาตามสูตร</p>
+        <p class="mt-1 text-sm text-slate-500">เลือกเอกสารซื้อหรือรับสินค้า แล้วนำราคารวมซื้อสูงสุดต่อสินค้า/หน่วยไปปรับราคาตามสูตร</p>
       </div>
     </div>
 
@@ -78,7 +78,7 @@
       <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 class="font-semibold text-slate-800">สูตรคำนวณราคา</h2>
-          <p class="text-sm text-slate-500">ราคาใหม่ = ราคาซื้อ × (1 + (margin ราคา + margin หน่วย)/100) และถ้ามีเศษทศนิยมจะปัดขึ้นเสมอ</p>
+          <p class="text-sm text-slate-500">ราคาใหม่ = ราคารวมซื้อสูงสุด × (1 + (margin ราคา + margin หน่วย)/100) และถ้ามีเศษทศนิยมจะปัดขึ้นเสมอ</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <button class="btn-secondary justify-center" :disabled="loadingMargins" @click="loadAllMarginMaster">โหลด margin จาก master</button>
@@ -152,10 +152,10 @@
       <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 class="font-semibold text-slate-800">ตารางปรับราคา</h2>
-          <p class="text-sm text-slate-500">สินค้าที่พบในเอกสารจะแสดงทุกหน่วยจาก ic_unit_use เลือกราคาซื้อสูงสุด และแสดงราคาเก่า/ใหม่/ส่วนต่างตามคลิป</p>
+          <p class="text-sm text-slate-500">สินค้าที่พบในเอกสารจะแสดงทุกหน่วยจาก ic_unit_use เลือกราคารวมซื้อสูงสุด และแสดงราคาเก่า/ใหม่/ส่วนต่างตามคลิป</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="fillEmptyFromPurchase">เติมช่องว่างด้วยราคาซื้อสูงสุด</button>
+          <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="fillEmptyFromPurchase">เติมช่องว่างด้วยราคารวมซื้อสูงสุด</button>
           <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="applyFormulaToItems">คำนวณราคาจากสูตร</button>
           <button class="btn-secondary justify-center" :disabled="printablePriceBarcodeRows.length === 0" @click="printPriceBarcodes">พิมพ์บาร์โค้ด</button>
           <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="exportPriceExcel">Export Excel</button>
@@ -180,7 +180,7 @@
         </button>
       </div>
       <div v-else class="max-h-[calc(100vh-280px)] overflow-auto">
-        <table class="min-w-[4500px] text-sm">
+        <table class="min-w-[4620px] text-sm">
           <thead class="sticky top-0 z-20 bg-slate-50">
             <tr>
               <th class="table-head-static sticky left-0 z-30 w-32 min-w-[8rem] bg-slate-50" rowspan="2" scope="col">รหัสสินค้า</th>
@@ -190,12 +190,13 @@
               <th class="table-head-static w-64" rowspan="2" scope="col">กลุ่มสินค้า</th>
               <th class="table-head-static w-20 text-right" rowspan="2" scope="col">ลำดับหน่วย</th>
               <th class="table-head-static w-20 text-right" rowspan="2" scope="col">ภาษี</th>
-              <th class="table-head-static w-28 text-right" rowspan="2" scope="col">ราคาซื้อสูงสุด</th>
+              <th class="table-head-static w-28 text-right" rowspan="2" scope="col">ราคารวมซื้อสูงสุด</th>
+              <th class="table-head-static w-28 text-right" rowspan="2" scope="col">ต้นทุนเฉลี่ย</th>
               <th class="table-head-static w-44" rowspan="2" scope="col">เอกสารอ้างอิง</th>
               <template v-for="field in priceFields" :key="`${field}-group`">
                 <th class="table-head-static border-l border-slate-200 text-center" :class="priceBandClass(field)" colspan="3" scope="colgroup">{{ priceLabel(field) }}</th>
               </template>
-              <th class="table-head-static w-28 text-center" rowspan="2" scope="col">คำสั่ง</th>
+              <th class="table-head-static w-36 text-center" rowspan="2" scope="col">คำสั่ง</th>
             </tr>
             <tr>
               <template v-for="field in priceFields" :key="`${field}-subhead`">
@@ -245,6 +246,7 @@
               <td class="px-3 py-2 align-top text-right text-slate-600 tabular-nums" :class="itemRowBgClass(row)">{{ formatInt(row.unit_row_order) }}</td>
               <td class="px-3 py-2 align-top text-right text-slate-600 tabular-nums" :class="itemRowBgClass(row)">{{ formatInt(row.vat_type) }}</td>
               <td class="px-3 py-2 align-top text-right font-semibold text-slate-800 tabular-nums" :class="itemRowBgClass(row)">{{ formatMoney(row.purchase_price) }}</td>
+              <td class="px-3 py-2 align-top text-right font-semibold text-slate-700 tabular-nums" :class="itemRowBgClass(row)">{{ formatMoney(row.average_cost) }}</td>
               <td class="px-3 py-2 align-top text-xs text-slate-500" :class="itemRowBgClass(row)">{{ row.source_docs || row.source_doc_no }}</td>
               <template v-for="field in priceFields" :key="`${row.item_code}-${row.unit_code}-${field}`">
                 <td class="border-l border-slate-100 px-3 py-2 align-top text-right text-slate-500 tabular-nums" :class="itemRowBgClass(row)">
@@ -266,9 +268,14 @@
                 </td>
               </template>
               <td class="px-3 py-2 align-top text-center" :class="itemRowBgClass(row)">
+                <div class="flex flex-col gap-2">
+                  <button class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700" @click="applyOldPrices(row)">
+                    ใช้ราคาเดิม
+                  </button>
                 <button class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-white" @click="applyPurchasePrice(row)">
-                  ใช้ราคาซื้อ
+                  ใช้ราคารวมซื้อ
                 </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -522,7 +529,7 @@
           <div v-else-if="documents.length === 0" class="py-12 text-center text-sm text-slate-400">
             ยังไม่มีรายการเอกสาร กดค้นหาเพื่อโหลดข้อมูล
           </div>
-          <table v-else class="w-full min-w-[980px] text-sm">
+          <table v-else class="w-full min-w-[1080px] text-sm">
             <thead class="sticky top-0 bg-slate-50">
               <tr>
                 <th class="table-head-static w-14 text-center">
@@ -531,6 +538,7 @@
                 <th class="table-head-static w-32">วันที่</th>
                 <th class="table-head-static w-44">เลขที่เอกสาร</th>
                 <th class="table-head-static w-28">ประเภท</th>
+                <th class="table-head-static w-36">ภาษี</th>
                 <th class="table-head-static">เจ้าหนี้</th>
                 <th class="table-head-static w-24 text-right">รายการ</th>
                 <th class="table-head-static w-32 text-right">ยอดรวม</th>
@@ -546,6 +554,9 @@
                 <td class="px-4 py-3 font-mono text-xs font-semibold text-slate-700">{{ doc.doc_no }}</td>
                 <td class="px-4 py-3">
                   <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">{{ doc.trans_name }}</span>
+                </td>
+                <td class="px-4 py-3">
+                  <span class="rounded-full px-2.5 py-1 text-xs font-semibold ring-1" :class="docVatTypeClass(doc)">{{ docVatTypeText(doc) }}</span>
                 </td>
                 <td class="px-4 py-3">
                   <p class="font-medium text-slate-700">{{ doc.supplier_name || '-' }}</p>
@@ -1487,7 +1498,8 @@ function exportPriceExcel() {
     'กลุ่มสินค้า',
     'ลำดับหน่วย',
     'ภาษี',
-    'ราคาซื้อสูงสุด',
+    'ราคารวมซื้อสูงสุด',
+    'ต้นทุนเฉลี่ย',
     'เอกสารอ้างอิง',
     'จำนวนเอกสาร',
     'จำนวนรายการอ้างอิง',
@@ -1507,6 +1519,7 @@ function exportPriceExcel() {
       numberCell(row.unit_row_order, 0),
       numberCell(row.vat_type, 0),
       numberCell(row.purchase_price),
+      numberCell(row.average_cost),
       textCell(row.source_docs || row.source_doc_no || ''),
       numberCell(row.source_doc_count, 0),
       numberCell(row.source_line_count, 0),
@@ -1770,6 +1783,12 @@ function formatBarcodeUnitPrice(value) {
 function applyPurchasePrice(row) {
   const value = roundedPrice(row.purchase_price)
   for (const field of priceFields) row.new_prices[field] = value
+}
+
+function applyOldPrices(row) {
+  for (const field of priceFields) {
+    row.new_prices[field] = hasOldPrice(row, field) ? roundedPrice(row.old_prices?.[field]) : ''
+  }
 }
 
 function fillEmptyFromPurchase() {
@@ -2075,6 +2094,29 @@ function formatDateTime(value) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date)
+}
+
+function docVatTypeText(doc) {
+  if (Number(doc.vat_type_count || 0) > 1) return 'หลายประเภท'
+  const labels = {
+    0: 'แยกนอก',
+    1: 'รวมใน',
+    2: 'ภาษีศูนย์',
+    3: 'ไม่กระทบภาษี',
+  }
+  const value = Number(doc.vat_type ?? 0)
+  return labels[value] || 'ไม่ทราบ'
+}
+
+function docVatTypeClass(doc) {
+  if (Number(doc.vat_type_count || 0) > 1) return 'bg-slate-100 text-slate-700 ring-slate-200'
+  const classes = {
+    0: 'bg-orange-50 text-orange-700 ring-orange-200',
+    1: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+    2: 'bg-red-50 text-red-700 ring-red-200',
+    3: 'bg-slate-100 text-slate-700 ring-slate-200',
+  }
+  return classes[Number(doc.vat_type ?? 0)] || 'bg-slate-100 text-slate-700 ring-slate-200'
 }
 
 function formatInt(value) {
