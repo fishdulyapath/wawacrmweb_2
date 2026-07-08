@@ -338,7 +338,7 @@
                 <thead class="sticky top-0 z-10 bg-slate-50">
                   <tr>
                     <th class="table-head-static sticky left-0 z-20 w-32 bg-slate-50" rowspan="2">รหัสสินค้า</th>
-                    <th class="table-head-static sticky left-32 z-20 w-64 bg-slate-50 shadow-[1px_0_0_#e2e8f0]" rowspan="2">ชื่อสินค้า</th>
+                    <th class="table-head-static sticky z-20 w-64 bg-slate-50 shadow-[1px_0_0_#e2e8f0]" style="left:7.25rem" rowspan="2">ชื่อสินค้า</th>
                     <th class="table-head-static w-24" rowspan="2">หน่วย</th>
                     <th class="table-head-static w-20 text-right" rowspan="2">ภาษี</th>
                     <th class="table-head-static w-56" rowspan="2">กลุ่มสูตรราคา</th>
@@ -358,7 +358,7 @@
                 <tbody class="divide-y divide-slate-100">
                   <tr v-for="row in historyDetails" :key="row.roworder" class="transition hover:brightness-[0.98]">
                     <td class="sticky left-0 z-10 px-3 py-2 align-top font-mono text-xs font-semibold text-slate-700" :class="historyRowBgClass(row)">{{ row.ic_code }}</td>
-                    <td class="sticky left-32 z-10 px-3 py-2 align-top shadow-[1px_0_0_#e2e8f0]" :class="historyRowBgClass(row)">{{ row.item_name || '-' }}</td>
+                    <td class="sticky z-10 px-3 py-2 align-top shadow-[1px_0_0_#e2e8f0]" style="left:7.25rem" :class="historyRowBgClass(row)">{{ row.item_name || '-' }}</td>
                     <td class="px-3 py-2 align-top text-slate-600" :class="historyRowBgClass(row)">{{ row.unit_code }}</td>
                     <td class="px-3 py-2 align-top text-right text-slate-600 tabular-nums" :class="historyRowBgClass(row)">{{ formatInt(row.tax_type) }}</td>
                     <td class="px-3 py-2 align-top" :class="historyRowBgClass(row)">
@@ -400,7 +400,7 @@
           <div class="flex items-start justify-between gap-4">
             <div>
               <h2 class="text-lg font-semibold text-slate-800">ยืนยันบันทึกราคา</h2>
-              <p class="mt-1 text-sm text-slate-500">ระบบจะบันทึกเข้า ic_inventory_price_formula ด้วย sale_type 0 และ tax_type ตามเอกสารอ้างอิงของแต่ละรายการ</p>
+              <p class="mt-1 text-sm text-slate-500">ระบบจะบันทึกเข้า ic_inventory_price_formula ด้วย sale_type 0 และ tax_type 0 เสมอ</p>
             </div>
             <button class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-white" :disabled="saving" @click="closeSaveDialog">
               ปิด
@@ -1956,7 +1956,7 @@ function buildSavePayload() {
     const item = {
       item_code: row.item_code,
       unit_code: row.unit_code,
-      tax_type: Number(row.vat_type || 0),
+      tax_type: 0,
       formula_category_code: row.selected_category_code || row.category_code || '',
       formula_category_name: row.selected_category_name || row.category_name || '',
     }
