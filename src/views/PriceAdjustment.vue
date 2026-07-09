@@ -155,8 +155,9 @@
           <p class="text-sm text-slate-500">สินค้าที่พบในเอกสารจะแสดงทุกหน่วยจาก ic_unit_use เลือกราคารวมซื้อสูงสุด และแสดงราคาเก่า/ใหม่/ส่วนต่างตามคลิป</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="fillEmptyFromPurchase">เติมช่องว่างด้วยราคารวมซื้อสูงสุด</button>
-          <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="applyFormulaToItems">คำนวณราคาจากสูตร</button>
+          <button class="btn-secondary justify-center" :disabled="selectedPriceItemCount === 0" @click="applyFormulaToSelected('average_cost')">&#x0E04;&#x0E33;&#x0E19;&#x0E27;&#x0E13;&#x0E08;&#x0E32;&#x0E01;&#x0E15;&#x0E49;&#x0E19;&#x0E17;&#x0E38;&#x0E19;&#x0E40;&#x0E09;&#x0E25;&#x0E35;&#x0E48;&#x0E22; ({{ formatInt(selectedPriceItemCount) }})</button>
+          <button class="btn-secondary justify-center" :disabled="selectedPriceItemCount === 0" @click="applyFormulaToSelected('purchase')">&#x0E04;&#x0E33;&#x0E19;&#x0E27;&#x0E13;&#x0E08;&#x0E32;&#x0E01;&#x0E23;&#x0E32;&#x0E04;&#x0E32;&#x0E0B;&#x0E37;&#x0E49;&#x0E2D;&#x0E2A;&#x0E39;&#x0E07;&#x0E2A;&#x0E38;&#x0E14; ({{ formatInt(selectedPriceItemCount) }})</button>
+          <button class="btn-secondary justify-center" :disabled="selectedPriceItemCount === 0" @click="applyOldPricesToSelected">&#x0E43;&#x0E0A;&#x0E49;&#x0E23;&#x0E32;&#x0E04;&#x0E32;&#x0E40;&#x0E14;&#x0E34;&#x0E21; ({{ formatInt(selectedPriceItemCount) }})</button>
           <button class="btn-secondary justify-center" :disabled="printablePriceBarcodeRows.length === 0" @click="printPriceBarcodes">พิมพ์บาร์โค้ด</button>
           <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="exportPriceExcel">Export Excel</button>
           <button class="justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 shadow-sm hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60" :disabled="items.length === 0" @click="openClearItemsDialog">ล้างรายการ</button>
@@ -181,11 +182,14 @@
         </button>
       </div>
       <div v-else class="max-h-[calc(100vh-280px)] overflow-auto">
-        <table class="min-w-[4620px] text-sm">
+        <table class="min-w-[4680px] text-sm">
           <thead class="sticky top-0 z-20 bg-slate-50">
             <tr>
-              <th class="table-head-static sticky left-0 z-30 w-32 min-w-[8rem] bg-slate-50" rowspan="2" scope="col">รหัสสินค้า</th>
-              <th class="table-head-static sticky left-32 z-30 w-64 min-w-[16rem] bg-slate-50 shadow-[1px_0_0_#e2e8f0]" rowspan="2" scope="col">ชื่อสินค้า</th>
+              <th class="table-head-static sticky left-0 z-30 w-14 min-w-[3.5rem] bg-slate-50 text-center" rowspan="2" scope="col">
+                <input type="checkbox" class="h-4 w-4 rounded border-slate-300" :checked="allPriceItemsSelected" @change="toggleSelectAllPriceItems" />
+              </th>
+              <th class="table-head-static sticky z-30 w-32 min-w-[8rem] bg-slate-50" style="left:3.5rem" rowspan="2" scope="col">รหัสสินค้า</th>
+              <th class="table-head-static sticky z-30 w-64 min-w-[16rem] bg-slate-50 shadow-[1px_0_0_#e2e8f0]" style="left:11.5rem" rowspan="2" scope="col">ชื่อสินค้า</th>
               <th class="table-head-static w-24" rowspan="2" scope="col">หน่วย</th>
               <th class="table-head-static w-24 text-right" rowspan="2" scope="col">อัตราส่วน</th>
               <th class="table-head-static w-64" rowspan="2" scope="col">กลุ่มสินค้า</th>
@@ -210,8 +214,11 @@
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr v-for="row in items" :key="itemLineKey(row)" class="transition hover:brightness-[0.98]">
-              <td class="sticky left-0 z-10 px-3 py-2 align-top font-mono text-xs font-semibold text-slate-700" :class="itemRowBgClass(row)">{{ row.item_code }}</td>
-              <td class="sticky left-32 z-10 px-3 py-2 align-top shadow-[1px_0_0_#e2e8f0]" :class="itemRowBgClass(row)">
+              <td class="sticky left-0 z-10 px-3 py-2 align-top text-center" :class="itemRowBgClass(row)">
+                <input type="checkbox" class="h-4 w-4 rounded border-slate-300" :checked="selectedPriceItemKeys.has(itemLineKey(row))" @change="togglePriceItem(row)" />
+              </td>
+              <td class="sticky z-10 px-3 py-2 align-top font-mono text-xs font-semibold text-slate-700" style="left:3.5rem" :class="itemRowBgClass(row)">{{ row.item_code }}</td>
+              <td class="sticky z-10 px-3 py-2 align-top shadow-[1px_0_0_#e2e8f0]" style="left:11.5rem" :class="itemRowBgClass(row)">
                 <div class="flex items-start gap-2">
                   <p class="font-medium text-slate-800">
                     {{ row.item_name || '-' }}
@@ -227,6 +234,9 @@
                     มีราคาอื่น
                   </button>
                 </div>
+                <p v-if="row.latest_price_update_at" class="mt-1 text-xs text-slate-400">
+                  ปรับราคาล่าสุด {{ formatPriceUpdateDateTime(row.latest_price_update_at) }}
+                </p>
                 <p v-if="hasOtherPrice(row)" class="mt-1 text-[11px] text-red-600">{{ otherPriceSummaryText(row) }}</p>
                 <!-- <p class="mt-1 text-xs text-slate-400">จาก {{ row.source_doc_count }} เอกสาร / {{ row.source_line_count }} รายการ</p> -->
               </td>
@@ -292,11 +302,14 @@
               <td class="px-3 py-2 align-top text-center" :class="itemRowBgClass(row)">
                 <div class="flex flex-col gap-2">
                   <button class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700" @click="applyOldPrices(row)">
-                    ใช้ราคาเดิม
+                    &#x0E43;&#x0E0A;&#x0E49;&#x0E23;&#x0E32;&#x0E04;&#x0E32;&#x0E40;&#x0E14;&#x0E34;&#x0E21;
                   </button>
-                <button class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-white" @click="applyPurchasePrice(row)">
-                  ใช้ราคารวมซื้อ
-                </button>
+                  <button class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-white" @click="applyPurchasePrice(row)">
+                    &#x0E43;&#x0E0A;&#x0E49;&#x0E23;&#x0E32;&#x0E04;&#x0E32;&#x0E23;&#x0E27;&#x0E21;&#x0E0B;&#x0E37;&#x0E49;&#x0E2D;
+                  </button>
+                  <button class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100" @click="applyAverageCostPrice(row)">
+                    &#x0E43;&#x0E0A;&#x0E49;&#x0E08;&#x0E32;&#x0E01;&#x0E23;&#x0E32;&#x0E04;&#x0E32;&#x0E17;&#x0E38;&#x0E19;
+                  </button>
                 </div>
               </td>
               <td class="px-3 py-2 align-top text-center" :class="itemRowBgClass(row)">
@@ -635,7 +648,7 @@
           <div v-else-if="documents.length === 0" class="py-12 text-center text-sm text-slate-400">
             ยังไม่มีรายการเอกสาร กดค้นหาเพื่อโหลดข้อมูล
           </div>
-          <table v-else class="w-full min-w-[1080px] text-sm">
+          <table v-else class="w-full min-w-[1240px] text-sm">
             <thead class="sticky top-0 bg-slate-50">
               <tr>
                 <th class="table-head-static w-14 text-center">
@@ -645,6 +658,7 @@
                 <th class="table-head-static w-44">เลขที่เอกสาร</th>
                 <th class="table-head-static w-28">ประเภท</th>
                 <th class="table-head-static w-36">ภาษี</th>
+                <th class="table-head-static w-44">สถานะปรับราคา</th>
                 <th class="table-head-static">เจ้าหนี้</th>
                 <th class="table-head-static w-24 text-right">รายการ</th>
                 <th class="table-head-static w-32 text-right">ยอดรวม</th>
@@ -663,6 +677,14 @@
                 </td>
                 <td class="px-4 py-3">
                   <span class="rounded-full px-2.5 py-1 text-xs font-semibold ring-1" :class="docVatTypeClass(doc)">{{ docVatTypeText(doc) }}</span>
+                </td>
+                <td class="px-4 py-3">
+                  <span class="rounded-full px-2.5 py-1 text-xs font-semibold ring-1" :class="docAdjustmentStatusClass(doc)">
+                    {{ docAdjustmentStatusText(doc) }}
+                  </span>
+                  <p v-if="Number(doc.adjusted_item_unit_count || 0) > 0" class="mt-1 text-[11px] text-slate-400">
+                    {{ formatInt(doc.adjusted_item_unit_count) }} / {{ formatInt(doc.item_unit_count || doc.line_count) }} รายการ
+                  </p>
                 </td>
                 <td class="px-4 py-3">
                   <p class="font-medium text-slate-700">{{ doc.supplier_name || '-' }}</p>
@@ -1018,6 +1040,7 @@ const filters = reactive({
 
 const documents = ref([])
 const selectedDocKeys = ref(new Set())
+const selectedPriceItemKeys = ref(new Set())
 const items = ref([])
 const formulaRules = ref([])
 const formulaSearch = ref('')
@@ -1063,6 +1086,8 @@ const selectedCount = computed(() => selectedDocKeys.value.size)
 const selectedProductCount = computed(() => selectedProductKeys.value.size)
 const allDocsSelected = computed(() => documents.value.length > 0 && selectedDocKeys.value.size === documents.value.length)
 const allProductsSelected = computed(() => productRows.value.length > 0 && selectedProductKeys.value.size === productRows.value.length)
+const selectedPriceItemCount = computed(() => selectedPriceItemKeys.value.size)
+const allPriceItemsSelected = computed(() => items.value.length > 0 && selectedPriceItemKeys.value.size === items.value.length)
 const changedSaveRows = computed(() => items.value.filter((row) => rowHasSaveChange(row)))
 const savePreviewRows = computed(() => changedSaveRows.value.slice(0, 8))
 const saveUpdateEstimate = computed(() => changedSaveRows.value.filter((row) => hasAnyOldPrice(row)).length)
@@ -1144,6 +1169,31 @@ function selectedProducts() {
   return productRows.value
     .filter((product) => selectedProductKeys.value.has(product.item_code))
     .map((product) => ({ item_code: product.item_code }))
+}
+
+function cleanupSelectedPriceItemKeys() {
+  const valid = new Set(items.value.map(itemLineKey))
+  selectedPriceItemKeys.value = new Set([...selectedPriceItemKeys.value].filter((key) => valid.has(key)))
+}
+
+function selectedPriceItems() {
+  return items.value.filter((row) => selectedPriceItemKeys.value.has(itemLineKey(row)))
+}
+
+function togglePriceItem(row) {
+  const next = new Set(selectedPriceItemKeys.value)
+  const key = itemLineKey(row)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  selectedPriceItemKeys.value = next
+}
+
+function toggleSelectAllPriceItems() {
+  if (allPriceItemsSelected.value) {
+    selectedPriceItemKeys.value = new Set()
+    return
+  }
+  selectedPriceItemKeys.value = new Set(items.value.map(itemLineKey))
 }
 
 function categoryOptionLabel(rule) {
@@ -1911,8 +1961,11 @@ function formatBarcodeUnitPrice(value) {
 }
 
 function applyPurchasePrice(row) {
-  const value = roundedPrice(row.purchase_price)
-  for (const field of priceFields) row.new_prices[field] = value
+  applyFormulaToRow(row, 'purchase')
+}
+
+function applyAverageCostPrice(row) {
+  applyFormulaToRow(row, 'average_cost')
 }
 
 function applyOldPrices(row) {
@@ -1931,6 +1984,7 @@ function closeClearItemsDialog() {
 
 function confirmClearItems() {
   items.value = []
+  selectedPriceItemKeys.value = new Set()
   pendingSaveItems.value = []
   closeClearItemsDialog()
   activeTab.value = 'price'
@@ -1954,16 +2008,9 @@ function confirmDeleteItem() {
   }
   const key = itemLineKey(row)
   items.value = items.value.filter((item) => itemLineKey(item) !== key)
+  selectedPriceItemKeys.value.delete(key)
+  selectedPriceItemKeys.value = new Set(selectedPriceItemKeys.value)
   closeDeleteItemDialog()
-}
-
-function fillEmptyFromPurchase() {
-  for (const row of items.value) {
-    const value = roundedPrice(row.purchase_price)
-    for (const field of priceFields) {
-      if (row.new_prices[field] === '' || row.new_prices[field] == null) row.new_prices[field] = value
-    }
-  }
 }
 
 function categoryKey(row) {
@@ -2064,18 +2111,24 @@ function unitMarginKey(row) {
   return unitMarginFields.includes(order) ? order : null
 }
 
-function calculatedFormulaPrice(row, field) {
+function formulaBasePrice(row, source = 'purchase') {
+  return source === 'average_cost'
+    ? Number(row.average_cost || 0)
+    : Number(row.purchase_price || 0)
+}
+
+function calculatedFormulaPrice(row, field, source = 'purchase') {
   const rule = formulaRuleFor(row)
   const priceMargin = marginNumber(rule?.price_margins?.[field])
   const unitKey = unitMarginKey(row)
   const unitMargin = unitKey == null ? 0 : marginNumber(rule?.unit_margins?.[unitKey])
-  const price = Number(row.purchase_price || 0) * (1 + (priceMargin + unitMargin) / 100)
+  const price = formulaBasePrice(row, source) * (1 + (priceMargin + unitMargin) / 100)
   return roundedPrice(price)
 }
 
-function applyFormulaToRow(row) {
+function applyFormulaToRow(row, source = 'purchase') {
   for (const field of priceFields) {
-    row.new_prices[field] = calculatedFormulaPrice(row, field)
+    row.new_prices[field] = calculatedFormulaPrice(row, field, source)
   }
 }
 
@@ -2083,6 +2136,19 @@ function applyFormulaToItems() {
   for (const row of items.value) {
     applyCategorySelection(row)
     applyFormulaToRow(row)
+  }
+}
+
+function applyFormulaToSelected(source = 'purchase') {
+  for (const row of selectedPriceItems()) {
+    applyCategorySelection(row)
+    applyFormulaToRow(row, source)
+  }
+}
+
+function applyOldPricesToSelected() {
+  for (const row of selectedPriceItems()) {
+    applyOldPrices(row)
   }
 }
 
@@ -2262,6 +2328,14 @@ function formatDateTime(value) {
   }).format(date)
 }
 
+function formatPriceUpdateDateTime(value) {
+  if (!value) return '-'
+  const text = String(value).trim()
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/)
+  if (match) return `${match[3]}/${match[2]}/${match[1]} ${match[4]}:${match[5]}`
+  return formatDateTime(text)
+}
+
 function docVatTypeText(doc) {
   if (Number(doc.vat_type_count || 0) > 1) return 'หลายประเภท'
   const labels = {
@@ -2283,6 +2357,20 @@ function docVatTypeClass(doc) {
     3: 'bg-slate-100 text-slate-700 ring-slate-200',
   }
   return classes[Number(doc.vat_type ?? 0)] || 'bg-slate-100 text-slate-700 ring-slate-200'
+}
+
+function docAdjustmentStatusText(doc) {
+  const status = String(doc?.price_adjust_status || 'none')
+  if (status === 'full') return 'ปรับราคาทั้งเอกสาร'
+  if (status === 'partial') return 'ปรับราคาแล้วบางส่วน'
+  return 'ยังไม่ปรับราคา'
+}
+
+function docAdjustmentStatusClass(doc) {
+  const status = String(doc?.price_adjust_status || 'none')
+  if (status === 'full') return 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+  if (status === 'partial') return 'bg-amber-50 text-amber-700 ring-amber-200'
+  return 'bg-slate-100 text-slate-600 ring-slate-200'
 }
 
 function formatInt(value) {

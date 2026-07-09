@@ -182,7 +182,10 @@
           <div v-for="row in topSuggestRows" :key="row.ic_code" class="grid grid-cols-[minmax(0,1fr)_96px] items-center gap-3">
             <div class="min-w-0">
               <div class="mb-1 flex items-center justify-between gap-2 text-xs">
-                <span class="truncate font-medium text-slate-700">{{ row.ic_name || row.ic_code }}</span>
+                <span class="flex min-w-0 items-center gap-1.5">
+                  <span class="truncate font-medium text-slate-700">{{ row.ic_name || row.ic_code }}</span>
+                  <span v-if="isItemTaxExempt(row)" class="shrink-0 rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold text-red-600">ยกเว้นภาษี</span>
+                </span>
                 <span class="shrink-0 font-semibold tabular-nums text-blue-700">{{ formatQty(row.suggest_qty) }}</span>
               </div>
               <div class="h-2 overflow-hidden rounded-full bg-slate-100">
@@ -307,7 +310,10 @@
                   </button>
                 </td>
                 <td class="border border-slate-200 px-4 py-3">
-                  <a :href="detailHref(row)" target="_blank" rel="noopener" class="font-semibold text-blue-600 hover:underline">{{ row.ic_name || '-' }}</a>
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <a :href="detailHref(row)" target="_blank" rel="noopener" class="font-semibold text-blue-600 hover:underline">{{ row.ic_name || '-' }}</a>
+                    <span v-if="isItemTaxExempt(row)" class="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">ยกเว้นภาษี</span>
+                  </div>
                   <div class="mt-1 flex flex-wrap items-center gap-1.5">
                     <span class="code-pill">{{ row.ic_code }}</span>
                     <span class="text-xs text-slate-400">{{ row.unit_code || '-' }}</span>
@@ -677,6 +683,7 @@ async function addToCartFromRow(row) {
       price: 0,
       reference_unit_code: selectedSupplierUnitCode(row),
       reference_price: selectedSupplierPrice(row),
+      tax_type: Number(row.item_tax_type ?? 0) || 0,
       suggest_qty: suggest,
     })
     showToast(`เพิ่ม "${row.ic_name || row.ic_code}" ลงตะกร้าแล้ว`)
@@ -712,6 +719,7 @@ async function addToCartFromSupplier(row, supplier) {
       price: 0,
       reference_unit_code: supplier.last_purchase_unit_code || supplier.purchase_unit_code || row.unit_code,
       reference_price: purchasePrice(supplier),
+      tax_type: Number(row.item_tax_type ?? 0) || 0,
       suggest_qty: suggest,
     })
     showToast(`เพิ่ม "${row.ic_name || row.ic_code}" จาก "${supplier.ap_name || supplier.ap_code}" ลงตะกร้าแล้ว`)
@@ -1402,6 +1410,10 @@ function selectedSupplierName(row) {
 function hasTax(row) {
   const t = String(row.tax_type ?? row.selected_supplier_tax_type ?? '')
   return t === '1'
+}
+
+function isItemTaxExempt(row) {
+  return Number(row?.item_tax_type ?? row?.tax_type_item ?? 0) === 1
 }
 
 function selectedSupplierUnitCode(row) {

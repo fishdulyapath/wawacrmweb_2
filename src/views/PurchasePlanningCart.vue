@@ -58,7 +58,10 @@
                   <div class="flex items-start gap-3">
                     <img :src="productImageUrl(item.ic_code)" class="h-14 w-14 shrink-0 rounded border border-slate-200 bg-slate-50 object-cover" loading="lazy" @error="hideBrokenImage" />
                     <div class="min-w-0">
-                      <p class="font-medium text-slate-800">{{ item.ic_name || item.ic_code }}</p>
+                      <p class="flex flex-wrap items-center gap-1.5 font-medium text-slate-800">
+                        <span>{{ item.ic_name || item.ic_code }}</span>
+                        <span v-if="isTaxExempt(item)" class="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">ยกเว้นภาษี</span>
+                      </p>
                       <p class="mt-0.5 text-xs text-slate-400">
                         <span class="rounded bg-slate-100 px-1.5 py-0.5 font-mono">{{ item.ic_code }}</span>
                         <span v-if="item.suggest_qty" class="ml-1.5">· แนะนำ {{ formatQty(item.suggest_qty) }} {{ item.unit_code }}</span>
@@ -149,7 +152,7 @@
             </div>
             <div class="mt-2 space-y-1 text-xs text-slate-500">
               <p v-for="item in doc.items.slice(0, 4)" :key="`${doc.pr_doc_no}-${item.ic_code}`" class="truncate">
-                {{ item.ic_code }} · {{ item.ic_name || '-' }} · {{ formatQty(item.qty) }} {{ item.selected_unit || item.unit_code }}
+                {{ item.ic_code }} · {{ item.ic_name || '-' }}<span v-if="isTaxExempt(item)" class="ml-1 rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold text-red-600">ยกเว้นภาษี</span> · {{ formatQty(item.qty) }} {{ item.selected_unit || item.unit_code }}
               </p>
               <p v-if="doc.items.length > 4" class="text-slate-400">และอีก {{ doc.items.length - 4 }} รายการ</p>
             </div>
@@ -355,6 +358,10 @@ function hasReferenceDetail(item) {
   return Boolean(item.reference_unit_code) || Number(item.reference_price || 0) > 0
 }
 
+function isTaxExempt(item) {
+  return Number(item?.tax_type ?? item?.item_tax_type ?? 0) === 1
+}
+
 function formatQty(value) {
   return Number(value || 0).toLocaleString('th-TH')
 }
@@ -406,6 +413,7 @@ async function createPR() {
           unit_ratio: Number(it.unit_ratio || selectedUnit?.ratio || 1),
           unit_stand_value: Number(selectedUnit?.stand_value || it.unit_ratio || 1),
           unit_divide_value: Number(selectedUnit?.divide_value || 1),
+          tax_type: Number(it.tax_type ?? it.item_tax_type ?? 0) || 0,
           base_unit: it.unit_code,
           cart_id: it.id,
         }

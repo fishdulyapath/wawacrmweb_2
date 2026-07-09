@@ -64,6 +64,7 @@ function normalizeCartItem(row) {
     price: Number(row.price ?? 0) || 0,
     reference_unit_code: String(row.reference_unit_code ?? '').trim(),
     reference_price: Number(row.reference_price ?? 0) || 0,
+    tax_type: Number(row.tax_type ?? row.item_tax_type ?? 0) || 0,
     suggest_qty: Number(row.suggest_qty ?? 0) || 0,
     units,
     selected_unit: selectedUnit || unitCode,
@@ -145,6 +146,7 @@ async function addToCart(item) {
     suggest_qty: Number(item.suggest_qty || item.qty || 0),
     reference_unit_code: String(item.reference_unit_code || '').trim(),
     reference_price: Number(item.reference_price || 0),
+    tax_type: Number(item.tax_type ?? item.item_tax_type ?? 0) || 0,
     selected_unit: String(item.selected_unit || item.unit_code || '').trim(),
     unit_ratio: initialRatio,
   }
