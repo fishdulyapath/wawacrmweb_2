@@ -2189,6 +2189,8 @@ function buildSavePayload() {
       item_code: row.item_code,
       unit_code: row.unit_code,
       tax_type: 0,
+      source_doc_no: row.source_doc_no || '',
+      source_trans_flag: Number(row.source_trans_flag || 0),
       formula_category_code: row.selected_category_code || row.category_code || '',
       formula_category_name: row.selected_category_name || row.category_name || '',
     }
