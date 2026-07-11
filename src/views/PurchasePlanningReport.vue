@@ -341,6 +341,9 @@
                         <span v-if="Number(row.is_preferred) === 1" class="preferred-badge" title="เจ้าหนี้หลัก">หลัก</span>
                         <span v-if="hasTax(row)" class="rounded bg-red-100 px-1 py-0.5 text-[10px] font-semibold text-red-600" title="มีภาษี">VAT</span>
                         <span v-if="visiblePRCount(row.ic_code, selectedSupplierCode(row)) > 0" class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm" :style="prBadgeStyle(row.ic_code, selectedSupplierCode(row))" :title="prBadgeTitle(row.ic_code, selectedSupplierCode(row))">PR {{ visiblePRCount(row.ic_code, selectedSupplierCode(row)) }}</span>
+                        <span v-if="otherSupplierPRCount(row) > 0" class="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
+                          PR &#x0E40;&#x0E08;&#x0E49;&#x0E32;&#x0E2B;&#x0E19;&#x0E35;&#x0E49;&#x0E2D;&#x0E37;&#x0E48;&#x0E19; {{ formatInt(otherSupplierPRCount(row)) }}
+                        </span>
                       </div>
                       <div class="text-xs text-slate-400">{{ selectedSupplierCode(row) || '-' }}</div>
                     </div>
@@ -885,6 +888,27 @@ function createdPRRows(icCode, apCode) {
 
 function visiblePRCount(icCode, apCode) {
   return Math.max(pendingPRCount(icCode, apCode), createdPRRows(icCode, apCode).length)
+}
+
+function otherSupplierPRCount(row) {
+  const itemCode = String(row?.ic_code || '').trim()
+  const selectedApCode = String(selectedSupplierCode(row) || '').trim()
+  if (!itemCode) return 0
+
+  const supplierCodes = new Set(Object.keys(pendingPR.value.byItemAp?.[itemCode] || {}))
+  for (const item of createdPrItems) {
+    if (String(item.ic_code || '').trim() === itemCode) {
+      const apCode = String(item.ap_code || '').trim()
+      if (apCode) supplierCodes.add(apCode)
+    }
+  }
+
+  let count = 0
+  for (const apCode of supplierCodes) {
+    if (!apCode || apCode === selectedApCode) continue
+    count += visiblePRCount(itemCode, apCode)
+  }
+  return count
 }
 
 function prBadgeStyle(icCode, apCode) {
