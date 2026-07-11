@@ -269,7 +269,7 @@
           </label>
         </div>
 
-        <div class="overflow-auto" style="max-height: calc(100vh - 200px)">
+        <div ref="reportTableScrollEl" class="overflow-auto" style="max-height: calc(100vh - 200px)" @scroll="onReportTableScroll">
         <table class="w-full border-collapse text-sm" :class="showExtraColumns ? 'min-w-[1760px]' : 'min-w-[1160px]'">
           <thead class="sticky top-0 z-10 border-b-2 border-slate-300 bg-slate-50">
             <tr>
@@ -448,9 +448,10 @@
 
       <div v-if="!loading && !error && total > 0" class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
         <p class="text-center text-sm text-slate-500 lg:text-left">แสดง {{ formatInt(filteredRows.length) }} จาก {{ formatInt(displayTotal) }} รายการ เรียงตามจำนวนแนะนำซื้อจากมากไปน้อย</p>
-        <div class="flex justify-center gap-1">
-          <button class="pager-btn" :disabled="!canLoadMore" @click="loadMore">
-            {{ loadMoreLabel }}
+        <div class="flex items-center justify-center gap-2">
+          <span class="text-sm text-slate-500">{{ loadMoreLabel }}</span>
+          <button v-if="canLoadMore" class="pager-btn" @click="loadMore">
+            &#x0E42;&#x0E2B;&#x0E25;&#x0E14;&#x0E40;&#x0E1E;&#x0E34;&#x0E48;&#x0E21;
           </button>
         </div>
       </div>
@@ -628,7 +629,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import api from '../composables/useApi.js'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { useAuthStore } from '../stores/auth.js'
@@ -855,6 +856,7 @@ const filter = reactive({
   warehouse: 'MMA01',
 })
 const rows = ref([])
+const reportTableScrollEl = ref(null)
 const total = ref(0)
 const tableTotal = ref(0)
 const limit = ref(30)
@@ -956,6 +958,7 @@ let cartRefreshTimer = null
 let cartRefreshInFlight = false
 let loadSeq = 0
 const REPORT_REQUEST_TIMEOUT = 10 * 60 * 1000
+const AUTO_LOAD_MORE_THRESHOLD_PX = 320
 
 const alertOnly = computed(() => props.alertOnly)
 const pageTitle = computed(() => alertOnly.value ? 'แจ้งเตือนสั่งซื้อ' : 'รายงานวางแผนสั่งซื้อ')
@@ -1226,6 +1229,28 @@ function onVisibilityChange() {
   if (document.visibilityState === 'visible') refreshCartState()
 }
 
+function isNearReportTableBottom(el) {
+  if (!el) return false
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= AUTO_LOAD_MORE_THRESHOLD_PX
+}
+
+function maybeAutoLoadMore() {
+  const el = reportTableScrollEl.value
+  if (!el || !canLoadMore.value || !isNearReportTableBottom(el)) return
+  loadMore()
+}
+
+function onReportTableScroll(event) {
+  const el = event?.currentTarget || reportTableScrollEl.value
+  if (!el || !canLoadMore.value || !isNearReportTableBottom(el)) return
+  loadMore()
+}
+
+async function checkAutoLoadMoreAfterRender() {
+  await nextTick()
+  maybeAutoLoadMore()
+}
+
 function clearReportState() {
   clearPollTimer()
   loading.value = false
@@ -1308,6 +1333,7 @@ async function pollReportJob(seq) {
       hasMore.value = Boolean(data.has_more)
       loading.value = false
       saveReportViewCache()
+      checkAutoLoadMoreAfterRender()
       return
     }
     // partial result: แสดง row ที่คำนวณแล้วให้ user เห็นความคืบหน้า แต่ยัง poll ต่อ
@@ -1349,6 +1375,7 @@ async function loadMore() {
     error.value = err.message
   } finally {
     loadingMore.value = false
+    checkAutoLoadMoreAfterRender()
   }
 }
 
@@ -1360,6 +1387,7 @@ async function setStockStatus(value) {
   rows.value = []
   hasMore.value = false
   await pollReportJob(loadSeq)
+  checkAutoLoadMoreAfterRender()
 }
 
 function resetFilter() {
