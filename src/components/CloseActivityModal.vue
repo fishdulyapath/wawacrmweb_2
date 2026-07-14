@@ -192,7 +192,7 @@
                     ✅ ได้พบลูกค้า
                   </button>
                   <button type="button"
-                    @click="form.visit_met = false; form.visit_order = null; form.visit_order_amount = ''"
+                    @click="form.visit_met = false"
                     :class="form.visit_met === false ? 'border-red-400 bg-red-50 text-red-600' : 'border-slate-200 text-slate-500 hover:border-slate-300'"
                     class="flex-1 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors">
                     ❌ ไม่ได้พบ
@@ -200,9 +200,9 @@
                 </div>
               </div>
 
-              <template v-if="form.visit_met === true">
+              <template v-if="form.visit_met !== null">
                 <div>
-                  <label class="modal-label">🛒 ออเดอร์</label>
+                  <label class="modal-label">🛒 ออเดอร์ <span class="text-red-500">*</span></label>
                   <div class="flex gap-3">
                     <button type="button"
                       @click="form.visit_order = true"
@@ -220,7 +220,7 @@
                 </div>
 
                 <div v-if="form.visit_order === true">
-                  <label class="modal-label">💰 ยอดบิล (บาท)</label>
+                  <label class="modal-label">💰 ยอดบิล (บาท) <span class="text-red-500">*</span></label>
                   <input v-model="form.visit_order_amount" type="number" min="0" step="0.01"
                     class="modal-input" placeholder="0.00" />
                 </div>
@@ -323,12 +323,20 @@ const cdrError    = ref('')
 const selectedCdr = ref(null)
 const retryCallResults = new Set(['no_answer', 'busy', 'left_voicemail'])
 const shouldCreateRetry = computed(() => retryCallResults.has(form.call_result))
+const validVisitOrderAmount = computed(() => {
+  const amount = Number(form.visit_order_amount)
+  return Number.isFinite(amount) && amount > 0
+})
 
 const confirmDisabled = computed(() => {
   if (saving.value) return true
   if (props.activity?.activity_type === 'call') return !form.call_result
   if (props.activity?.activity_type === 'meeting') return !form.meeting_result
-  if (props.activity?.activity_type === 'visit') return form.visit_met === null
+  if (props.activity?.activity_type === 'visit') {
+    if (form.visit_met === null) return true
+    if (form.visit_order === null) return true
+    if (form.visit_order === true) return !validVisitOrderAmount.value
+  }
   return false
 })
 
@@ -337,6 +345,8 @@ const confirmHint = computed(() => {
   if (props.activity?.activity_type === 'call' && !form.call_result) return 'เลือกผลการโทรก่อนส่งงาน'
   if (props.activity?.activity_type === 'meeting' && !form.meeting_result) return 'เลือกผลการประชุมก่อนส่งงาน'
   if (props.activity?.activity_type === 'visit' && form.visit_met === null) return 'เลือกสถานะการพบลูกค้าก่อนส่งงาน'
+  if (props.activity?.activity_type === 'visit' && form.visit_order === null) return 'เลือกสถานะออเดอร์ก่อนส่งงาน'
+  if (props.activity?.activity_type === 'visit' && form.visit_order === true && !validVisitOrderAmount.value) return 'กรอกยอดบิลให้มากกว่า 0 ก่อนส่งงาน'
   return ''
 })
 
@@ -450,6 +460,20 @@ async function confirmClose() {
     alert('กรุณาเลือกผลการโทรก่อนส่งงาน')
     return
   }
+  if (props.activity?.activity_type === 'visit') {
+    if (form.visit_met === null) {
+      alert('กรุณาเลือกสถานะการพบลูกค้าก่อนส่งงาน')
+      return
+    }
+    if (form.visit_order === null) {
+      alert('กรุณาเลือกสถานะออเดอร์ก่อนส่งงาน')
+      return
+    }
+    if (form.visit_order === true && !validVisitOrderAmount.value) {
+      alert('กรุณากรอกยอดบิลให้มากกว่า 0 ก่อนส่งงาน')
+      return
+    }
+  }
   saving.value = true
   try {
     const act = props.activity
@@ -492,8 +516,8 @@ async function confirmClose() {
     if (act.activity_type === 'visit') {
       payload.visit_met   = form.visit_met
       payload.visit_order = form.visit_order
-      payload.visit_order_amount = form.visit_order === true && form.visit_order_amount
-        ? parseFloat(form.visit_order_amount) : null
+      payload.visit_order_amount = form.visit_order === true
+        ? Number(form.visit_order_amount) : null
     }
 
     const { data } = await api.patch(`/activities/${act.id}/done`, payload)
