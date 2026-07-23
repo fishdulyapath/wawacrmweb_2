@@ -789,6 +789,7 @@ const ownerFallbackNote = computed(() => {
 const groupMembers    = ref([])   // [{id, ar_code, customer_name}] — โหลดจาก GET /:id
 const removedIds      = ref([])   // activity ids ที่ user ต้องการลบออกจากกลุ่ม
 const addedGroupCusts = ref([])   // [{code, name_1}] — ลูกค้าใหม่ที่จะเพิ่มเข้ากลุ่ม
+const originalArCode  = ref(null)
 const currentActivityId = computed(() => activityId.value ? parseInt(activityId.value) : null)
 
 function removeFromGroup(id) {
@@ -1067,6 +1068,7 @@ async function loadActivity() {
   try {
     isLoadingActivity = true
     const { data } = await api.get(`/activities/${activityId.value}`)
+    originalArCode.value = data.ar_code || null
 
     const skip = ['invitees', 'ar_code', 'owners']
     Object.keys(form).forEach(k => {
@@ -1222,7 +1224,7 @@ async function save() {
     const { owner_id: _oid, ...rest } = base
 
     if (isEdit.value) {
-      const ar_code = selectedCustomers.value[0]?.code || null
+      const ar_code = selectedCustomers.value[0]?.code || originalArCode.value || null
       const ownerPayload = ownerList.length > 0
         ? { owners: ownerList, primary_owner_id: base.owner_id || null }
         : {}
