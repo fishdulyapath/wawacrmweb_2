@@ -97,6 +97,24 @@
       </div>
     </div>
 
+    <div v-if="hasNoContactFilter"
+         class="mb-4 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+         role="status">
+      <div>
+        <p class="text-sm font-semibold text-amber-900">
+          ลูกค้าที่ไม่ได้ติดต่อเกิน {{ filter.no_contact_days }} วัน
+        </p>
+        <p class="mt-0.5 text-xs text-amber-700">
+          {{ filter.mine ? 'เฉพาะลูกค้าที่คุณเป็นผู้ดูแลหลัก' : 'ลูกค้าที่อยู่ในสถานะใช้งาน' }}
+          <span v-if="!loading">· พบ {{ total }} ราย</span>
+        </p>
+      </div>
+      <button @click="clearNoContactFilter"
+              class="self-start rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 sm:self-auto">
+        แสดงลูกค้าทั้งหมด
+      </button>
+    </div>
+
     <!-- Table -->
     <div class="card overflow-hidden">
 
@@ -151,6 +169,12 @@
               <div>
                 <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">เขตการขาย</p>
                 <p class="mt-1 text-slate-700">{{ saleAreaLabel(c) }}</p>
+              </div>
+              <div v-if="hasNoContactFilter">
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">ติดต่อล่าสุด</p>
+                <p class="mt-1" :class="lastContactClass(c.crm?.last_contacted)">
+                  {{ lastContactLabel(c.crm?.last_contacted) }}
+                </p>
               </div>
               <div>
                 <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Follow Up</p>
@@ -223,7 +247,7 @@
 
         <!-- Desktop -->
         <div class="hidden lg:block overflow-x-auto">
-          <table class="w-full min-w-[1640px] text-sm">
+          <table :class="['w-full text-sm', hasNoContactFilter ? 'min-w-[1780px]' : 'min-w-[1640px]']">
             <thead class="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th @click="toggleSort('code')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28 cursor-pointer select-none hover:bg-slate-100">
@@ -236,6 +260,10 @@
                   เขตการขาย <span class="ml-1 text-slate-400">{{ sortIndicator('sale_area') }}</span>
                 </th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">พนักงานผู้ดูแล</th>
+                <th v-if="hasNoContactFilter" @click="toggleSort('last_contacted')"
+                    class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-40 cursor-pointer select-none hover:bg-slate-100">
+                  ติดต่อล่าสุด <span class="ml-1 text-slate-400">{{ sortIndicator('last_contacted') }}</span>
+                </th>
                 <th @click="toggleSort('next_followup')" class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32 cursor-pointer select-none hover:bg-slate-100">
                   Follow Up <span class="ml-1 text-slate-400">{{ sortIndicator('next_followup') }}</span>
                 </th>
@@ -256,7 +284,7 @@
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-if="customers.length === 0">
-                <td colspan="12" class="py-16 text-center text-slate-400">
+                <td :colspan="hasNoContactFilter ? 13 : 12" class="py-16 text-center text-slate-400">
                   <svg class="mx-auto w-10 h-10 text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
@@ -293,6 +321,11 @@
                     </div>
                   </template>
                   <span v-else class="text-slate-400 text-xs">— ยังไม่ระบุ —</span>
+                </td>
+                <td v-if="hasNoContactFilter" class="px-4 py-3">
+                  <span :class="lastContactClass(c.crm?.last_contacted)">
+                    {{ lastContactLabel(c.crm?.last_contacted) }}
+                  </span>
                 </td>
                 <td class="px-4 py-3">
                   <span :class="followupDateClass(c.crm?.next_followup)">
@@ -444,8 +477,22 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import api from '../composables/useApi.js'
+
+const route = useRoute()
+const router = useRouter()
+
+function normalizeNoContactDays(value) {
+  const raw = Array.isArray(value) ? value[0] : value
+  const days = Number.parseInt(raw, 10)
+  return Number.isInteger(days) && days >= 1 && days <= 3650 ? String(days) : ''
+}
+
+function normalizeMine(value) {
+  const raw = Array.isArray(value) ? value[0] : value
+  return raw === '1' || String(raw).toLowerCase() === 'true' ? '1' : ''
+}
 
 // ── State ─────────────────────────────────
 const customers = ref([])
@@ -460,14 +507,24 @@ const deleteTarget = ref(null)
 const deleting     = ref(false)
 const toast = reactive({ show: false, type: 'success', message: '' })
 
-const filter = reactive({ search: '', status: '', owner: '', sale_area: '', fleet_status: '', followup_enabled: '' })
-const sortBy  = ref('code')
+const filter = reactive({
+  search: '',
+  status: '',
+  owner: '',
+  sale_area: '',
+  fleet_status: '',
+  followup_enabled: '',
+  no_contact_days: normalizeNoContactDays(route.query.no_contact_days),
+  mine: normalizeMine(route.query.mine),
+})
+const sortBy  = ref(filter.no_contact_days ? 'last_contacted' : 'code')
 const sortDir = ref('asc')
 
 let searchTimer = null
 
 // ── Computed ──────────────────────────────
 const totalPages = computed(() => Math.ceil(total.value / limit.value))
+const hasNoContactFilter = computed(() => Boolean(filter.no_contact_days))
 const pageNumbers = computed(() => {
   const pages = []
   for (let i = Math.max(1, page.value - 2); i <= Math.min(totalPages.value, page.value + 2); i++) {
@@ -491,6 +548,8 @@ async function loadData() {
         page: page.value,
         limit: limit.value,
         followup_enabled: filter.followup_enabled,
+        no_contact_days: filter.no_contact_days,
+        mine: filter.mine,
         sort_by: sortBy.value,
         sort_dir: sortDir.value,
       }
@@ -535,7 +594,25 @@ function resetFilter() {
   filter.sale_area = ''
   filter.fleet_status = ''
   filter.followup_enabled = ''
+  filter.no_contact_days = ''
+  filter.mine = ''
+  clearNoContactQuery()
   page.value    = 1
+  loadData()
+}
+
+function clearNoContactQuery() {
+  const query = { ...route.query }
+  delete query.no_contact_days
+  delete query.mine
+  router.replace({ query }).catch(() => {})
+}
+
+function clearNoContactFilter() {
+  filter.no_contact_days = ''
+  filter.mine = ''
+  page.value = 1
+  clearNoContactQuery()
   loadData()
 }
 
@@ -613,6 +690,19 @@ function fleetDate(v) {
 function formatDate(dateStr) {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })
+}
+
+function lastContactLabel(dateStr) {
+  if (!dateStr) return 'ไม่เคยติดต่อ'
+  const contactedAt = new Date(dateStr)
+  const days = Math.max(0, Math.floor((Date.now() - contactedAt.getTime()) / 86400000))
+  return `${formatDate(dateStr)} · ${days} วันที่แล้ว`
+}
+
+function lastContactClass(dateStr) {
+  return dateStr
+    ? 'text-red-600 font-medium text-sm'
+    : 'text-amber-700 font-medium text-sm'
 }
 
 function followupDateClass(dateStr) {

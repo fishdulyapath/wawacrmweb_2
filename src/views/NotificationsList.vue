@@ -63,7 +63,9 @@
             <span v-if="n.ar_code" class="text-xs text-slate-400">
               {{ n.customer_name ? `${n.customer_name} (${n.ar_code})` : n.ar_code }}
             </span>
-            <span v-if="isClickable(n)" class="text-xs text-blue-500">ดูรายละเอียด →</span>
+            <span v-if="isClickable(n)" class="text-xs text-blue-500">
+              {{ n.noti_type === 'no_contact' ? 'ดูลูกค้าที่ต้องติดตาม →' : 'ดูรายละเอียด →' }}
+            </span>
           </div>
         </div>
 
@@ -169,7 +171,7 @@ async function handleClick(n) {
   } else if (n.ref_type === 'customer' && n.ar_code) {
     router.push(`/customers/${n.ar_code}/edit`)
   } else if (n.noti_type === 'no_contact') {
-    router.push('/customers')
+    router.push('/customers?no_contact_days=30&mine=1')
   } else if (n.ref_type === 'webboard' && n.ref_id) {
     router.push(`/webboard/${n.ref_id}`)
   }
