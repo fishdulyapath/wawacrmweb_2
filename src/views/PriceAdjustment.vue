@@ -158,7 +158,8 @@
           <button class="btn-secondary justify-center" :disabled="selectedPriceItemCount === 0" @click="applyFormulaToSelected('average_cost')">&#x0E04;&#x0E33;&#x0E19;&#x0E27;&#x0E13;&#x0E08;&#x0E32;&#x0E01;&#x0E15;&#x0E49;&#x0E19;&#x0E17;&#x0E38;&#x0E19;&#x0E40;&#x0E09;&#x0E25;&#x0E35;&#x0E48;&#x0E22; ({{ formatInt(selectedPriceItemCount) }})</button>
           <button class="btn-secondary justify-center" :disabled="selectedPriceItemCount === 0" @click="applyFormulaToSelected('purchase')">&#x0E04;&#x0E33;&#x0E19;&#x0E27;&#x0E13;&#x0E08;&#x0E32;&#x0E01;&#x0E23;&#x0E32;&#x0E04;&#x0E32;&#x0E0B;&#x0E37;&#x0E49;&#x0E2D;&#x0E2A;&#x0E39;&#x0E07;&#x0E2A;&#x0E38;&#x0E14; ({{ formatInt(selectedPriceItemCount) }})</button>
           <button class="btn-secondary justify-center" :disabled="selectedPriceItemCount === 0" @click="applyOldPricesToSelected">&#x0E43;&#x0E0A;&#x0E49;&#x0E23;&#x0E32;&#x0E04;&#x0E32;&#x0E40;&#x0E14;&#x0E34;&#x0E21; ({{ formatInt(selectedPriceItemCount) }})</button>
-          <button class="btn-secondary justify-center" :disabled="printablePriceBarcodeRows.length === 0" @click="printPriceBarcodes">พิมพ์บาร์โค้ด</button>
+          <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="printPriceBarcodes">พิมพ์บาร์โค้ด</button>
+          <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="printIndividualPriceBarcodes">พิมพ์บาร์โค้ดรายตัว</button>
           <button class="btn-secondary justify-center" :disabled="items.length === 0" @click="exportPriceExcel">Export Excel</button>
           <button class="justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 shadow-sm hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60" :disabled="items.length === 0" @click="openClearItemsDialog">ล้างรายการ</button>
           <button class="btn-primary justify-center" :disabled="saving || items.length === 0" @click="openSaveDialog">บันทึกราคา</button>
@@ -331,6 +332,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <button class="btn-secondary justify-center" :disabled="!selectedHistory || loadingHistoryDetails || printableHistoryBarcodeRows.length === 0" @click="printHistoryBarcodes">พิมพ์บาร์โค้ด</button>
+          <button class="btn-secondary justify-center" :disabled="!selectedHistory || loadingHistoryDetails || individualHistoryBarcodeLabelCount === 0" @click="printIndividualHistoryBarcodes">พิมพ์บาร์โค้ดรายตัว</button>
           <button class="btn-secondary justify-center" :disabled="!selectedHistory || loadingHistoryDetails || historyDetails.length === 0" @click="exportHistoryExcel">Export Excel</button>
           <button class="btn-secondary justify-center" :disabled="loadingHistory" @click="loadHistory">โหลดประวัติใหม่</button>
         </div>
@@ -1102,6 +1104,8 @@ const filteredFormulaRules = computed(() => {
 })
 const printablePriceBarcodeRows = computed(() => buildBarcodePrintRows(items.value, 'price'))
 const printableHistoryBarcodeRows = computed(() => buildBarcodePrintRows(historyDetails.value, 'history'))
+const individualHistoryBarcodeLabelCount = computed(() => printableHistoryBarcodeRows.value
+  .reduce((total, row) => total + row.print_quantity, 0))
 const filteredProductCategoryOptions = computed(() => {
   const keyword = productCategoryQuery.value.trim().toLowerCase()
   if (!keyword) return formulaRules.value
@@ -1734,9 +1738,9 @@ function price9Changed(row) {
   return Number.isFinite(oldPrice) && newPrice !== oldPrice
 }
 
-function buildBarcodePrintRows(rows) {
+function buildBarcodePrintRows(rows, source = 'price') {
   return rows
-    .filter((row) => price9Changed(row))
+    .filter((row) => source !== 'history' || price9Changed(row))
     .map((row) => {
       const ratio = Number(row.unit_ratio || 1) || 1
       const price9 = normalizedPrice(row.new_prices?.price_9 ?? row.price_9)
@@ -1750,6 +1754,7 @@ function buildBarcodePrintRows(rows) {
         price_9: price9,
         unit_per_value: ratio ? price9 / ratio : price9,
         show_unit_price: Math.abs(ratio - 1) > 0.000001,
+        print_quantity: normalizeBarcodePrintQuantity(row.qty, 1),
       }
     })
     .filter((row) => row.barcode && Number.isFinite(row.price_9))
@@ -1759,13 +1764,33 @@ function printPriceBarcodes() {
   printBarcodeLabels(printablePriceBarcodeRows.value, 'พิมพ์บาร์โค้ดจากตารางปรับราคา')
 }
 
+function printIndividualPriceBarcodes() {
+  printBarcodeLabels(
+    printablePriceBarcodeRows.value,
+    'พิมพ์บาร์โค้ดรายตัวจากตารางปรับราคา',
+    { oneLabelPerPage: true },
+  )
+}
+
 function printHistoryBarcodes() {
   printBarcodeLabels(printableHistoryBarcodeRows.value, `พิมพ์บาร์โค้ดจากประวัติ ${selectedHistory.value?.doc_no || ''}`)
 }
 
-function printBarcodeLabels(rows, title) {
-  if (!rows.length) {
-    setError('ไม่มีรายการที่ราคา 9 ใหม่มีส่วนต่างและมีบาร์โค้ดสำหรับพิมพ์')
+function printIndividualHistoryBarcodes() {
+  printBarcodeLabels(
+    printableHistoryBarcodeRows.value,
+    `พิมพ์บาร์โค้ดรายตัวจากประวัติ ${selectedHistory.value?.doc_no || ''}`,
+    { oneLabelPerPage: true },
+  )
+}
+
+function printBarcodeLabels(rows, title, { oneLabelPerPage = false } = {}) {
+  const printRows = oneLabelPerPage
+    ? rows.flatMap((row) => Array.from({ length: row.print_quantity }, () => row))
+    : rows
+
+  if (!printRows.length) {
+    setError('ไม่มีรายการที่มีบาร์โค้ดและราคา 9 สำหรับพิมพ์')
     return
   }
 
@@ -1781,7 +1806,7 @@ function printBarcodeLabels(rows, title) {
     year: 'numeric',
   }).format(new Date())
 
-  const labels = rows.map((row) => {
+  const labels = printRows.map((row) => {
     const qrData = encodeURIComponent(row.barcode)
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=96x96&margin=0&data=${qrData}`
     const unitPriceHtml = row.show_unit_price
@@ -1808,13 +1833,45 @@ function printBarcodeLabels(rows, title) {
     `
   }).join('')
 
+  const pageLayoutCss = oneLabelPerPage
+    ? `
+    @page { size: 80mm 42mm; margin: 0; }
+    .sheet {
+      display: block;
+      width: 80mm;
+      margin: 0;
+      padding: 0;
+    }
+    .barcode-label {
+      break-after: page;
+      page-break-after: always;
+    }
+    .barcode-label:last-child {
+      break-after: auto;
+      page-break-after: auto;
+    }`
+    : `
+    @page { size: A4 landscape; margin: 6mm; }
+    .sheet {
+      display: grid;
+      grid-template-columns: repeat(3, 80mm);
+      grid-auto-rows: 42mm;
+      gap: 1mm 1mm;
+      align-content: start;
+      justify-content: start;
+      width: 100%;
+      min-height: 194mm;
+      margin: 0;
+      padding: 0;
+    }`
+
   printWindow.document.write(`<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
   <title>${escapeHtml(title)}</title>
   <style>
-    @page { size: A4 landscape; margin: 6mm; }
+    ${pageLayoutCss}
     * { box-sizing: border-box; }
     html {
       margin: 0;
@@ -1829,18 +1886,6 @@ function printBarcodeLabels(rows, title) {
       font-family: Tahoma, Arial, sans-serif;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
-    }
-    .sheet {
-      display: grid;
-      grid-template-columns: repeat(3, 80mm);
-      grid-auto-rows: 42mm;
-      gap: 1mm 1mm;
-      align-content: start;
-      justify-content: start;
-      width: 100%;
-      min-height: 194mm;
-      margin: 0;
-      padding: 0;
     }
     .barcode-label {
       width: 80mm;
@@ -1950,6 +1995,12 @@ function printBarcodeLabels(rows, title) {
 </body>
 </html>`)
   printWindow.document.close()
+}
+
+function normalizeBarcodePrintQuantity(value, fallback = 0) {
+  const quantity = Number(value)
+  if (!Number.isFinite(quantity) || quantity <= 0) return fallback
+  return Math.floor(quantity)
 }
 
 function formatBarcodePrice(value) {
@@ -2191,6 +2242,7 @@ function buildSavePayload() {
       tax_type: 0,
       source_doc_no: row.source_doc_no || '',
       source_trans_flag: Number(row.source_trans_flag || 0),
+      qty: Number(row.qty || 0),
       formula_category_code: row.selected_category_code || row.category_code || '',
       formula_category_name: row.selected_category_name || row.category_name || '',
     }
