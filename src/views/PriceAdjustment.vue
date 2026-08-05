@@ -340,8 +340,21 @@
 
       <div class="grid min-h-[520px] xl:grid-cols-[420px_1fr]">
         <div class="border-b border-slate-200 xl:border-b-0 xl:border-r">
+          <form class="flex gap-2 border-b border-slate-200 bg-white p-3" @submit.prevent="loadHistory">
+            <input
+              v-model="historySearch"
+              type="search"
+              class="input-field min-w-0 flex-1"
+              placeholder="ค้นหาเลขที่เอกสาร"
+              aria-label="ค้นหาเลขที่เอกสารประวัติการปรับราคา"
+            />
+            <button type="submit" class="btn-secondary shrink-0 justify-center" :disabled="loadingHistory">ค้นหา</button>
+            <button v-if="historySearch" type="button" class="btn-secondary shrink-0 justify-center" :disabled="loadingHistory" @click="clearHistorySearch">ล้าง</button>
+          </form>
           <div v-if="loadingHistory" class="py-12 text-center text-sm text-slate-400">กำลังโหลดประวัติ...</div>
-          <div v-else-if="historyRows.length === 0" class="py-12 text-center text-sm text-slate-400">ยังไม่มีประวัติการปรับราคา</div>
+          <div v-else-if="historyRows.length === 0" class="py-12 text-center text-sm text-slate-400">
+            {{ historySearch ? 'ไม่พบเลขที่เอกสารที่ค้นหา' : 'ยังไม่มีประวัติการปรับราคา' }}
+          </div>
           <div v-else class="max-h-[calc(100vh-280px)] overflow-auto">
             <button
               v-for="row in historyRows"
@@ -935,6 +948,114 @@
     </div>
 
     <div
+      v-if="individualBarcodeDialogOpen"
+      class="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/60 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="individual-barcode-dialog-title"
+      @click.self="closeIndividualBarcodeDialog"
+    >
+      <div class="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4">
+          <div>
+            <h2 id="individual-barcode-dialog-title" class="text-lg font-semibold text-slate-800">ตั้งค่าตัวหนังสือบาร์โค้ดรายตัว</h2>
+            <p class="mt-1 text-sm text-slate-500">ตัวอย่างข้อมูลจำลอง 1 ดวง · พิมพ์จริง {{ formatInt(individualBarcodeLabelCount) }} ดวง</p>
+          </div>
+          <button class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100" @click="closeIndividualBarcodeDialog">ปิด</button>
+        </div>
+
+        <div class="flex flex-col gap-2 border-b border-slate-200 bg-white px-5 py-3 sm:flex-row sm:items-center">
+          <span class="mr-2 text-sm font-semibold text-slate-700">รายการที่จะพิมพ์</span>
+          <label
+            class="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition"
+            :class="individualBarcodePrintScope === 'all' ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'"
+          >
+            <input v-model="individualBarcodePrintScope" type="radio" value="all" class="h-4 w-4 border-slate-300 text-blue-600" />
+            พิมพ์ทั้งหมด ({{ formatInt(individualBarcodeAllCount) }})
+          </label>
+          <label
+            class="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition"
+            :class="individualBarcodePrintScope === 'changed' ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'"
+          >
+            <input v-model="individualBarcodePrintScope" type="radio" value="changed" class="h-4 w-4 border-slate-300 text-blue-600" />
+            เฉพาะราคา 9 เปลี่ยนแปลง ({{ formatInt(individualBarcodeChangedCount) }})
+          </label>
+        </div>
+
+        <div class="grid flex-1 overflow-auto lg:grid-cols-[minmax(360px,1fr)_430px]">
+          <div class="flex min-h-[300px] items-start justify-center overflow-auto bg-slate-100 p-6 lg:items-center">
+            <article
+              v-if="individualBarcodePreviewRow"
+              class="shrink-0 overflow-hidden bg-white text-black shadow-lg"
+              style="width:80mm;height:42mm;border:0.7mm solid #555;font-family:Tahoma,Arial,sans-serif"
+            >
+              <section style="display:grid;grid-template-columns:49mm 31mm;height:28.5mm;border-bottom:0.35mm solid #555">
+                <div style="position:relative;padding:2mm 2.4mm;border-right:0.35mm solid #555">
+                  <div class="font-bold leading-none" :style="{ fontSize: `${individualBarcodeFontSizes.priceCaption}pt` }">
+                    ราคา<br><span :style="{ fontSize: `${individualBarcodeFontSizes.priceCaptionEnglish}pt` }">Price</span>
+                  </div>
+                  <div class="text-center font-extrabold leading-none" :style="{ fontSize: `${individualBarcodeFontSizes.mainPrice}pt` }">
+                    {{ formatBarcodePrice(individualBarcodePreviewRow.price_9) }}<span class="ml-[1.4mm] font-extrabold" :style="{ fontSize: `${individualBarcodeFontSizes.mainUnit}pt` }">{{ individualBarcodePreviewRow.unit_code }}</span>
+                  </div>
+                  <template v-if="individualBarcodePreviewRow.show_unit_price">
+                    <div class="mt-[1.8mm] font-bold leading-none" :style="{ fontSize: `${individualBarcodeFontSizes.unitCaption}pt` }">
+                      ราคา [ย่อย] ต่อหน่วย<br><span :style="{ fontSize: `${individualBarcodeFontSizes.unitCaptionEnglish}pt` }">Price/Unit :</span>
+                    </div>
+                    <div class="mt-[-2.5mm] pr-[2mm] text-right font-extrabold leading-none" :style="{ fontSize: `${individualBarcodeFontSizes.unitPrice}pt` }">
+                      {{ formatBarcodeUnitPrice(individualBarcodePreviewRow.unit_per_value) }} <span :style="{ fontSize: `${individualBarcodeFontSizes.unitPriceUnit}pt` }">ชิ้น</span>
+                    </div>
+                  </template>
+                </div>
+                <div class="flex flex-col items-center justify-center px-[1mm] pb-[0.8mm] pt-[1.4mm]">
+                  <img class="h-[13.5mm] w-[13.5mm] object-contain [image-rendering:pixelated]" :src="individualBarcodePreviewQrUrl" :alt="`QR ${individualBarcodePreviewRow.barcode}`" />
+                  <div class="mt-[1mm] max-w-[27mm] overflow-hidden whitespace-nowrap text-center font-mono leading-none" :style="{ fontSize: `${individualBarcodeFontSizes.barcodeText}pt` }">{{ individualBarcodePreviewRow.barcode }}</div>
+                  <div class="mt-[0.4mm] font-bold leading-none" :style="{ fontSize: `${individualBarcodeFontSizes.printDate}pt` }">{{ individualBarcodePreviewDate }}</div>
+                </div>
+              </section>
+              <section class="h-[13.5mm] overflow-hidden px-[2.4mm] py-[2mm] font-extrabold leading-[1.2]" :style="{ fontSize: `${individualBarcodeFontSizes.description}pt` }">
+                {{ individualBarcodePreviewRow.item_name || individualBarcodePreviewRow.item_code || '-' }}
+              </section>
+            </article>
+          </div>
+
+          <div class="border-t border-slate-200 bg-white p-5 lg:border-l lg:border-t-0">
+            <div class="mb-4">
+              <h3 class="font-semibold text-slate-800">ขนาดตัวหนังสือแต่ละส่วน</h3>
+              <p class="mt-1 text-xs text-slate-500">หน่วย pt · ค่าที่แก้ไขจะถูกจำไว้ในเบราว์เซอร์นี้</p>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <label v-for="control in individualBarcodeFontControls" :key="control.key" class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <span class="mb-2 block text-xs font-semibold text-slate-600">{{ control.label }}</span>
+                <div class="flex items-center gap-2">
+                  <button type="button" class="h-9 w-9 rounded-lg border border-slate-300 bg-white font-bold text-slate-600 hover:bg-slate-100" @click="adjustIndividualBarcodeFontSize(control.key, -control.step)">−</button>
+                  <input
+                    v-model.number="individualBarcodeFontSizes[control.key]"
+                    type="number"
+                    :min="control.min"
+                    :max="control.max"
+                    :step="control.step"
+                    class="input-field h-9 min-w-0 flex-1 text-right tabular-nums"
+                    @input="saveIndividualBarcodeFontSizes"
+                    @blur="normalizeIndividualBarcodeFontSize(control)"
+                  />
+                  <button type="button" class="h-9 w-9 rounded-lg border border-slate-300 bg-white font-bold text-slate-600 hover:bg-slate-100" @click="adjustIndividualBarcodeFontSize(control.key, control.step)">+</button>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <button class="btn-secondary justify-center" @click="resetIndividualBarcodeFontSizes">คืนค่ามาตรฐาน</button>
+          <div class="flex gap-2 sm:justify-end">
+            <button class="btn-secondary flex-1 justify-center sm:flex-none" @click="closeIndividualBarcodeDialog">ยกเลิก</button>
+            <button class="btn-primary flex-1 justify-center sm:flex-none" :disabled="individualBarcodeLabelCount === 0" @click="confirmIndividualBarcodePrint">พิมพ์ {{ formatInt(individualBarcodeLabelCount) }} ดวง</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
       v-if="otherPriceDialogOpen"
       class="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/50 p-4"
       role="dialog"
@@ -1029,6 +1150,33 @@ import api from '../composables/useApi.js'
 
 const priceFields = Array.from({ length: 10 }, (_, i) => `price_${i}`)
 const unitMarginFields = [1, 2, 3, 4]
+const individualBarcodeFontStorageKey = 'crm.price-adjustment.individual-barcode-font-sizes.v1'
+const individualBarcodeFontSizeDefaults = Object.freeze({
+  priceCaption: 7,
+  priceCaptionEnglish: 6.5,
+  mainPrice: 21,
+  mainUnit: 10,
+  unitCaption: 7,
+  unitCaptionEnglish: 6.5,
+  unitPrice: 13,
+  unitPriceUnit: 9,
+  barcodeText: 7,
+  printDate: 6.8,
+  description: 9,
+})
+const individualBarcodeFontControls = [
+  { key: 'priceCaption', label: 'หัวข้อ ราคา', min: 5, max: 14, step: 0.5 },
+  { key: 'priceCaptionEnglish', label: 'หัวข้อ Price', min: 5, max: 14, step: 0.5 },
+  { key: 'mainPrice', label: 'ราคาหลัก', min: 12, max: 32, step: 1 },
+  { key: 'mainUnit', label: 'หน่วยของราคาหลัก', min: 6, max: 18, step: 0.5 },
+  { key: 'unitCaption', label: 'หัวข้อราคาย่อย', min: 5, max: 14, step: 0.5 },
+  { key: 'unitCaptionEnglish', label: 'หัวข้อ Price/Unit', min: 5, max: 14, step: 0.5 },
+  { key: 'unitPrice', label: 'ราคาย่อย', min: 8, max: 22, step: 0.5 },
+  { key: 'unitPriceUnit', label: 'หน่วยของราคาย่อย', min: 6, max: 16, step: 0.5 },
+  { key: 'barcodeText', label: 'เลขบาร์โค้ด', min: 5, max: 14, step: 0.5 },
+  { key: 'printDate', label: 'วันที่พิมพ์', min: 5, max: 14, step: 0.5 },
+  { key: 'description', label: 'ชื่อสินค้า', min: 6, max: 18, step: 0.5 },
+]
 
 const today = new Date()
 const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
@@ -1068,6 +1216,7 @@ const deleteTargetRow = ref(null)
 const historyRows = ref([])
 const selectedHistory = ref(null)
 const historyDetails = ref([])
+const historySearch = ref('')
 const productRows = ref([])
 const selectedProductKeys = ref(new Set())
 const productSearch = ref('')
@@ -1083,6 +1232,11 @@ const categoryDialogSelectedName = ref('')
 const otherPriceDialogOpen = ref(false)
 const otherPriceRows = ref([])
 const selectedOtherPriceItem = ref(null)
+const individualBarcodeDialogOpen = ref(false)
+const pendingIndividualBarcodeRows = ref([])
+const pendingIndividualBarcodeTitle = ref('')
+const individualBarcodePrintScope = ref('all')
+const individualBarcodeFontSizes = reactive(loadIndividualBarcodeFontSizes())
 
 const selectedCount = computed(() => selectedDocKeys.value.size)
 const selectedProductCount = computed(() => selectedProductKeys.value.size)
@@ -1102,10 +1256,34 @@ const filteredFormulaRules = computed(() => {
       .some((value) => String(value || '').toLowerCase().includes(keyword))
   })
 })
-const printablePriceBarcodeRows = computed(() => buildBarcodePrintRows(items.value, 'price'))
-const printableHistoryBarcodeRows = computed(() => buildBarcodePrintRows(historyDetails.value, 'history'))
-const individualHistoryBarcodeLabelCount = computed(() => printableHistoryBarcodeRows.value
-  .reduce((total, row) => total + row.print_quantity, 0))
+const printablePriceBarcodeRows = computed(() => buildBarcodePrintRows(items.value))
+const printableHistoryBarcodeRows = computed(() => buildBarcodePrintRows(historyDetails.value))
+const individualHistoryBarcodeLabelCount = computed(() => printableHistoryBarcodeRows.value.length)
+const individualBarcodePreviewRow = computed(() => ({
+  item_code: 'MOCK-001',
+  item_name: 'ไลฟ์ การ์ด ชิ้นรับมาก / XL-9+1ชิ้น',
+  unit_code: 'ลัง8',
+  barcode: '8851111601325',
+  price_9: 2505,
+  unit_per_value: 313.13,
+  show_unit_price: true,
+}))
+const individualBarcodeAllCount = computed(() => pendingIndividualBarcodeRows.value.length)
+const individualBarcodeChangedCount = computed(() => pendingIndividualBarcodeRows.value
+  .filter((row) => row.price_9_changed).length)
+const selectedIndividualBarcodeRows = computed(() => individualBarcodePrintScope.value === 'changed'
+  ? pendingIndividualBarcodeRows.value.filter((row) => row.price_9_changed)
+  : pendingIndividualBarcodeRows.value)
+const individualBarcodeLabelCount = computed(() => selectedIndividualBarcodeRows.value.length)
+const individualBarcodePreviewQrUrl = computed(() => {
+  const barcode = individualBarcodePreviewRow.value?.barcode || ''
+  return `https://api.qrserver.com/v1/create-qr-code/?size=96x96&margin=0&data=${encodeURIComponent(barcode)}`
+})
+const individualBarcodePreviewDate = computed(() => new Intl.DateTimeFormat('th-TH-u-ca-buddhist', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+}).format(new Date()))
 const filteredProductCategoryOptions = computed(() => {
   const keyword = productCategoryQuery.value.trim().toLowerCase()
   if (!keyword) return formulaRules.value
@@ -1576,7 +1754,7 @@ async function loadHistory() {
   setError('')
   try {
     const { data } = await api.get('/price-adjustment/history', {
-      params: { limit: 100 },
+      params: { limit: 100, search: historySearch.value.trim() },
     })
     historyRows.value = data.data || []
     if (historyRows.value.length) {
@@ -1591,6 +1769,11 @@ async function loadHistory() {
   } finally {
     loadingHistory.value = false
   }
+}
+
+async function clearHistorySearch() {
+  historySearch.value = ''
+  await loadHistory()
 }
 
 async function loadHistoryDetails(row) {
@@ -1738,15 +1921,15 @@ function price9Changed(row) {
   return Number.isFinite(oldPrice) && newPrice !== oldPrice
 }
 
-function buildBarcodePrintRows(rows, source = 'price') {
+function buildBarcodePrintRows(rows) {
   return rows
-    .filter((row) => source !== 'history' || price9Changed(row))
     .map((row) => {
       const ratio = Number(row.unit_ratio || 1) || 1
       const price9 = normalizedPrice(row.new_prices?.price_9 ?? row.price_9)
-      const barcode = String(row.barcode || '').trim()
+      const itemCode = String(row.item_code || row.ic_code || '').trim()
+      const barcode = String(row.barcode || '').trim() || itemCode
       return {
-        item_code: row.item_code || row.ic_code || '',
+        item_code: itemCode,
         item_name: row.barcode_description || row.item_name || '',
         unit_code: row.unit_code || '',
         ratio,
@@ -1754,7 +1937,7 @@ function buildBarcodePrintRows(rows, source = 'price') {
         price_9: price9,
         unit_per_value: ratio ? price9 / ratio : price9,
         show_unit_price: Math.abs(ratio - 1) > 0.000001,
-        print_quantity: normalizeBarcodePrintQuantity(row.qty, 1),
+        price_9_changed: price9Changed(row),
       }
     })
     .filter((row) => row.barcode && Number.isFinite(row.price_9))
@@ -1765,10 +1948,9 @@ function printPriceBarcodes() {
 }
 
 function printIndividualPriceBarcodes() {
-  printBarcodeLabels(
+  openIndividualBarcodeDialog(
     printablePriceBarcodeRows.value,
     'พิมพ์บาร์โค้ดรายตัวจากตารางปรับราคา',
-    { oneLabelPerPage: true },
   )
 }
 
@@ -1777,17 +1959,84 @@ function printHistoryBarcodes() {
 }
 
 function printIndividualHistoryBarcodes() {
-  printBarcodeLabels(
+  openIndividualBarcodeDialog(
     printableHistoryBarcodeRows.value,
     `พิมพ์บาร์โค้ดรายตัวจากประวัติ ${selectedHistory.value?.doc_no || ''}`,
-    { oneLabelPerPage: true },
   )
 }
 
-function printBarcodeLabels(rows, title, { oneLabelPerPage = false } = {}) {
-  const printRows = oneLabelPerPage
-    ? rows.flatMap((row) => Array.from({ length: row.print_quantity }, () => row))
-    : rows
+function loadIndividualBarcodeFontSizes() {
+  let saved = {}
+  try {
+    saved = JSON.parse(localStorage.getItem(individualBarcodeFontStorageKey) || '{}')
+  } catch {
+    saved = {}
+  }
+  return Object.fromEntries(individualBarcodeFontControls.map((control) => {
+    const value = Number(saved[control.key])
+    const fallback = individualBarcodeFontSizeDefaults[control.key]
+    return [control.key, Number.isFinite(value) ? Math.min(control.max, Math.max(control.min, value)) : fallback]
+  }))
+}
+
+function saveIndividualBarcodeFontSizes() {
+  try {
+    localStorage.setItem(individualBarcodeFontStorageKey, JSON.stringify({ ...individualBarcodeFontSizes }))
+  } catch {
+    // Printing remains available when browser storage is unavailable.
+  }
+}
+
+function normalizeIndividualBarcodeFontSize(control) {
+  const current = Number(individualBarcodeFontSizes[control.key])
+  const fallback = individualBarcodeFontSizeDefaults[control.key]
+  const value = Number.isFinite(current) ? current : fallback
+  const stepped = Math.round(value / control.step) * control.step
+  individualBarcodeFontSizes[control.key] = Math.min(control.max, Math.max(control.min, stepped))
+  saveIndividualBarcodeFontSizes()
+}
+
+function adjustIndividualBarcodeFontSize(key, amount) {
+  const control = individualBarcodeFontControls.find((item) => item.key === key)
+  if (!control) return
+  individualBarcodeFontSizes[key] = Number(individualBarcodeFontSizes[key] || individualBarcodeFontSizeDefaults[key]) + amount
+  normalizeIndividualBarcodeFontSize(control)
+}
+
+function resetIndividualBarcodeFontSizes() {
+  Object.assign(individualBarcodeFontSizes, individualBarcodeFontSizeDefaults)
+  saveIndividualBarcodeFontSizes()
+}
+
+function openIndividualBarcodeDialog(rows, title) {
+  if (!rows.length) {
+    setError('ไม่มีรายการที่มีบาร์โค้ดและราคา 9 สำหรับพิมพ์')
+    return
+  }
+  pendingIndividualBarcodeRows.value = rows
+  pendingIndividualBarcodeTitle.value = title
+  individualBarcodeDialogOpen.value = true
+}
+
+function closeIndividualBarcodeDialog() {
+  individualBarcodeDialogOpen.value = false
+}
+
+function confirmIndividualBarcodePrint() {
+  for (const control of individualBarcodeFontControls) normalizeIndividualBarcodeFontSize(control)
+  const rows = selectedIndividualBarcodeRows.value
+  if (!rows.length) {
+    setError('ไม่มีรายการที่ราคา 9 เปลี่ยนแปลงสำหรับพิมพ์')
+    return
+  }
+  const title = pendingIndividualBarcodeTitle.value
+  const fontSizes = { ...individualBarcodeFontSizes }
+  closeIndividualBarcodeDialog()
+  printBarcodeLabels(rows, title, { oneLabelPerPage: true, fontSizes })
+}
+
+function printBarcodeLabels(rows, title, { oneLabelPerPage = false, fontSizes = individualBarcodeFontSizeDefaults } = {}) {
+  const printRows = rows
 
   if (!printRows.length) {
     setError('ไม่มีรายการที่มีบาร์โค้ดและราคา 9 สำหรับพิมพ์')
@@ -1865,6 +2114,12 @@ function printBarcodeLabels(rows, title, { oneLabelPerPage = false } = {}) {
       padding: 0;
     }`
 
+  const printFontSizes = Object.fromEntries(individualBarcodeFontControls.map((control) => {
+    const value = Number(fontSizes[control.key])
+    const fallback = individualBarcodeFontSizeDefaults[control.key]
+    return [control.key, Number.isFinite(value) ? Math.min(control.max, Math.max(control.min, value)) : fallback]
+  }))
+
   printWindow.document.write(`<!doctype html>
 <html>
 <head>
@@ -1872,6 +2127,19 @@ function printBarcodeLabels(rows, title, { oneLabelPerPage = false } = {}) {
   <title>${escapeHtml(title)}</title>
   <style>
     ${pageLayoutCss}
+    :root {
+      --font-price-caption: ${printFontSizes.priceCaption}pt;
+      --font-price-caption-english: ${printFontSizes.priceCaptionEnglish}pt;
+      --font-main-price: ${printFontSizes.mainPrice}pt;
+      --font-main-unit: ${printFontSizes.mainUnit}pt;
+      --font-unit-caption: ${printFontSizes.unitCaption}pt;
+      --font-unit-caption-english: ${printFontSizes.unitCaptionEnglish}pt;
+      --font-unit-price: ${printFontSizes.unitPrice}pt;
+      --font-unit-price-unit: ${printFontSizes.unitPriceUnit}pt;
+      --font-barcode-text: ${printFontSizes.barcodeText}pt;
+      --font-print-date: ${printFontSizes.printDate}pt;
+      --font-description: ${printFontSizes.description}pt;
+    }
     * { box-sizing: border-box; }
     html {
       margin: 0;
@@ -1907,30 +2175,32 @@ function printBarcodeLabels(rows, title, { oneLabelPerPage = false } = {}) {
       border-right: 0.35mm solid #555;
     }
     .tiny-label {
-      font-size: 7pt;
+      font-size: var(--font-price-caption);
       font-weight: 700;
       line-height: 1;
     }
-    .tiny-label span,
+    .tiny-label span {
+      font-size: var(--font-price-caption-english);
+    }
     .unit-caption span {
-      font-size: 6.5pt;
+      font-size: var(--font-unit-caption-english);
     }
     .main-price {
       margin-top: 0mm;
       text-align: center;
-      font-size: 21pt;
+      font-size: var(--font-main-price);
       font-weight: 800;
       line-height: 1;
       letter-spacing: 0;
     }
     .main-price span {
       margin-left: 1.4mm;
-      font-size: 10pt;
+      font-size: var(--font-main-unit);
       font-weight: 800;
     }
     .unit-caption {
       margin-top: 1.8mm;
-      font-size: 7pt;
+      font-size: var(--font-unit-caption);
       font-weight: 700;
       line-height: 1.05;
     }
@@ -1938,12 +2208,12 @@ function printBarcodeLabels(rows, title, { oneLabelPerPage = false } = {}) {
       margin-top: -2.5mm;
       padding-right: 2mm;
       text-align: right;
-      font-size: 13pt;
+      font-size: var(--font-unit-price);
       font-weight: 800;
       line-height: 1;
     }
     .unit-price span {
-      font-size: 9pt;
+      font-size: var(--font-unit-price-unit);
       font-weight: 800;
     }
     .qr-box {
@@ -1965,13 +2235,13 @@ function printBarcodeLabels(rows, title, { oneLabelPerPage = false } = {}) {
       overflow: hidden;
       text-align: center;
       font-family: "Courier New", monospace;
-      font-size: 7pt;
+      font-size: var(--font-barcode-text);
       line-height: 1;
       white-space: nowrap;
     }
     .print-date {
       margin-top: 0.4mm;
-      font-size: 6.8pt;
+      font-size: var(--font-print-date);
       font-weight: 700;
       line-height: 1;
     }
@@ -1979,7 +2249,7 @@ function printBarcodeLabels(rows, title, { oneLabelPerPage = false } = {}) {
       height: 13.5mm;
       padding: 2mm 2.4mm;
       overflow: hidden;
-      font-size: 9pt;
+      font-size: var(--font-description);
       font-weight: 800;
       line-height: 1.2;
     }
@@ -1995,12 +2265,6 @@ function printBarcodeLabels(rows, title, { oneLabelPerPage = false } = {}) {
 </body>
 </html>`)
   printWindow.document.close()
-}
-
-function normalizeBarcodePrintQuantity(value, fallback = 0) {
-  const quantity = Number(value)
-  if (!Number.isFinite(quantity) || quantity <= 0) return fallback
-  return Math.floor(quantity)
 }
 
 function formatBarcodePrice(value) {
@@ -2242,7 +2506,6 @@ function buildSavePayload() {
       tax_type: 0,
       source_doc_no: row.source_doc_no || '',
       source_trans_flag: Number(row.source_trans_flag || 0),
-      qty: Number(row.qty || 0),
       formula_category_code: row.selected_category_code || row.category_code || '',
       formula_category_name: row.selected_category_name || row.category_name || '',
     }
