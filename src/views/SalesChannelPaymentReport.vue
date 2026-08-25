@@ -45,6 +45,34 @@
         <button @click="applyFilters">ลองใหม่</button>
       </div>
 
+      <section class="channel-overview-tabs panel" aria-label="เลือกภาพรวมตามประเภทช่องทางการขาย">
+        <div class="channel-tabs-heading">
+          <div>
+            <p class="section-no">REPORT SCOPE</p>
+            <h2>เลือกภาพรวมทั้งหมด หรือแยกตามช่องทางการขาย</h2>
+            <p>ทุก KPI กราฟ และรายการด้านล่างจะเปลี่ยนตามตัวเลือกนี้</p>
+          </div>
+          <span class="source-chip">{{ activeChannelTab.label }}</span>
+        </div>
+        <nav class="channel-tabs" aria-label="เลือกประเภทช่องทางการขาย">
+          <button v-for="tab in channelTabs" :key="tab.code" type="button"
+            :class="{ active: activeChannelCode === tab.code }"
+            :aria-selected="activeChannelCode === tab.code" role="tab"
+            :disabled="isAnyLoading" @click="selectChannel(tab.code)">
+            <span>{{ tab.code === 'ALL' ? 'ALL' : String(tab.order).padStart(2, '0') }}</span>
+            <strong>{{ tab.label }}</strong>
+            <small>{{ money(tab.amount) }} · {{ integer(tab.bill_count) }} บิล</small>
+          </button>
+        </nav>
+      </section>
+
+      <div class="scope-banner">
+        <span>กำลังแสดง</span><strong>{{ activeChannelTab.label }}</strong>
+        <small v-if="activePosChannel">ยอดรับชำระหนี้ 239 ไม่รวมในช่องทางนี้ เพราะไม่สามารถจัดสรรย้อนกลับได้อย่างถูกต้อง</small>
+        <small v-else-if="activeChannelCode === 'FLEET'">ข้อมูลจาก Fleet Check-out</small>
+        <small v-else>รวมทุกช่องทางของร้าน และยอดรับชำระหนี้ 239</small>
+      </div>
+
       <section class="kpi-grid" aria-label="ยอดรวม">
         <article class="kpi-card ink">
           <span>ยอดขายสุทธิรวม</span>
@@ -52,19 +80,19 @@
           <small>{{ integer(totals.bill_count) }} เอกสาร</small>
         </article>
         <article class="kpi-card cash-sales">
-          <span>ยอดขายสด</span>
-          <strong>{{ money(totals.cash_sales_amount) }}</strong>
-          <small>{{ integer(totals.cash_sale_bill_count) }} เอกสาร · {{ decimal(totals.cash_sales_ratio) }}%</small>
+          <span>{{ activeChannelCode === 'FLEET' ? 'รับเงินสด' : 'ยอดขายสด' }}</span>
+          <strong>{{ money(activeChannelCode === 'FLEET' ? fleet.summary.cash_amount : totals.cash_sales_amount) }}</strong>
+          <small>{{ activeChannelCode === 'FLEET' ? 'จาก Fleet Check-out' : `${integer(totals.cash_sale_bill_count)} เอกสาร · ${decimal(totals.cash_sales_ratio)}%` }}</small>
         </article>
         <article class="kpi-card credit-sales">
-          <span>ยอดขายเชื่อ</span>
-          <strong>{{ money(totals.credit_sales_amount) }}</strong>
-          <small>{{ integer(totals.credit_sale_bill_count) }} เอกสาร · {{ decimal(totals.credit_sales_ratio) }}%</small>
+          <span>{{ activeChannelCode === 'FLEET' ? 'รับเงินโอน' : 'ยอดขายเชื่อ' }}</span>
+          <strong>{{ money(activeChannelCode === 'FLEET' ? fleet.summary.transfer_amount : totals.credit_sales_amount) }}</strong>
+          <small>{{ activeChannelCode === 'FLEET' ? 'จาก Fleet Check-out' : `${integer(totals.credit_sale_bill_count)} เอกสาร · ${decimal(totals.credit_sales_ratio)}%` }}</small>
         </article>
         <article class="kpi-card">
           <span>ยอดรับรวม</span>
           <strong>{{ money(totals.total_payment) }}</strong>
-          <small>รับทันที 44 + รับชำระหนี้ 239</small>
+          <small>{{ activeChannelCode === 'ALL' ? 'รับทันที 44 + รับชำระหนี้ 239' : activeChannelCode === 'FLEET' ? 'เงินสด + เงินโอนจาก Check-out' : 'รับทันที 44 ของช่องทางนี้' }}</small>
         </article>
         <article class="kpi-card real-cash">
           <span>เงินเข้าจริง</span>
@@ -77,18 +105,18 @@
           <small>{{ differenceText(totals.payment_difference) }} · ไม่ใช่ยอดหนี้คงเหลือ</small>
         </article>
       </section>
-      <p class="calculation-note">
+      <p v-if="activeChannelCode !== 'FLEET'" class="calculation-note">
         สูตรตรวจสอบ: ยอดขายก่อนส่วนลด {{ money(totals.gross_sales_amount) }} − ส่วนลด {{ money(totals.discount_amount) }}
         = ยอดขายสุทธิ {{ money(totals.sales_amount) }} · สด {{ money(totals.cash_sales_amount) }} + เชื่อ {{ money(totals.credit_sales_amount) }}
       </p>
-      <p v-if="Number(totals.unknown_sale_bill_count || 0) > 0" class="classification-warning">
+      <p v-if="activeChannelCode !== 'FLEET' && Number(totals.unknown_sale_bill_count || 0) > 0" class="classification-warning">
         พบ {{ integer(totals.unknown_sale_bill_count) }} เอกสาร มูลค่า {{ money(totals.unknown_sales_amount) }} ที่ inquiry_type ไม่อยู่ใน 0–3 กรุณาตรวจสอบข้อมูลต้นทาง
       </p>
 
       <section class="panel receipt-sources-panel">
         <div class="panel-head">
           <div><p class="section-no">01 / RECEIPT SOURCES</p><h2>แหล่งที่มาของยอดรับเงิน</h2></div>
-          <span class="source-chip green">44 + 239</span>
+          <span class="source-chip green">{{ activeChannelCode === 'ALL' ? '44 + 239' : activeChannelCode === 'FLEET' ? 'CRM FLEET' : '44' }}</span>
         </div>
         <div v-if="loading.overview" class="panel-state"><span class="spinner"></span>กำลังแยกแหล่งรับเงิน</div>
         <div v-else class="receipt-source-grid">
@@ -98,9 +126,9 @@
             <small>{{ integer(source.doc_count) }} เอกสาร · เงินเข้าจริง {{ money(source.real_money) }}</small>
           </article>
           <article class="ratio">
-            <span>สัดส่วนรับชำระขายเชื่อ</span>
-            <strong>{{ decimal(totals.credit_collection_ratio) }}%</strong>
-            <small>ยอด 239 ÷ ยอดรับรวม</small>
+            <span>{{ activeChannelCode === 'ALL' ? 'สัดส่วนรับชำระขายเชื่อ' : 'ยอดรับ 239 ที่จัดสรรไม่ได้' }}</span>
+            <strong>{{ activeChannelCode === 'ALL' ? `${decimal(totals.credit_collection_ratio)}%` : '—' }}</strong>
+            <small>{{ activeChannelCode === 'ALL' ? 'ยอด 239 ÷ ยอดรับรวม' : 'ไม่คาดเดาช่องทางจากเอกสารรับชำระ' }}</small>
           </article>
           <article class="real-money">
             <span>เงินเข้าจริง</span>
@@ -111,20 +139,35 @@
         <p class="data-note">เงินเข้าจริงรวมเฉพาะ เงินสด เงินโอน เช็ค บัตรเครดิต เงินสกุลอื่น และ e-Wallet</p>
       </section>
 
-      <section class="report-grid">
+      <section class="report-grid channel-overview-grid">
         <article class="panel channels-panel">
           <div class="panel-head">
             <div>
-              <p class="section-no">02 / SALES CHANNELS</p>
-              <h2>ยอดขายและรับเงินแต่ละประเภท</h2>
+              <p class="section-no">SALES SUMMARY</p>
+              <h2>ยอดขาย · {{ activeChannelTab.label }}</h2>
             </div>
-            <span class="source-chip">POS DB</span>
+            <span class="source-chip">{{ activeChannelCode === 'FLEET' ? 'CRM FLEET' : 'POS DB' }}</span>
           </div>
-          <div v-if="loading.overview" class="panel-state"><span class="spinner"></span>กำลังคำนวณยอดตามช่องทาง</div>
-          <div v-else-if="!channels.length" class="panel-state">ไม่พบเอกสารในช่วงที่เลือก</div>
-          <div v-else class="channel-list">
-            <article v-for="(row, index) in channels" :key="row.channel_code" class="channel-row">
-              <div class="channel-rank">{{ String(index + 1).padStart(2, '0') }}</div>
+          <div v-if="activeChannelCode === 'FLEET'">
+            <div v-if="loading.fleet" class="panel-state"><span class="spinner"></span>กำลังคำนวณยอด Fleet Delivery</div>
+            <div v-else class="fleet-tab-content">
+              <div class="fleet-tab-kpis">
+                <article><span>ยอดส่งสำเร็จ</span><strong>{{ money(fleet.summary.sales_amount) }}</strong><small>{{ integer(fleet.summary.bill_count) }} บิล</small></article>
+                <article><span>รับเงินสด</span><strong>{{ money(fleet.summary.cash_amount) }}</strong><small>จาก Check-out</small></article>
+                <article><span>รับเงินโอน</span><strong>{{ money(fleet.summary.transfer_amount) }}</strong><small>จาก Check-out</small></article>
+                <article><span>การปฏิบัติงาน</span><strong>{{ integer(fleet.summary.trip_count) }} เที่ยว</strong><small>{{ integer(fleet.summary.driver_count) }} คนขับ · {{ integer(fleet.summary.customer_count) }} ลูกค้า</small></article>
+              </div>
+              <div class="fleet-tab-footer">
+                <span>ข้อมูลเดียวกับหน้า Fleet Delivery และกรองจากเวลา Check-out</span>
+                <RouterLink to="/fleet-delivery">เปิดรายละเอียดขนส่ง</RouterLink>
+              </div>
+            </div>
+          </div>
+          <div v-else-if="loading.overview" class="panel-state"><span class="spinner"></span>กำลังคำนวณยอดตามช่องทาง</div>
+          <div v-else-if="activeChannelCode !== 'ALL' && !activeChannelRow" class="panel-state">ไม่พบเอกสาร {{ activeChannelTab.label }} ในช่วงที่เลือก</div>
+          <div v-else class="channel-list selected-channel-list">
+            <article v-for="row in (activeChannelCode === 'ALL' ? channels : [activeChannelRow])" :key="row.channel_code" class="channel-row selected-channel-row">
+              <div class="channel-rank">{{ String(row.channel_order).padStart(2, '0') }}</div>
               <div class="channel-main">
                 <div class="channel-title">
                   <strong>{{ row.channel_label }}</strong>
@@ -152,33 +195,33 @@
               </div>
             </article>
           </div>
-          <p class="data-note">ขายสด: inquiry_type 1, 3 · ขายเชื่อ: inquiry_type 0, 2 · ยอดรับ 239 ไม่กระจายย้อนกลับเข้าช่องทางขาย</p>
+          <p class="data-note">แท็บ 1–5 ใช้ข้อมูล POS DB · แท็บ 6 ใช้ CRM Fleet · ขายสด: inquiry_type 1, 3 · ขายเชื่อ: inquiry_type 0, 2</p>
         </article>
 
         <article class="panel payments-panel">
           <div class="panel-head">
             <div>
-              <p class="section-no">03 / PAYMENT MIX</p>
-              <h2>สัดส่วนการรับเงิน</h2>
+              <p class="section-no">PAYMENT MIX</p>
+              <h2>สัดส่วนการรับเงิน · {{ activeChannelTab.label }}</h2>
             </div>
-            <span class="source-chip green">CB TRANS</span>
+            <span class="source-chip green">{{ activeChannelCode === 'FLEET' ? 'CRM FLEET' : activeChannelCode === 'ALL' ? 'CB TRANS 44 + 239' : 'CB TRANS 44' }}</span>
           </div>
-          <div v-if="loading.overview" class="panel-state"><span class="spinner"></span>กำลังรวมรายการรับเงิน</div>
+          <div v-if="paymentMixLoading" class="panel-state"><span class="spinner"></span>กำลังรวมรายการรับเงิน</div>
           <div v-else class="payment-grid">
             <article v-for="payment in paymentMethods" :key="payment.key" class="payment-card">
               <div class="payment-icon" :style="{ '--method-color': payment.color }">{{ payment.short }}</div>
               <div>
                 <span>{{ payment.label }}</span>
-                <strong>{{ money(totals[payment.key]) }}</strong>
-                <small>{{ percent(totals[payment.key], totals.payment_components) }}</small>
+                <strong>{{ money(activePaymentMix[payment.key]) }}</strong>
+                <small>{{ percent(activePaymentMix[payment.key], activePaymentMix.payment_components) }}</small>
               </div>
             </article>
           </div>
           <div class="payment-check">
-            <span>รวมช่องทางรับเงิน <b>{{ money(totals.payment_components) }}</b> · ผลต่างกับ total_payment</span>
-            <strong :class="differenceTone(totals.allocation_difference)">{{ signedMoney(totals.allocation_difference) }}</strong>
+            <span>รวมวิธีรับเงิน {{ activeChannelTab.label }} <b>{{ money(activePaymentMix.payment_components) }}</b><template v-if="activeChannelCode !== 'FLEET'"> · ผลต่างกับ total_payment</template></span>
+            <strong v-if="activeChannelCode !== 'FLEET'" :class="differenceTone(activePaymentMix.allocation_difference)">{{ signedMoney(activePaymentMix.allocation_difference) }}</strong>
           </div>
-          <p class="payment-note">รวมวิธีรับเงินจากขายทันที 44 และรับชำระหนี้ 239 · เงินสดใช้ cash_amount สุทธิหลังหักเงินทอน ไม่ใช้ pay_cash_amount</p>
+          <p class="payment-note">{{ paymentMixNote }}</p>
         </article>
       </section>
 
@@ -188,13 +231,13 @@
             <p class="section-no">04 / DAILY MOVEMENT</p>
             <h2>แนวโน้มยอดขายและยอดรับรายวัน</h2>
           </div>
-          <div class="legend"><span class="sale-dot cash-sale-dot"></span>ขายสด <span class="sale-dot credit-sale-dot"></span>ขายเชื่อ <span class="pay-dot immediate-dot"></span>รับทันที <span class="pay-dot collection-dot"></span>รับชำระหนี้ <em>คลิกแท่งเพื่อดูยอด</em></div>
+          <div class="legend"><span class="sale-dot cash-sale-dot"></span>{{ activeChannelCode === 'FLEET' ? 'ยอดส่ง' : 'ขายสด' }} <template v-if="activeChannelCode !== 'FLEET'"><span class="sale-dot credit-sale-dot"></span>ขายเชื่อ</template> <span class="pay-dot immediate-dot"></span>{{ activeChannelCode === 'FLEET' ? 'รับจาก Check-out' : 'รับทันที' }} <template v-if="activeChannelCode === 'ALL'"><span class="pay-dot collection-dot"></span>รับชำระหนี้</template> <em>คลิกแท่งเพื่อดูยอด</em></div>
         </div>
         <div v-if="loading.trend" class="panel-state tall"><span class="spinner"></span>กำลังโหลดแนวโน้มรายวัน</div>
-        <div v-else-if="!trend.length" class="panel-state tall">ไม่มีข้อมูลแนวโน้ม</div>
+        <div v-else-if="!displayTrend.length" class="panel-state tall">ไม่มีข้อมูลแนวโน้ม</div>
         <div v-else class="trend-scroll">
-          <div class="trend-chart" :style="{ minWidth: `${Math.max(720, trend.length * 54)}px` }">
-            <button v-for="point in trend" :key="point.doc_date" type="button" class="trend-column"
+          <div class="trend-chart" :style="{ minWidth: `${Math.max(720, displayTrend.length * 54)}px` }">
+            <button v-for="point in displayTrend" :key="point.doc_date" type="button" class="trend-column"
               :class="{ active: selectedTrend?.doc_date === point.doc_date }"
               :title="trendTitle(point)" :aria-pressed="selectedTrend?.doc_date === point.doc_date"
               @click="selectedTrend = point">
@@ -220,7 +263,7 @@
             <button type="button" aria-label="ปิดรายละเอียด" @click="selectedTrend = null">×</button>
           </div>
           <dl>
-            <div><dt>ขายสด</dt><dd>{{ money(selectedTrend.cash_sales_amount) }}</dd><small>{{ integer(selectedTrend.cash_sale_bill_count) }} เอกสาร</small></div>
+            <div><dt>{{ activeChannelCode === 'FLEET' ? 'ยอดส่ง' : 'ขายสด' }}</dt><dd>{{ money(selectedTrend.cash_sales_amount) }}</dd><small>{{ integer(selectedTrend.cash_sale_bill_count) }} เอกสาร</small></div>
             <div><dt>ขายเชื่อ</dt><dd>{{ money(selectedTrend.credit_sales_amount) }}</dd><small>{{ integer(selectedTrend.credit_sale_bill_count) }} เอกสาร</small></div>
             <div><dt>เอกสารรับเงิน</dt><dd>{{ integer(selectedTrend.receipt_count) }}</dd></div>
             <div><dt>ยอดก่อนส่วนลด</dt><dd>{{ money(selectedTrend.gross_sales_amount) }}</dd></div>
@@ -236,7 +279,26 @@
         </div>
       </section>
 
-      <section class="ar-section">
+      <section v-if="activeChannelCode === 'FLEET'" class="panel fleet-section">
+        <div class="panel-head">
+          <div>
+            <p class="section-no">FLEET OPERATIONS</p>
+            <h2>ยอดส่งและรับเงินแยกตามคนขับ</h2>
+          </div>
+          <RouterLink class="fleet-detail-link" to="/fleet-delivery">เปิด Fleet Delivery</RouterLink>
+        </div>
+        <div v-if="loading.fleet" class="panel-state tall"><span class="spinner"></span>กำลังโหลดข้อมูลคนขับ</div>
+        <div v-else-if="!fleet.drivers.length" class="panel-state tall">ไม่พบข้อมูลขนส่งในช่วงที่เลือก</div>
+        <div v-else class="driver-grid">
+          <article v-for="(driver, index) in fleet.drivers" :key="driver.user_id || index">
+            <span class="driver-number">{{ String(index + 1).padStart(2, '0') }}</span>
+            <div><strong>{{ driver.driver_name }}</strong><small>{{ integer(driver.trip_count) }} เที่ยว · {{ integer(driver.bill_count) }} บิล · {{ integer(driver.customer_count) }} ลูกค้า</small></div>
+            <em>{{ money(driver.sales_amount) }}</em>
+          </article>
+        </div>
+      </section>
+
+      <section v-if="activeChannelCode !== 'FLEET'" class="ar-section">
         <div class="section-banner ar-banner">
           <div>
             <p class="section-no">05 / AR OUTSTANDING</p>
@@ -303,43 +365,10 @@
         </template>
       </section>
 
-      <section class="fleet-section">
-        <div class="section-banner">
-          <div>
-            <p class="section-no">06 / FLEET DELIVERY</p>
-            <h2>ยอดจากขนส่ง</h2>
-            <p>ใช้ข้อมูลเดียวกับ <RouterLink to="/fleet-delivery">/fleet-delivery</RouterLink> และกรองจากเวลา Check-out</p>
-          </div>
-          <span class="source-chip dark">CRM FLEET</span>
-        </div>
-        <div v-if="loading.fleet" class="panel fleet-loading"><span class="spinner"></span>กำลังโหลดข้อมูลขนส่ง</div>
-        <template v-else>
-          <div class="fleet-kpis">
-            <article><span>ยอดส่งสำเร็จ</span><strong>{{ money(fleet.summary.sales_amount) }}</strong><small>{{ integer(fleet.summary.bill_count) }} บิล</small></article>
-            <article><span>รับเงินสด</span><strong>{{ money(fleet.summary.cash_amount) }}</strong><small>จาก Check-out</small></article>
-            <article><span>รับเงินโอน</span><strong>{{ money(fleet.summary.transfer_amount) }}</strong><small>จาก Check-out</small></article>
-            <article><span>การปฏิบัติงาน</span><strong>{{ integer(fleet.summary.trip_count) }} เที่ยว</strong><small>{{ integer(fleet.summary.driver_count) }} คนขับ · {{ integer(fleet.summary.customer_count) }} ลูกค้า</small></article>
-          </div>
-          <article class="panel driver-panel">
-            <div class="panel-head">
-              <div><p class="section-no">DRIVER BREAKDOWN</p><h2>ยอดขนส่งแยกตามคนขับ</h2></div>
-            </div>
-            <div v-if="!fleet.drivers.length" class="panel-state">ไม่พบข้อมูลขนส่งตามตัวกรอง</div>
-            <div v-else class="driver-grid">
-              <article v-for="(driver, index) in fleet.drivers" :key="driver.user_id || driver.driver_name">
-                <span class="driver-number">{{ String(index + 1).padStart(2, '0') }}</span>
-                <div><strong>{{ driver.driver_name }}</strong><small>{{ integer(driver.trip_count) }} เที่ยว · {{ integer(driver.bill_count) }} บิล · {{ integer(driver.customer_count) }} ลูกค้า</small></div>
-                <em>{{ money(driver.sales_amount) }}</em>
-              </article>
-            </div>
-          </article>
-        </template>
-      </section>
-
-      <section class="panel documents-panel">
+      <section v-if="activeChannelCode !== 'FLEET'" class="panel documents-panel">
         <div class="panel-head">
           <div>
-            <p class="section-no">07 / SALES DOCUMENT AUDIT</p>
+            <p class="section-no">06 / SALES DOCUMENT AUDIT</p>
             <h2>รายการเอกสารขายล่าสุด</h2>
           </div>
           <span class="document-count">{{ integer(documents.meta.total) }} เอกสาร</span>
@@ -348,13 +377,14 @@
         <div v-else-if="!documents.rows.length" class="panel-state tall">ไม่พบเอกสาร</div>
         <div v-else class="table-wrap">
           <table>
-            <thead><tr><th>วันที่ / เอกสาร</th><th>ช่องทาง</th><th>ประเภทขาย</th><th>ลูกค้า</th><th class="num">ก่อนส่วนลด</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th><th class="num">ยอดรับทันที</th><th class="num">รับทันที − ขายสด</th></tr></thead>
+            <thead><tr><th>วันที่ / เอกสาร</th><th>ช่องทาง</th><th>ประเภทขาย</th><th>ลูกค้า</th><th>พนักงานขาย</th><th class="num">ก่อนส่วนลด</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th><th class="num">ยอดรับทันที</th><th class="num">รับทันที − ขายสด</th></tr></thead>
             <tbody>
               <tr v-for="row in documents.rows" :key="`${row.doc_no}-${row.trans_flag}`">
                 <td><strong>{{ row.doc_no }}</strong><small>{{ fullDate(row.doc_date) }} {{ row.doc_time || '' }}</small></td>
                 <td><span class="format-badge">{{ row.channel_label }}</span><small>{{ documentRule(row) }}</small></td>
                 <td><span class="sale-type-badge" :class="String(row.sale_type || '').toLowerCase()">{{ saleTypeLabel(row.sale_type) }}</span><small>inquiry_type {{ row.inquiry_type ?? '-' }}</small></td>
                 <td><strong>{{ row.cust_code || '-' }}</strong><small>{{ row.cust_name || '-' }}</small></td>
+                <td><strong>{{ row.sale_code || '-' }}</strong><small>{{ row.sale_name || 'ไม่พบชื่อพนักงาน' }}</small></td>
                 <td class="num">{{ money(row.gross_sales_amount) }}</td>
                 <td class="num discount-text">−{{ money(row.discount_amount) }}</td>
                 <td class="num">{{ money(row.sales_amount) }}</td>
@@ -371,10 +401,10 @@
         </div>
       </section>
 
-      <section class="panel documents-panel credit-documents-panel">
+      <section v-if="activeChannelCode === 'ALL'" class="panel documents-panel credit-documents-panel">
         <div class="panel-head">
           <div>
-            <p class="section-no">08 / CREDIT COLLECTION AUDIT</p>
+            <p class="section-no">07 / CREDIT COLLECTION AUDIT</p>
             <h2>รายการรับชำระขายเชื่อ</h2>
           </div>
           <span class="document-count">{{ integer(creditCollections.meta.total) }} เอกสาร</span>
@@ -445,7 +475,8 @@ const loading = reactive({ overview: false, trend: false, fleet: false, document
 const overview = ref({ totals: {}, channels: [], receipt_sources: [] })
 const trend = ref([])
 const selectedTrend = ref(null)
-const fleet = ref({ summary: {}, drivers: [] })
+const activeChannelCode = ref('ALL')
+const fleet = ref({ summary: {}, drivers: [], trend: [] })
 const documents = ref({ rows: [], meta: { total: 0, limit: 30, offset: 0 } })
 const creditCollections = ref({ rows: [], meta: { total: 0, limit: 30, offset: 0 } })
 const arOutstanding = ref({ summary: {}, aging: [] })
@@ -466,18 +497,108 @@ const paymentMethods = [
   { key: 'point_amount', label: 'แต้ม', short: 'Point', color: '#9333ea' },
 ]
 
-const totals = computed(() => overview.value.totals || {})
+const channelTabDefinitions = [
+  { order: 0, code: 'ALL', label: 'ภาพรวมทั้งหมด' },
+  { order: 1, code: 'POS', label: 'POS' },
+  { order: 2, code: 'INV_NO_VAT', label: 'INV No Vat' },
+  { order: 3, code: 'INV_VAT', label: 'INV Vat' },
+  { order: 4, code: 'VAN_SALE', label: 'VanSale' },
+  { order: 5, code: 'VAN_PREORDER', label: 'Preorder VanSale' },
+  { order: 6, code: 'FLEET', label: 'Fleet Delivery' },
+]
+
+const storeTotals = computed(() => overview.value.totals || {})
 const channels = computed(() => overview.value.channels || [])
-const receiptSources = computed(() => overview.value.receipt_sources || [])
+const channelTabs = computed(() => channelTabDefinitions.map(definition => {
+  if (definition.code === 'ALL') {
+    return { ...definition, amount: Number(storeTotals.value.sales_amount || 0), bill_count: Number(storeTotals.value.bill_count || 0) }
+  }
+  if (definition.code === 'FLEET') {
+    return {
+      ...definition,
+      amount: Number(fleet.value.summary?.sales_amount || 0),
+      bill_count: Number(fleet.value.summary?.bill_count || 0),
+    }
+  }
+  const row = channels.value.find(channel => channel.channel_code === definition.code)
+  return { ...definition, amount: Number(row?.sales_amount || 0), bill_count: Number(row?.bill_count || 0) }
+}))
+const activeChannelTab = computed(() => channelTabs.value.find(tab => tab.code === activeChannelCode.value) || channelTabs.value[0])
+const activeChannelRow = computed(() => channels.value.find(channel => channel.channel_code === activeChannelCode.value) || null)
+const activePosChannel = computed(() => !['ALL', 'FLEET'].includes(activeChannelCode.value))
+
+function sumKeys(row, keys) {
+  return Math.round((keys.reduce((sum, key) => sum + Number(row?.[key] || 0), 0) + Number.EPSILON) * 100) / 100
+}
+
+const totals = computed(() => {
+  if (activeChannelCode.value === 'ALL') return storeTotals.value
+  if (activeChannelCode.value === 'FLEET') {
+    const summary = fleet.value.summary || {}
+    const sales = Number(summary.sales_amount || 0)
+    const payment = Number(summary.cash_amount || 0) + Number(summary.transfer_amount || 0)
+    return {
+      bill_count: Number(summary.bill_count || 0), gross_sales_amount: sales, discount_amount: 0, sales_amount: sales,
+      cash_sale_bill_count: 0, credit_sale_bill_count: 0, unknown_sale_bill_count: Number(summary.bill_count || 0),
+      cash_sales_amount: 0, credit_sales_amount: 0, unknown_sales_amount: sales, cash_sales_ratio: 0, credit_sales_ratio: 0,
+      cash_sale_payment: payment, credit_collection_payment: 0, total_payment: payment, real_money: payment,
+      non_real_money: 0, credit_collection_ratio: 0, payment_difference: payment - sales,
+    }
+  }
+  const row = activeChannelRow.value || {}
+  const realMoney = sumKeys(row, ['cash_amount', 'transfer_amount', 'cheque_amount', 'credit_card_amount', 'other_currency_amount', 'wallet_amount'])
+  return {
+    ...row,
+    cash_sale_payment: Number(row.total_payment || 0), credit_collection_payment: 0,
+    real_money: realMoney, non_real_money: Number(row.total_payment || 0) - realMoney,
+    credit_collection_ratio: 0, payment_difference: Number(row.total_payment || 0) - Number(row.sales_amount || 0),
+  }
+})
+
+const receiptSources = computed(() => {
+  if (activeChannelCode.value === 'ALL') return overview.value.receipt_sources || []
+  if (activeChannelCode.value === 'FLEET') {
+    const summary = fleet.value.summary || {}
+    const total = Number(summary.cash_amount || 0) + Number(summary.transfer_amount || 0)
+    return [
+      { receipt_source: 'CASH_SALE', receipt_label: 'รับเงินจาก Fleet Check-out', total_payment: total, doc_count: summary.bill_count, real_money: total },
+      { receipt_source: 'CREDIT_COLLECTION', receipt_label: 'รับชำระขายเชื่อ (ไม่พบการเชื่อมโยง)', total_payment: 0, doc_count: 0, real_money: 0 },
+    ]
+  }
+  const row = activeChannelRow.value || {}
+  return [
+    { receipt_source: 'CASH_SALE', receipt_label: 'รับทันทีจากการขาย', total_payment: row.total_payment, doc_count: row.cash_sale_bill_count, real_money: totals.value.real_money },
+    { receipt_source: 'CREDIT_COLLECTION', receipt_label: 'รับชำระขายเชื่อ (ไม่จัดสรรย้อนกลับ)', total_payment: 0, doc_count: 0, real_money: 0 },
+  ]
+})
+const activePaymentMix = computed(() => {
+  const row = activeChannelCode.value === 'ALL' ? storeTotals.value : activeChannelCode.value === 'FLEET'
+    ? { cash_amount: fleet.value.summary?.cash_amount, transfer_amount: fleet.value.summary?.transfer_amount }
+    : activeChannelRow.value || {}
+  const mix = Object.fromEntries(paymentMethods.map(method => [method.key, Number(row?.[method.key] || 0)]))
+  mix.payment_components = sumKeys(mix, paymentMethods.map(method => method.key))
+  mix.total_payment = Number(row?.total_payment ?? mix.payment_components)
+  mix.allocation_difference = Math.round(((mix.payment_components - mix.total_payment) + Number.EPSILON) * 100) / 100
+  return mix
+})
+const paymentMixLoading = computed(() => activeChannelCode.value === 'FLEET' ? loading.fleet : loading.overview)
+const paymentMixNote = computed(() => activeChannelCode.value === 'ALL'
+  ? 'รวมวิธีรับเงินจากรับทันที 44 และรับชำระหนี้ 239 · เงินสดใช้ cash_amount สุทธิหลังหักเงินทอน'
+  : activeChannelCode.value === 'FLEET'
+    ? 'ข้อมูลรับเงินสดและเงินโอนจาก Fleet Check-out'
+    : `แสดงเฉพาะยอดรับทันที 44 ของ ${activeChannelTab.value.label} · ยอดรับชำระหนี้ 239 ไม่ถูกจัดสรรย้อนกลับเข้าช่องทางขาย`)
 const arSummary = computed(() => arOutstanding.value.summary || {})
 const arAging = computed(() => arOutstanding.value.aging || [])
-const maxTrend = computed(() => Math.max(0, ...trend.value.flatMap(row => [Number(row.sales_amount || 0), Number(row.total_payment || 0)])))
+const displayTrend = computed(() => activeChannelCode.value === 'FLEET' ? (fleet.value.trend || []) : trend.value)
+const maxTrend = computed(() => Math.max(0, ...displayTrend.value.flatMap(row => [Number(row.sales_amount || 0), Number(row.total_payment || 0)])))
 const isAnyLoading = computed(() => Object.values(loading).some(Boolean))
 const dateError = computed(() => draft.date_from && draft.date_to && draft.date_from > draft.date_to ? 'วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด' : '')
 const periodLabel = computed(() => `${fullDate(applied.date_from)} — ${fullDate(applied.date_to)}`)
 
-function params(extra = {}) {
-  return { ...applied, ...extra }
+function params(extra = {}, includeChannel = true) {
+  const result = { ...applied, ...extra }
+  if (includeChannel && activePosChannel.value) result.channel = activeChannelCode.value
+  return result
 }
 
 function recordError(label, error) {
@@ -489,7 +610,7 @@ function recordError(label, error) {
 async function loadOverview(seq) {
   loading.overview = true
   try {
-    const { data } = await api.get('/sales-channel-payments/overview', { params: params() })
+    const { data } = await api.get('/sales-channel-payments/overview', { params: params({}, false) })
     if (seq === requestSequence.value) overview.value = data.data || { totals: {}, channels: [], receipt_sources: [] }
   } catch (error) {
     if (seq === requestSequence.value) recordError('ภาพรวม', error)
@@ -516,8 +637,8 @@ async function loadTrend(seq) {
 async function loadFleet(seq) {
   loading.fleet = true
   try {
-    const { data } = await api.get('/sales-channel-payments/fleet', { params: params() })
-    if (seq === requestSequence.value) fleet.value = data.data || { summary: {}, drivers: [] }
+    const { data } = await api.get('/sales-channel-payments/fleet', { params: params({}, false) })
+    if (seq === requestSequence.value) fleet.value = data.data || { summary: {}, drivers: [], trend: [] }
   } catch (error) {
     if (seq === requestSequence.value) recordError('ขนส่ง', error)
   } finally {
@@ -578,6 +699,18 @@ async function loadAll() {
   errors.value = []
   await Promise.allSettled([loadOverview(seq), loadTrend(seq), loadFleet(seq), loadDocuments(0, seq), loadArOutstanding(seq)])
   if (seq === requestSequence.value) await Promise.allSettled([loadCreditCollections(0, seq), loadArCustomers(0, seq)])
+}
+
+async function selectChannel(code) {
+  if (code === activeChannelCode.value || isAnyLoading.value) return
+  activeChannelCode.value = code
+  selectedTrend.value = null
+  errors.value = []
+  if (code === 'FLEET') return
+
+  const seq = ++requestSequence.value
+  await Promise.allSettled([loadTrend(seq), loadDocuments(0, seq), loadArOutstanding(seq), loadArCustomers(0, seq)])
+  if (code === 'ALL' && seq === requestSequence.value) await loadCreditCollections(0, seq)
 }
 
 function applyFilters() {
@@ -732,7 +865,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
 .panel-head h2,.section-banner h2 { margin:0; font-size:22px; letter-spacing:-.02em; }.panel-head .section-no,.section-banner .section-no{margin-bottom:4px}
 .source-chip,.document-count { padding:6px 9px; border-radius:99px; background:#eaf0ff; color:var(--blue); font-size:10px; font-weight:850; letter-spacing:.08em; white-space:nowrap; }.source-chip.green{background:#e6f8f1;color:#08775b}.source-chip.dark{background:#253149;color:#fff}
 .panel-state { min-height:180px; display:flex; align-items:center; justify-content:center; gap:10px; color:var(--muted); font-size:13px; }.panel-state.tall{min-height:260px}.spinner{width:18px;height:18px;border:2px solid #d6dce6;border-top-color:var(--blue);border-radius:50%;animation:spin .75s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
-.channel-list { padding:8px 24px 14px; }.channel-row{display:grid;grid-template-columns:42px 1fr;gap:12px;padding:18px 0;border-bottom:1px solid #edf0f4}.channel-row:last-child{border-bottom:0}.channel-rank{font-size:12px;font-weight:850;color:#a3adbd;padding-top:2px}.channel-title,.amount-line{display:flex;align-items:center;gap:10px}.channel-title{justify-content:space-between}.channel-title strong{font-size:15px}.channel-title span{color:var(--muted);font-size:11px}.format-codes{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:8px}.format-caption{margin-right:3px;color:#98a2b3;font-size:8px;font-weight:850;letter-spacing:.12em}.format-codes code{padding:2px 6px;border:1px solid #dce4f0;border-radius:5px;background:#f7f9fc;color:#53647c;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:9px}.amount-line{margin-top:8px;color:var(--muted);font-size:10px;flex-wrap:wrap}.channel-sale-split{display:grid;grid-template-columns:1fr 1fr 1.15fr;gap:7px;margin-top:10px}.channel-sale-split>div{padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#f8fafc}.channel-sale-split>div.cash{background:#eef6ff;border-color:#d6e6fb}.channel-sale-split>div.credit{background:#f7f3ff;border-color:#e6dcfb}.channel-sale-split>div.received{background:#effbf6;border-color:#d4f0e4}.channel-sale-split span,.channel-sale-split strong,.channel-sale-split small{display:block}.channel-sale-split span{color:var(--muted);font-size:8px}.channel-sale-split strong{margin-top:3px;font-size:13px}.channel-sale-split small{margin-top:3px;font-size:8px}.sales-mix-track{display:flex;height:6px;margin-top:9px;background:#edf1f6;border-radius:99px;overflow:hidden}.sales-mix-track span{height:100%}.sales-mix-track .cash{background:#2f80ed}.sales-mix-track .credit{background:#8b5bd6}.sales-mix-track .unknown{background:#ef9f32}.data-note{margin:0;padding:12px 24px 16px;color:var(--muted);font-size:11px;border-top:1px solid var(--line);background:#fafbfc}
+.channel-overview-tabs{margin:0 0 12px}.channel-tabs-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:20px 24px 17px;border-bottom:1px solid var(--line)}.channel-tabs-heading h2{margin:0;font-size:22px;letter-spacing:-.02em}.channel-tabs-heading p:last-child{margin:7px 0 0;color:var(--muted);font-size:13px}.scope-banner{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:10px 14px;border:1px solid #cad8f5;border-radius:10px;background:#edf3ff;color:#33445f}.scope-banner span{color:var(--muted)}.scope-banner strong{color:var(--blue)}.scope-banner small{margin-left:auto;color:var(--muted);font-size:13px}.channel-tabs{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;padding:1px;background:var(--line);border-bottom:1px solid var(--line)}.channel-tabs button{min-width:0;display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:3px;padding:13px 14px;border:0;background:#fff;color:var(--ink);font:inherit;text-align:left;cursor:pointer}.channel-tabs button:hover{background:#f5f8ff}.channel-tabs button.active{position:relative;background:#edf3ff;box-shadow:inset 0 -3px 0 var(--blue)}.channel-tabs button>span{grid-row:1/3;color:#9aa6b8;font-size:11px;font-weight:900}.channel-tabs button>strong{overflow:hidden;font-size:13px;text-overflow:ellipsis;white-space:nowrap}.channel-tabs button>small{overflow:hidden;color:var(--muted);font-size:10px;text-overflow:ellipsis;white-space:nowrap}.channel-list { padding:8px 24px 14px; }.selected-channel-list{min-height:255px}.channel-row{display:grid;grid-template-columns:42px 1fr;gap:12px;padding:18px 0;border-bottom:1px solid #edf0f4}.channel-row:last-child{border-bottom:0}.selected-channel-row{padding-top:22px}.channel-rank{font-size:12px;font-weight:850;color:#a3adbd;padding-top:2px}.channel-title,.amount-line{display:flex;align-items:center;gap:10px}.channel-title{justify-content:space-between}.channel-title strong{font-size:15px}.channel-title span{color:var(--muted);font-size:11px}.format-codes{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:8px}.format-caption{margin-right:3px;color:#98a2b3;font-size:8px;font-weight:850;letter-spacing:.12em}.format-codes code{padding:2px 6px;border:1px solid #dce4f0;border-radius:5px;background:#f7f9fc;color:#53647c;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:9px}.amount-line{margin-top:8px;color:var(--muted);font-size:10px;flex-wrap:wrap}.channel-sale-split{display:grid;grid-template-columns:1fr 1fr 1.15fr;gap:7px;margin-top:10px}.channel-sale-split>div{padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#f8fafc}.channel-sale-split>div.cash{background:#eef6ff;border-color:#d6e6fb}.channel-sale-split>div.credit{background:#f7f3ff;border-color:#e6dcfb}.channel-sale-split>div.received{background:#effbf6;border-color:#d4f0e4}.channel-sale-split span,.channel-sale-split strong,.channel-sale-split small{display:block}.channel-sale-split span{color:var(--muted);font-size:8px}.channel-sale-split strong{margin-top:3px;font-size:13px}.channel-sale-split small{margin-top:3px;font-size:8px}.sales-mix-track{display:flex;height:6px;margin-top:9px;background:#edf1f6;border-radius:99px;overflow:hidden}.sales-mix-track span{height:100%}.sales-mix-track .cash{background:#2f80ed}.sales-mix-track .credit{background:#8b5bd6}.sales-mix-track .unknown{background:#ef9f32}.fleet-tab-content{min-height:255px;padding:20px 22px}.fleet-tab-kpis{display:grid;grid-template-columns:1fr 1fr;gap:9px}.fleet-tab-kpis article{padding:14px;border:1px solid var(--line);border-radius:10px;background:#f8fafc}.fleet-tab-kpis article:first-child{background:#edf3ff;border-color:#d8e4fb}.fleet-tab-kpis span,.fleet-tab-kpis strong,.fleet-tab-kpis small{display:block}.fleet-tab-kpis span{color:var(--muted)}.fleet-tab-kpis strong{margin:6px 0;font-size:20px}.fleet-tab-kpis small{color:var(--muted)}.fleet-tab-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:13px;color:var(--muted)}.fleet-tab-footer a{color:var(--blue);font-weight:800;text-decoration:none}.data-note{margin:0;padding:12px 24px 16px;color:var(--muted);font-size:11px;border-top:1px solid var(--line);background:#fafbfc}
 .payment-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}.payment-card{display:grid;grid-template-columns:40px 1fr;gap:10px;align-items:center;min-height:86px;padding:14px;background:#fff}.payment-icon{width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:color-mix(in srgb,var(--method-color) 12%,white);color:var(--method-color);font-size:9px;font-weight:900}.payment-card span,.payment-card strong,.payment-card small{display:block}.payment-card span{color:var(--muted);font-size:10px}.payment-card strong{margin-top:3px;font-size:16px}.payment-card small{margin-top:2px;color:#98a2b3;font-size:9px}.payment-check{display:flex;justify-content:space-between;gap:12px;padding:15px 20px;background:#f8fafc;border-top:1px solid var(--line);font-size:11px}.payment-check strong{font-size:13px}.payment-note{margin:0;padding:10px 20px 13px;background:#f8fafc;color:var(--muted);font-size:10px;line-height:1.5}
 .trend-panel{margin-top:18px}.legend{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--muted);font-size:10px}.legend em{margin-left:10px;color:#8792a5;font-size:9px;font-style:normal}.sale-dot,.pay-dot{width:9px;height:9px;border-radius:2px;display:inline-block}.cash-sale-dot{background:#2f80ed}.credit-sale-dot{margin-left:6px;background:#8b5bd6}.immediate-dot{margin-left:8px;background:#26a77a}.collection-dot{margin-left:6px;background:#f59e42}.trend-scroll{overflow-x:auto;padding:24px 22px 14px}.trend-chart{height:280px;display:flex;align-items:stretch;gap:8px;border-bottom:1px solid #ccd4e0;background:repeating-linear-gradient(to bottom,#fff 0,#fff 69px,#eef1f5 70px)}.trend-column{flex:1;min-width:42px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 3px 3px;border:0;border-radius:7px 7px 0 0;background:transparent;color:inherit;font:inherit;cursor:pointer}.trend-column:hover,.trend-column:focus-visible{background:#f1f5ff;outline:none}.trend-column.active{background:#e8efff;box-shadow:inset 0 -3px 0 var(--blue)}.bar-space{width:100%;height:226px;display:flex;align-items:flex-end;justify-content:center;gap:4px}.bar-stack{width:12px;min-height:2px;display:flex;flex-direction:column-reverse;overflow:hidden;border-radius:4px 4px 0 0;background:#e8edf3;transition:filter .15s,transform .15s}.bar-stack i{display:block;width:100%;min-height:0}.bar-stack.receipt .immediate{background:#26a77a}.bar-stack.receipt .collection{background:#f59e42}.bar-stack.sales .cash{background:#2f80ed}.bar-stack.sales .credit{background:#8b5bd6}.bar-stack.sales .unknown{background:#ef9f32}.trend-column:hover .bar-stack,.trend-column.active .bar-stack{filter:saturate(1.2);transform:scaleX(1.18)}.trend-column strong{font-size:9px;margin-top:7px;white-space:nowrap}.trend-column small{font-size:8px;color:var(--muted)}.trend-detail{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:stretch;padding:16px 22px;border-top:1px solid var(--line);background:#f8fafc}.trend-detail-head{display:flex;align-items:flex-start;gap:20px;padding-right:20px;border-right:1px solid var(--line)}.trend-detail-head span,.trend-detail-head strong{display:block}.trend-detail-head span{color:var(--muted);font-size:9px;font-weight:750;letter-spacing:.08em}.trend-detail-head strong{margin-top:4px;font-size:15px;white-space:nowrap}.trend-detail-head button{width:27px;height:27px;border:1px solid #cdd5e1;border-radius:7px;background:#fff;color:#64748b;font-size:18px;line-height:1;cursor:pointer}.trend-detail dl{display:grid;grid-template-columns:repeat(5,minmax(90px,1fr));gap:12px;margin:0}.trend-detail dl div{min-width:0}.trend-detail dt{color:var(--muted);font-size:9px}.trend-detail dd{margin:4px 0 0;font-size:14px;font-weight:850;font-variant-numeric:tabular-nums}.trend-detail dl small{display:block;margin-top:2px;color:var(--muted);font-size:8px}
 .ar-section{margin-top:36px}.ar-banner{border-bottom-color:#5b3fa3}.ar-chip{background:#eee8ff;color:#6742b5}.ar-loading{min-height:170px;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--muted)}.ar-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}.ar-kpis article{min-width:0;padding:20px;border:1px solid var(--line);border-radius:14px;background:#fff}.ar-kpis article.outstanding{background:#f5f1ff;border-color:#e1d7f8}.ar-kpis article.overdue{background:#fff1f1;border-color:#f5d1d1}.ar-kpis article.not-due{background:#eef8ff;border-color:#d7e9f7}.ar-kpis article.credit-balance{background:#f7f8fa}.ar-kpis span,.ar-kpis strong,.ar-kpis small{display:block}.ar-kpis span{color:var(--muted);font-size:10px;font-weight:750}.ar-kpis strong{margin:8px 0 6px;font-size:25px;letter-spacing:-.025em}.ar-kpis .outstanding strong{color:#6742b5}.ar-kpis .overdue strong{color:#c83d45}.ar-kpis .not-due strong{color:#1769a8}.ar-kpis small{color:#7f8a9b;font-size:9px}.aging-panel{margin-bottom:14px}.aging-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line)}.aging-grid article{min-width:0;padding:17px 18px;background:#fff}.aging-grid article.not-due{background:#f2f9ff}.aging-grid article.due-1-30{background:#fff9eb}.aging-grid article.due-31-60{background:#fff5e8}.aging-grid article.due-61-90{background:#fff0eb}.aging-grid article.due-over-90{background:#fff0f1}.aging-grid span,.aging-grid strong,.aging-grid small{display:block}.aging-grid span{min-height:28px;color:var(--muted);font-size:9px}.aging-grid strong{margin:4px 0;font-size:18px}.aging-grid small{color:#8b95a5;font-size:8px}.aging-track{height:4px;margin-top:10px;border-radius:99px;background:rgba(96,107,128,.13);overflow:hidden}.aging-track i{display:block;height:100%;border-radius:inherit;background:#5c77a7}.due-1-30 .aging-track i{background:#e2a028}.due-31-60 .aging-track i{background:#e88430}.due-61-90 .aging-track i{background:#dc633d}.due-over-90 .aging-track i{background:#c83d45}.ar-customers-panel{border-color:#ddd6ee}.ar-table{min-width:1180px}
@@ -744,8 +877,10 @@ button:disabled { opacity:.5; cursor:not-allowed; }
 .channel-report .hero-copy,.channel-report .period-stamp span,.channel-report .period-stamp strong,
 .channel-report .kpi-card span,.channel-report .kpi-card small,.channel-report .calculation-note,.channel-report .classification-warning,
 .channel-report .receipt-source-grid span,.channel-report .receipt-source-grid small,.channel-report .data-note,
+.channel-report .channel-tabs button>span,.channel-report .channel-tabs button>small,
 .channel-report .channel-title span,.channel-report .format-caption,.channel-report .format-codes code,.channel-report .amount-line,
 .channel-report .channel-sale-split span,.channel-report .channel-sale-split small,
+.channel-report .fleet-tab-kpis span,.channel-report .fleet-tab-kpis small,.channel-report .fleet-tab-footer,
 .channel-report .payment-card span,.channel-report .payment-card small,.channel-report .payment-check,.channel-report .payment-note,
 .channel-report .legend,.channel-report .legend em,.channel-report .trend-column small,.channel-report .trend-detail-head span,
 .channel-report .trend-detail dt,.channel-report .trend-detail dl small,
@@ -757,7 +892,8 @@ button:disabled { opacity:.5; cursor:not-allowed; }
   font-size:13px;
   line-height:1.45;
 }
-@media(max-width:1100px){.filter-card{grid-template-columns:1fr 1fr}.filter-actions{grid-column:1/-1}.kpi-grid,.fleet-kpis,.receipt-source-grid,.ar-kpis{grid-template-columns:1fr 1fr}.aging-grid{grid-template-columns:repeat(3,1fr)}.report-grid{grid-template-columns:1fr}.payments-panel{order:2}.trend-detail{grid-template-columns:1fr}.trend-detail-head{padding:0 0 12px;border-right:0;border-bottom:1px solid var(--line);justify-content:space-between}.trend-detail dl{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:680px){.channel-report{padding:14px 12px 42px}.hero{align-items:flex-start;flex-direction:column}.period-stamp{min-width:0;padding-left:0;border-left:0}.filter-card{position:static;grid-template-columns:1fr}.filter-actions{grid-column:auto}.filter-actions button{flex:1}.kpi-grid,.fleet-kpis,.receipt-source-grid,.ar-kpis,.aging-grid{grid-template-columns:1fr}.panel-head{padding:18px 16px}.legend em{display:none}.channel-list{padding-left:16px;padding-right:16px}.channel-sale-split{grid-template-columns:1fr}.payment-grid,.driver-grid{grid-template-columns:1fr}.trend-detail dl{grid-template-columns:repeat(2,1fr)}.driver-grid article:nth-child(odd){border-right:0}.section-banner{align-items:flex-start}.partial-warning{align-items:flex-start;flex-wrap:wrap}}
+@media(max-width:1100px){.filter-card{grid-template-columns:1fr 1fr}.filter-actions{grid-column:1/-1}.kpi-grid,.fleet-kpis,.receipt-source-grid,.ar-kpis{grid-template-columns:1fr 1fr}.aging-grid{grid-template-columns:repeat(3,1fr)}.channel-tabs{grid-template-columns:repeat(4,1fr)}.report-grid{grid-template-columns:1fr}.payments-panel{order:2}.trend-detail{grid-template-columns:1fr}.trend-detail-head{padding:0 0 12px;border-right:0;border-bottom:1px solid var(--line);justify-content:space-between}.trend-detail dl{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:680px){.channel-report{padding:14px 12px 42px}.hero{align-items:flex-start;flex-direction:column}.period-stamp{min-width:0;padding-left:0;border-left:0}.filter-card{position:static;grid-template-columns:1fr}.filter-actions{grid-column:auto}.filter-actions button{flex:1}.kpi-grid,.fleet-kpis,.receipt-source-grid,.ar-kpis,.aging-grid{grid-template-columns:1fr}.panel-head{padding:18px 16px}.legend em{display:none}.channel-tabs{grid-template-columns:1fr 1fr}.channel-list{padding-left:16px;padding-right:16px}.channel-sale-split,.fleet-tab-kpis{grid-template-columns:1fr}.fleet-tab-footer{align-items:flex-start;flex-direction:column}.payment-grid,.driver-grid{grid-template-columns:1fr}.trend-detail dl{grid-template-columns:repeat(2,1fr)}.driver-grid article:nth-child(odd){border-right:0}.section-banner{align-items:flex-start}.partial-warning{align-items:flex-start;flex-wrap:wrap}}
+.fleet-detail-link{color:var(--blue);font-size:13px;font-weight:800;text-decoration:none}
 @media print{.channel-report{padding:0;background:#fff}.filter-card,.partial-warning,.pager{display:none}.panel,.kpi-grid,.fleet-kpis article{break-inside:avoid;box-shadow:none}.hero{padding-top:0}}
 </style>
