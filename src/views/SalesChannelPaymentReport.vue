@@ -27,6 +27,14 @@
           <input v-model.trim="draft.customer" type="search" placeholder="รหัสลูกค้า หรือชื่อร้าน" @keyup.enter="applyFilters" />
         </label>
         <label class="wide-filter">
+          <span>พนักงานขาย <em>เฉพาะ POS DB</em></span>
+          <input v-model.trim="draft.sale" type="search" placeholder="รหัส หรือชื่อพนักงานขาย" @keyup.enter="applyFilters" />
+        </label>
+        <label class="wide-filter">
+          <span>รถ <em>เฉพาะ WSA02</em></span>
+          <input v-model.trim="draft.vehicle" type="search" placeholder="รหัสรถ หรือชื่อรถ" @keyup.enter="applyFilters" />
+        </label>
+        <label class="wide-filter">
           <span>คนขับ <em>เฉพาะขนส่ง</em></span>
           <input v-model.trim="draft.driver" type="search" placeholder="รหัส หรือชื่อคนขับ" @keyup.enter="applyFilters" />
         </label>
@@ -68,8 +76,9 @@
 
       <div class="scope-banner">
         <span>กำลังแสดง</span><strong>{{ activeChannelTab.label }}</strong>
-        <small v-if="activePosChannel">ยอดรับชำระหนี้ 239 ไม่รวมในช่องทางนี้ เพราะไม่สามารถจัดสรรย้อนกลับได้อย่างถูกต้อง</small>
-        <small v-else-if="activeChannelCode === 'FLEET'">ข้อมูลจาก Fleet Check-out</small>
+        <small v-if="activeChannelCode === 'FLEET'">ข้อมูลจาก Fleet Check-out · ไม่ใช้ตัวกรองพนักงานขายของ POS DB</small>
+        <small v-else-if="applied.sale || applied.vehicle">กรอง {{ applied.sale ? `พนักงานขาย ${applied.sale}` : '' }}{{ applied.sale && applied.vehicle ? ' · ' : '' }}{{ applied.vehicle ? `รถ ${applied.vehicle}` : '' }} · ไม่รวมยอดรับชำระหนี้ 239 เพราะจัดสรรย้อนกลับไม่ได้</small>
+        <small v-else-if="activePosChannel">ยอดรับชำระหนี้ 239 ไม่รวมในช่องทางนี้ เพราะไม่สามารถจัดสรรย้อนกลับได้อย่างถูกต้อง</small>
         <small v-else>รวมทุกช่องทางของร้าน และยอดรับชำระหนี้ 239</small>
       </div>
 
@@ -371,13 +380,21 @@
             <p class="section-no">06 / SALES DOCUMENT AUDIT</p>
             <h2>รายการเอกสารขายล่าสุด</h2>
           </div>
-          <span class="document-count">{{ integer(documents.meta.total) }} เอกสาร</span>
+          <div class="document-head-actions">
+            <label class="vehicle-search">
+              <span>ค้นหาทะเบียนรถ VanSale</span>
+              <input v-model.trim="documentVehicleDraft" type="search" placeholder="รหัสรถ หรือชื่อรถ" @keyup.enter="applyDocumentVehicleFilter" />
+            </label>
+            <button type="button" :disabled="loading.documents" @click="applyDocumentVehicleFilter">ค้นหา</button>
+            <button v-if="documentVehicleApplied" type="button" class="clear" :disabled="loading.documents" @click="clearDocumentVehicleFilter">ล้าง</button>
+            <span class="document-count">{{ integer(documents.meta.total) }} เอกสาร</span>
+          </div>
         </div>
         <div v-if="loading.documents" class="panel-state tall"><span class="spinner"></span>กำลังโหลดรายการเอกสาร</div>
         <div v-else-if="!documents.rows.length" class="panel-state tall">ไม่พบเอกสาร</div>
         <div v-else class="table-wrap">
           <table>
-            <thead><tr><th>วันที่ / เอกสาร</th><th>ช่องทาง</th><th>ประเภทขาย</th><th>ลูกค้า</th><th>พนักงานขาย</th><th class="num">ก่อนส่วนลด</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th><th class="num">ยอดรับทันที</th><th class="num">รับทันที − ขายสด</th></tr></thead>
+            <thead><tr><th>วันที่ / เอกสาร</th><th>ช่องทาง</th><th>ประเภทขาย</th><th>ลูกค้า</th><th>พนักงานขาย</th><th>ทะเบียนรถ</th><th class="num">ก่อนส่วนลด</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th><th class="num">ยอดรับทันที</th><th class="num">รับทันที − ขายสด</th></tr></thead>
             <tbody>
               <tr v-for="row in documents.rows" :key="`${row.doc_no}-${row.trans_flag}`">
                 <td><strong>{{ row.doc_no }}</strong><small>{{ fullDate(row.doc_date) }} {{ row.doc_time || '' }}</small></td>
@@ -385,6 +402,7 @@
                 <td><span class="sale-type-badge" :class="String(row.sale_type || '').toLowerCase()">{{ saleTypeLabel(row.sale_type) }}</span><small>inquiry_type {{ row.inquiry_type ?? '-' }}</small></td>
                 <td><strong>{{ row.cust_code || '-' }}</strong><small>{{ row.cust_name || '-' }}</small></td>
                 <td><strong>{{ row.sale_code || '-' }}</strong><small>{{ row.sale_name || 'ไม่พบชื่อพนักงาน' }}</small></td>
+                <td><strong>{{ row.vehicle_name || row.vehicle_code || '—' }}</strong><small v-if="row.vehicle_code && row.vehicle_name">รหัส {{ row.vehicle_code }}</small></td>
                 <td class="num">{{ money(row.gross_sales_amount) }}</td>
                 <td class="num discount-text">−{{ money(row.discount_amount) }}</td>
                 <td class="num">{{ money(row.sales_amount) }}</td>
@@ -441,7 +459,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import api from '../composables/useApi.js'
 
-const STORAGE_KEY = 'sales_channel_payment_report_filters_v3'
+const STORAGE_KEY = 'sales_channel_payment_report_filters_v5'
 
 function bkkDate(date = new Date()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
@@ -449,7 +467,7 @@ function bkkDate(date = new Date()) {
 
 function defaultRange() {
   const dateTo = bkkDate()
-  return { date_from: `${dateTo.slice(0, 7)}-01`, date_to: dateTo, customer: '', driver: '' }
+  return { date_from: `${dateTo.slice(0, 7)}-01`, date_to: dateTo, customer: '', sale: '', vehicle: '', driver: '' }
 }
 
 function restoredFilters() {
@@ -459,7 +477,7 @@ function restoredFilters() {
     // วันที่เริ่มต้นของรายงานต้องเปิดด้วยเดือนปัจจุบันเสมอ
     // ส่วนข้อความค้นหายังคงจำไว้เพื่อไม่ต้องกรอกลูกค้า/คนขับซ้ำ
     return saved && typeof saved === 'object'
-      ? { ...defaults, customer: String(saved.customer || ''), driver: String(saved.driver || '') }
+      ? { ...defaults, customer: String(saved.customer || ''), sale: String(saved.sale || ''), vehicle: String(saved.vehicle || ''), driver: String(saved.driver || '') }
       : defaults
   } catch {
     return defaults
@@ -478,6 +496,8 @@ const selectedTrend = ref(null)
 const activeChannelCode = ref('ALL')
 const fleet = ref({ summary: {}, drivers: [], trend: [] })
 const documents = ref({ rows: [], meta: { total: 0, limit: 30, offset: 0 } })
+const documentVehicleDraft = ref('')
+const documentVehicleApplied = ref('')
 const creditCollections = ref({ rows: [], meta: { total: 0, limit: 30, offset: 0 } })
 const arOutstanding = ref({ summary: {}, aging: [] })
 const arCustomers = ref({ rows: [], meta: { total: 0, limit: 20, offset: 0 } })
@@ -649,7 +669,9 @@ async function loadFleet(seq) {
 async function loadDocuments(offset = 0, seq = requestSequence.value) {
   loading.documents = true
   try {
-    const { data } = await api.get('/sales-channel-payments/documents', { params: params({ limit: 30, offset }) })
+    const { data } = await api.get('/sales-channel-payments/documents', {
+      params: params({ limit: 30, offset, vehicle: documentVehicleApplied.value || applied.vehicle || undefined })
+    })
     if (seq === requestSequence.value) documents.value = { rows: data.data || [], meta: data.meta || { total: 0, limit: 30, offset } }
   } catch (error) {
     if (seq === requestSequence.value) recordError('เอกสาร', error)
@@ -713,6 +735,17 @@ async function selectChannel(code) {
   if (code === 'ALL' && seq === requestSequence.value) await loadCreditCollections(0, seq)
 }
 
+function applyDocumentVehicleFilter() {
+  documentVehicleApplied.value = documentVehicleDraft.value.trim()
+  loadDocuments(0)
+}
+
+function clearDocumentVehicleFilter() {
+  documentVehicleDraft.value = ''
+  documentVehicleApplied.value = ''
+  loadDocuments(0)
+}
+
 function applyFilters() {
   if (dateError.value) return
   Object.assign(applied, draft)
@@ -722,6 +755,8 @@ function applyFilters() {
 
 function resetFilters() {
   Object.assign(draft, defaultRange())
+  documentVehicleDraft.value = ''
+  documentVehicleApplied.value = ''
   applyFilters()
 }
 
@@ -837,7 +872,7 @@ onMounted(loadAll)
 .period-stamp span,.period-stamp strong { display:block; }
 .period-stamp span { color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
 .period-stamp strong { margin-top:5px; font-size:16px; }
-.filter-card { position:sticky; top:0; z-index:20; display:grid; grid-template-columns:160px 160px minmax(190px,1fr) minmax(190px,1fr) auto; gap:12px; align-items:end; margin:18px 0; padding:16px; background:rgba(255,255,255,.96); border:1px solid var(--line); border-radius:15px; box-shadow:0 8px 30px rgba(31,45,72,.08); backdrop-filter:blur(12px); }
+.filter-card { position:sticky; top:0; z-index:20; display:grid; grid-template-columns:130px 130px repeat(4,minmax(150px,1fr)) auto; gap:10px; align-items:end; margin:18px 0; padding:16px; background:rgba(255,255,255,.96); border:1px solid var(--line); border-radius:15px; box-shadow:0 8px 30px rgba(31,45,72,.08); backdrop-filter:blur(12px); }
 .filter-card label span { display:block; margin-bottom:6px; font-size:12px; font-weight:750; }
 .filter-card label em { color:var(--muted); font-size:10px; font-style:normal; font-weight:500; }
 .filter-card input { width:100%; height:42px; border:1px solid #cad2df; border-radius:9px; padding:0 11px; background:#fff; color:var(--ink); font:inherit; font-size:13px; outline:none; }
@@ -894,6 +929,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
 }
 @media(max-width:1100px){.filter-card{grid-template-columns:1fr 1fr}.filter-actions{grid-column:1/-1}.kpi-grid,.fleet-kpis,.receipt-source-grid,.ar-kpis{grid-template-columns:1fr 1fr}.aging-grid{grid-template-columns:repeat(3,1fr)}.channel-tabs{grid-template-columns:repeat(4,1fr)}.report-grid{grid-template-columns:1fr}.payments-panel{order:2}.trend-detail{grid-template-columns:1fr}.trend-detail-head{padding:0 0 12px;border-right:0;border-bottom:1px solid var(--line);justify-content:space-between}.trend-detail dl{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:680px){.channel-report{padding:14px 12px 42px}.hero{align-items:flex-start;flex-direction:column}.period-stamp{min-width:0;padding-left:0;border-left:0}.filter-card{position:static;grid-template-columns:1fr}.filter-actions{grid-column:auto}.filter-actions button{flex:1}.kpi-grid,.fleet-kpis,.receipt-source-grid,.ar-kpis,.aging-grid{grid-template-columns:1fr}.panel-head{padding:18px 16px}.legend em{display:none}.channel-tabs{grid-template-columns:1fr 1fr}.channel-list{padding-left:16px;padding-right:16px}.channel-sale-split,.fleet-tab-kpis{grid-template-columns:1fr}.fleet-tab-footer{align-items:flex-start;flex-direction:column}.payment-grid,.driver-grid{grid-template-columns:1fr}.trend-detail dl{grid-template-columns:repeat(2,1fr)}.driver-grid article:nth-child(odd){border-right:0}.section-banner{align-items:flex-start}.partial-warning{align-items:flex-start;flex-wrap:wrap}}
-.fleet-detail-link{color:var(--blue);font-size:13px;font-weight:800;text-decoration:none}
+.document-head-actions{display:flex;align-items:flex-end;justify-content:flex-end;gap:7px;flex-wrap:wrap}.vehicle-search span{display:block;margin-bottom:4px;color:var(--muted);font-size:13px;font-weight:750}.vehicle-search input{width:220px;height:36px;padding:0 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:var(--ink);font:inherit;font-size:13px}.document-head-actions>button{height:36px;padding:0 12px;border:1px solid var(--blue);border-radius:8px;background:var(--blue);color:#fff;font:inherit;font-size:13px;font-weight:800;cursor:pointer}.document-head-actions>button.clear{border-color:#cbd5e1;background:#fff;color:var(--ink)}.documents-panel:not(.credit-documents-panel) table{min-width:1520px}.fleet-detail-link{color:var(--blue);font-size:13px;font-weight:800;text-decoration:none}
+@media(max-width:680px){.documents-panel .panel-head{flex-direction:column}.document-head-actions{width:100%;justify-content:flex-start}.vehicle-search{flex:1;min-width:190px}.vehicle-search input{width:100%}}
 @media print{.channel-report{padding:0;background:#fff}.filter-card,.partial-warning,.pager{display:none}.panel,.kpi-grid,.fleet-kpis article{break-inside:avoid;box-shadow:none}.hero{padding-top:0}}
 </style>
