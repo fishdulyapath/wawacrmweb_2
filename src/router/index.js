@@ -44,6 +44,7 @@ const router = createRouter({
     // ── Reports ──
     { path: '/reports',              component: () => import('../views/ReportsDashboard.vue'),        meta: { requireDashboard: true } },
     { path: '/sales-reports',        component: () => import('../views/SalesReportDashboard.vue'),    meta: { requireSupervisor: true } },
+    { path: '/sales-channel-payments', component: () => import('../views/SalesChannelPaymentReport.vue'), meta: { requireSupervisor: true } },
     { path: '/fleet-delivery',       component: () => import('../views/FleetDeliveryDashboard.vue'),  meta: { requireSupervisor: true } },
     { path: '/fleet-delivery-summary', component: () => import('../views/FleetDeliverySummary.vue'), meta: { requireSupervisor: true } },
     { path: '/fleet-store-report',   component: () => import('../views/FleetStoreReport.vue'),        meta: { requireSupervisor: true } },
